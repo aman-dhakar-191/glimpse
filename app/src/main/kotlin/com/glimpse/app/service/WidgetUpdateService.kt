@@ -30,9 +30,14 @@ class WidgetUpdateService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (listener == null) {
-            listener = FirebaseSync.listenToCurrentMessage(::updateWidgets)
-        }
+        // Always tear down and re-attach: if the previous listener was
+        // dropped by Firebase (e.g. a permission-denied error, which the SDK
+        // treats as terminal and never retries), `listener` here would still
+        // be a non-null reference to a dead listener, so a null-check guard
+        // would permanently skip re-attaching even after the underlying
+        // problem (like a missing allowedUsers entry) is fixed.
+        listener?.let { FirebaseSync.removeCurrentMessageListener(it) }
+        listener = FirebaseSync.listenToCurrentMessage(::updateWidgets)
         return START_STICKY
     }
 
