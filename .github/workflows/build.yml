@@ -48,6 +48,14 @@ jobs:
         # Runs on every PR and push as the merge-gate validation.
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Read app version
+        # Used to name the APK/GitHub Release meaningfully instead of the
+        # generic app-debug.apk / app-release.apk / "build-<run number>".
+        id: app_version
+        run: |
+          VERSION_NAME=$(grep -m1 'val appVersionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Check release signing secrets
         # secrets.* can't be referenced directly in a step's `if:` — it must
         # be resolved to a step output (or env var) first, so downstream
@@ -87,13 +95,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
 
       - name: Create GitHub Release with signed APK
         if: steps.release_secrets.outputs.present == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Glimpse build #${{ github.run_number }}
-          files: app/build/outputs/apk/release/app-release.apk
+          tag_name: v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}
+          name: Glimpse v${{ steps.app_version.outputs.version_name }} (build ${{ github.run_number }})
+          files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true

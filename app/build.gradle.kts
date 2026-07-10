@@ -13,6 +13,9 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+val appVersionName = "0.1.0"
+val appVersionCode = 1
+
 android {
     namespace = "com.glimpse.app"
     compileSdk = 35
@@ -21,8 +24,8 @@ android {
         applicationId = "com.glimpse.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -82,6 +85,16 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+// Default output names (app-debug.apk / app-release.apk) don't carry any
+// version info, making it hard to tell builds apart once downloaded.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("Glimpse-v$appVersionName-${variant.buildType}.apk")
         }
     }
 }
