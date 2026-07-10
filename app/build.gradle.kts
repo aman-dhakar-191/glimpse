@@ -90,6 +90,7 @@ dependencies {
 
     implementation(libs.play.services.auth)
     implementation(libs.coil.compose)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -2,6 +2,7 @@
   "project_info": {
     "project_number": "000000000000",
     "project_id": "glimpse-app-placeholder",
+    "firebase_url": "https://glimpse-app-placeholder-default-rtdb.firebaseio.com",
     "storage_bucket": "glimpse-app-placeholder.appspot.com"
   },
   "client": [
@@ -12,7 +13,12 @@
           "package_name": "com.glimpse.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "000000000000-placeholder.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDPLACEHOLDERDONOTUSE00000000000"
