@@ -27,6 +27,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release signing comes from env vars CI populates from repo secrets
+    // (RELEASE_KEYSTORE_PATH/_PASSWORD/_ALIAS/_KEY_PASSWORD — see
+    // .github/workflows/build.yml). Left unset, release builds are unsigned;
+    // nothing here requires them to be present since PR validation only runs
+    // assembleDebug.
+    val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
+    signingConfigs {
+        if (releaseKeystorePath != null) {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -34,6 +51,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (releaseKeystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             isMinifyEnabled = false

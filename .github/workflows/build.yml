@@ -7,6 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,16 +45,55 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        # Runs on both PR (validation that the project compiles) and push to
-        # main (produces the artifact below), so a PR failing this step is
-        # the merge gate.
+        # Runs on every PR and push as the merge-gate validation.
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK artifact
-        # Only publish the APK once changes land on main — PRs just need to
-        # prove the build is green, not produce a downloadable artifact.
+      - name: Check release signing secrets
+        # secrets.* can't be referenced directly in a step's `if:` — it must
+        # be resolved to a step output (or env var) first, so downstream
+        # steps gate on `steps.release_secrets.outputs.present` instead.
+        id: release_secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode release keystore
+        # See README for how to generate/add RELEASE_KEYSTORE_BASE64 and
+        # friends as repo secrets.
+        if: steps.release_secrets.outputs.present == 'true'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore.jks"
+
+      - name: Build signed release APK
+        if: steps.release_secrets.outputs.present == 'true'
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore.jks
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload debug APK artifact
+        # Only publish once changes land on main — PRs just need to prove
+        # the build is green, not produce a downloadable artifact.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Create GitHub Release with signed APK
+        if: steps.release_secrets.outputs.present == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Glimpse build #${{ github.run_number }}
+          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true
