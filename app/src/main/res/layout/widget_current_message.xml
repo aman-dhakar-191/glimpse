@@ -39,13 +39,15 @@
 
         <!-- Photo (if applicable) — takes whatever space is left in this
              section so it scales with the widget's size instead of being
-             cropped into a fixed 100dp strip. -->
+             cropped into a fixed 100dp strip. fitCenter (not centerCrop)
+             shows the whole image letterboxed rather than cropping it to
+             fill the box. -->
         <ImageView
             android:id="@+id/message_photo"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             android:contentDescription="@null"
             android:visibility="gone" />
 

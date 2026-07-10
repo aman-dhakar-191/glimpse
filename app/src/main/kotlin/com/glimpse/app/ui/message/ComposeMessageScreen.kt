@@ -1,9 +1,13 @@
 package com.glimpse.app.ui.message
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,10 +44,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import java.io.File
+
+private fun createCameraImageUri(context: Context): Uri {
+    val imagesDir = File(context.cacheDir, "camera").apply { mkdirs() }
+    val imageFile = File(imagesDir, "IMG_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+}
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
 
@@ -58,17 +72,46 @@ fun ComposeMessageScreen(
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.compose_sent)
+    val context = LocalContext.current
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri -> if (uri != null) selectedImageUri = uri }
 
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success -> if (success) selectedImageUri = pendingCameraUri }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createCameraImageUri(context)
+            pendingCameraUri = uri
+            takePictureLauncher.launch(uri)
+        }
+    }
+
+    fun launchCamera() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            val uri = createCameraImageUri(context)
+            pendingCameraUri = uri
+            takePictureLauncher.launch(uri)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     LaunchedEffect(uiState) {
         if (uiState is ComposeUiState.Sent) {
             text = ""
             selectedImageUri = null
+            pendingCameraUri = null
             snackbarHostState.showSnackbar(sentMessage)
             onSentHandled()
         }
@@ -114,11 +157,12 @@ fun ComposeMessageScreen(
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
-                                contentScale = ContentScale.Crop,
+                                contentScale = ContentScale.Fit,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(160.dp)
                                     .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             )
                             IconButton(
                                 onClick = { selectedImageUri = null },
@@ -158,12 +202,15 @@ fun ComposeMessageScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        OutlinedButton(onClick = { launchCamera() }) {
+                            Text("📸")
+                        }
                         OutlinedButton(onClick = {
                             photoPickerLauncher.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         }) {
-                            Text("📷")
+                            Text("🖼️")
                         }
                         QUICK_EMOJIS.forEach { emoji ->
                             OutlinedButton(onClick = { text += emoji }) {
