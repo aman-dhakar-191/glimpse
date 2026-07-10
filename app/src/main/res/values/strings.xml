@@ -26,6 +26,7 @@
 
     <string name="compose_title">Send a message</string>
     <string name="compose_placeholder">Say something…</string>
+    <string name="compose_caption_placeholder">Add a caption…</string>
     <string name="compose_send">Send</string>
     <string name="compose_sent">Sent! It\'s live on the widget now.</string>
     <string name="compose_widget_guide_link">Widget guide</string>

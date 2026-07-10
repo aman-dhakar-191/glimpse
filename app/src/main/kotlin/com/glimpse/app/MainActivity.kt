@@ -104,6 +104,9 @@ class MainActivity : ComponentActivity() {
                         AppScreen.Compose -> ComposeMessageScreen(
                             uiState = composeUiState,
                             onSend = { text -> composeMessageViewModel.sendMessage(text) },
+                            onSendPhoto = { uri, caption ->
+                                composeMessageViewModel.sendPhotoMessage(uri, caption)
+                            },
                             onSentHandled = { composeMessageViewModel.consumeSentState() },
                             onOpenGuide = { screen = AppScreen.Guide },
                             onLogout = { onLogout() }
