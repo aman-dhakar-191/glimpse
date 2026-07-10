@@ -42,9 +42,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
+        # Runs on both PR (validation that the project compiles) and push to
+        # main (produces the artifact below), so a PR failing this step is
+        # the merge gate.
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK artifact
+        # Only publish the APK once changes land on main — PRs just need to
+        # prove the build is green, not produce a downloadable artifact.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
