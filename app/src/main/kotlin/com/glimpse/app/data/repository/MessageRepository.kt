@@ -37,7 +37,9 @@ class MessageRepository {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
 
-        val photoRef = storage.reference.child("messages/${user.uid}/$now.jpg")
+        // glimpse/ namespace since this Storage bucket is shared with other
+        // projects on the same Firebase project.
+        val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.jpg")
         photoRef.putFile(imageUri).await()
         val photoUrl = photoRef.downloadUrl.await().toString()
 
