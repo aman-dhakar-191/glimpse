@@ -18,12 +18,20 @@ class AuthRepository {
         val authResult = auth.signInWithCredential(credential).await()
         val uid = authResult.user?.uid ?: error("Sign-in succeeded without a user")
 
-        val isAllowed = database.child("shared/settings/allowedUsers/$uid")
-            .get().await().getValue(Boolean::class.java) == true
-        if (!isAllowed) {
-            auth.signOut()
-            throw NotAllowedException()
-        }
+        // TEMP: allowlist gate disabled during early testing so anyone can
+        // reach the app and get their profile written to users/{uid} below
+        // (visible in the Realtime Database Data tab) without needing to be
+        // pre-approved first. The database rules still restrict shared/* to
+        // allowedUsers regardless — this only skips the friendlier
+        // client-side error, so the widget/messages will fail with a raw
+        // permission-denied until the UID is actually added.
+        // Re-enable before real use:
+        // val isAllowed = database.child("shared/settings/allowedUsers/$uid")
+        //     .get().await().getValue(Boolean::class.java) == true
+        // if (!isAllowed) {
+        //     auth.signOut()
+        //     throw NotAllowedException()
+        // }
 
         val updates = mapOf(
             "email" to account.email.orEmpty(),
