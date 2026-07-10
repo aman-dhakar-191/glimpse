@@ -49,13 +49,38 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## CI
 
-`.github/workflows/build.yml` builds a debug APK on every push/PR to `main`. To build against a
-real Firebase project in CI, add a repo secret named `GOOGLE_SERVICES_JSON` containing the
-base64-encoded contents of your `google-services.json`:
+`.github/workflows/build.yml` builds a debug APK on every push/PR to `main` as the merge gate.
+On push to `main` it additionally builds a **signed release APK** and publishes it as a GitHub
+Release, if release-signing secrets are present (skipped otherwise, so the pipeline stays green
+without them).
+
+### Firebase secret
+
+Add a repo secret named `GOOGLE_SERVICES_JSON` containing the base64-encoded contents of your
+real `google-services.json`:
 
 ```bash
 base64 -w0 app/google-services.json | pbcopy   # or xclip/clip depending on OS
 ```
 
-Without that secret, CI builds against the checked-in placeholder config so the pipeline stays
-green for any fork or fresh clone.
+Without it, CI builds against the checked-in placeholder config.
+
+### Release signing secrets
+
+Add these four repo secrets to get signed release APKs published as GitHub Releases on every
+merge to `main`:
+
+| Secret | Value |
+|---|---|
+| `RELEASE_KEYSTORE_BASE64` | base64-encoded contents of the release `.jks` keystore |
+| `RELEASE_KEYSTORE_PASSWORD` | keystore password |
+| `RELEASE_KEY_ALIAS` | key alias inside the keystore |
+| `RELEASE_KEY_PASSWORD` | key password (same as keystore password for PKCS12 keystores) |
+
+The same keystore must also have its SHA-1/SHA-256 fingerprint registered on the Firebase
+Android app (Project settings → Your apps → Add fingerprint) — Google Sign-In checks the
+signing certificate of whatever APK is installed, so a release APK signed with a keystore whose
+fingerprint isn't registered will fail to sign in.
+
+Without these secrets, CI still runs `assembleDebug` as the merge gate but skips the release
+build and GitHub Release step entirely.
