@@ -23,4 +23,10 @@
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
+
+    <string name="compose_title">Send a message</string>
+    <string name="compose_placeholder">Say something…</string>
+    <string name="compose_send">Send</string>
+    <string name="compose_sent">Sent! It\'s live on the widget now.</string>
+    <string name="compose_widget_guide_link">Widget guide</string>
 </resources>
