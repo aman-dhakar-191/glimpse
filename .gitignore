@@ -1,0 +1,21 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Firebase — real credentials must never be committed.
+# Copy app/google-services.json.example to app/google-services.json
+# and fill in your Firebase project values.
+app/google-services.json
+
+# Signing
+*.jks
+*.keystore
+key.properties

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Glimpse</string>
+    <string name="login_title">Welcome to Glimpse</string>
+    <string name="login_subtitle">A little window into each other\'s day</string>
+    <string name="login_button">Login with Google</string>
+    <string name="login_error">Sign-in failed. Please try again.</string>
+    <string name="login_access_denied">This account is not authorized to use Glimpse.</string>
+
+    <string name="guide_title">Add Widgets to Your Home Screen</string>
+    <string name="guide_step_1_title">Long-press on your home screen</string>
+    <string name="guide_step_1_desc">Hold your finger on an empty space</string>
+    <string name="guide_step_2_title">Select \'Widgets\'</string>
+    <string name="guide_step_2_desc">Tap the widgets option</string>
+    <string name="guide_step_3_title">Find \'Glimpse\'</string>
+    <string name="guide_step_3_desc">Search for our app and select the Current Message widget</string>
+    <string name="guide_step_4_title">Choose a size (4x2 or 4x4)</string>
+    <string name="guide_step_4_desc">Pick your preferred widget size</string>
+    <string name="guide_step_5_title">Tap reactions directly from the widget!</string>
+    <string name="guide_step_5_desc">No need to open the app</string>
+    <string name="guide_dismiss">Got it, dismiss this guide</string>
+    <string name="guide_logout">Log out</string>
+
+    <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
+    <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
+</resources>
