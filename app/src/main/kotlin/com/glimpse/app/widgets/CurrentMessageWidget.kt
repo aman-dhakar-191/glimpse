@@ -16,7 +16,7 @@ class CurrentMessageWidget : AppWidgetProvider() {
     ) {
         appWidgetIds.forEach { appWidgetId ->
             val remoteViews = RemoteViews(context.packageName, R.layout.widget_current_message)
-            ReactionActionBinder.bindReactionButtons(context, remoteViews, appWidgetId)
+            ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId)
             ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
             appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
         }

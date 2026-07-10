@@ -19,3 +19,8 @@ app/google-services.json
 *.jks
 *.keystore
 key.properties
+
+# Firebase CLI — project id isn't secret, but keep the same
+# copy-the-.example-file convention as google-services.json.
+/.firebaserc
+functions/node_modules/

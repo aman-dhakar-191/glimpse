@@ -18,6 +18,8 @@ app/
 firebase/
 ├── database.rules.json                Firebase Realtime Database security rules
 └── storage.rules                      Firebase Storage security rules (photo uploads)
+functions/                             Cloud Functions: sends FCM push on new message/reaction
+firebase.json                          Firebase CLI config (rules + functions source)
 ```
 
 ## Building locally
@@ -52,6 +54,26 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
    way the database rules do — access there is scoped to "signed in" (any authenticated Firebase
    user) plus per-UID write paths, not specifically the two allowed people. Fine for a private
    personal project, but worth knowing.
+
+## Push notifications (Cloud Functions)
+
+`functions/` sends an FCM push to the other person whenever a new message or reaction is posted,
+and `FCMService` displays it as a real notification. This requires deploying a Cloud Function,
+which needs the **Blaze (pay-as-you-go) plan** — Cloud Functions can't be deployed at all on the
+free Spark plan, even though a 2-person app like this will stay well within the free monthly
+quota (2M invocations), so realistically this costs $0/month, but it does require adding a
+billing method to the Firebase project.
+
+1. Upgrade the Firebase project to Blaze: Firebase Console → ⚙️ → Usage and billing → Details & settings.
+2. Install the [Firebase CLI](https://firebase.google.com/docs/cli) and log in: `npm install -g firebase-tools && firebase login`.
+3. Copy `.firebaserc.example` to `.firebaserc` and replace `your-firebase-project-id` with your
+   actual Firebase project ID (this file isn't sensitive, just gitignored to keep the same
+   copy-the-`.example`-file convention as `google-services.json`).
+4. `cd functions && npm install && cd ..`
+5. `firebase deploy --only functions`
+
+Whenever you change `functions/index.js`, re-run step 5 to redeploy. There's no CI automation for
+this yet — it's a manual deploy step.
 
 ## CI
 
