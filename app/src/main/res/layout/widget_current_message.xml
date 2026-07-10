@@ -8,43 +8,57 @@
     android:padding="16dp"
     android:background="@color/widget_bg">
 
-    <!-- Author -->
-    <TextView
-        android:id="@+id/author_name"
+    <!-- Top content: given all the remaining vertical space (weight=1) so the
+         reactions bar and quick-action buttons below stay pinned to the
+         bottom of the widget instead of floating right under a short
+         message. -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="12sp"
-        android:textColor="@color/text_secondary" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-    <!-- Message Content -->
-    <TextView
-        android:id="@+id/message_content"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textColor="@color/text_primary"
-        android:layout_marginVertical="8dp"
-        android:maxLines="3"
-        android:ellipsize="end" />
+        <!-- Author -->
+        <TextView
+            android:id="@+id/author_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
 
-    <!-- Photo (if applicable) -->
-    <ImageView
-        android:id="@+id/message_photo"
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:scaleType="centerCrop"
-        android:contentDescription="@null"
-        android:visibility="gone" />
+        <!-- Message Content -->
+        <TextView
+            android:id="@+id/message_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@color/text_primary"
+            android:layout_marginVertical="8dp"
+            android:maxLines="3"
+            android:ellipsize="end" />
 
-    <!-- Photo Caption -->
-    <TextView
-        android:id="@+id/photo_caption"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="12sp"
-        android:textColor="@color/text_secondary"
-        android:textStyle="italic"
-        android:visibility="gone" />
+        <!-- Photo (if applicable) — takes whatever space is left in this
+             section so it scales with the widget's size instead of being
+             cropped into a fixed 100dp strip. -->
+        <ImageView
+            android:id="@+id/message_photo"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null"
+            android:visibility="gone" />
+
+        <!-- Photo Caption -->
+        <TextView
+            android:id="@+id/photo_caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:textStyle="italic"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <!-- Reactions Bar -->
     <!-- RemoteViews only supports a fixed whitelist of container/widget classes
