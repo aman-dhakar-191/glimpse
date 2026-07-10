@@ -57,9 +57,12 @@ jobs:
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Rename debug APK
+        # version_name alone is static (bumped by hand for real product
+        # releases), so every CI build produced an identically-named file —
+        # the run number is what actually changes build-to-build.
         run: |
           mv app/build/outputs/apk/debug/app-debug.apk \
-             "app/build/outputs/apk/debug/Glimpse-v${{ steps.app_version.outputs.version_name }}-debug.apk"
+             "app/build/outputs/apk/debug/Glimpse-v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}-debug.apk"
 
       - name: Check release signing secrets
         # secrets.* can't be referenced directly in a step's `if:` — it must
@@ -97,7 +100,7 @@ jobs:
         if: steps.release_secrets.outputs.present == 'true'
         run: |
           mv app/build/outputs/apk/release/app-release.apk \
-             "app/build/outputs/apk/release/Glimpse-v${{ steps.app_version.outputs.version_name }}-release.apk"
+             "app/build/outputs/apk/release/Glimpse-v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}-release.apk"
 
       - name: Upload debug APK artifact
         # Only publish once changes land on main — PRs just need to prove
