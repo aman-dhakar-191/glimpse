@@ -1,6 +1,11 @@
 package com.glimpse.app.ui.message
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,8 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -26,10 +35,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.glimpse.app.R
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
@@ -38,17 +51,24 @@ private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
 fun ComposeMessageScreen(
     uiState: ComposeUiState,
     onSend: (String) -> Unit,
+    onSendPhoto: (Uri, String) -> Unit,
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
     onLogout: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
+    var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.compose_sent)
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) selectedImageUri = uri }
 
     LaunchedEffect(uiState) {
         if (uiState is ComposeUiState.Sent) {
             text = ""
+            selectedImageUri = null
             snackbarHostState.showSnackbar(sentMessage)
             onSentHandled()
         }
@@ -80,23 +100,76 @@ fun ComposeMessageScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.compose_placeholder)) },
-                minLines = 3
-            )
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
 
-            Spacer(Modifier.height(12.dp))
+                    selectedImageUri?.let { uri ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                            IconButton(
+                                onClick = { selectedImageUri = null },
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Text(
+                                    "✕",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QUICK_EMOJIS.forEach { emoji ->
-                    OutlinedButton(onClick = { text += emoji }) {
-                        Text(emoji)
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(
+                                stringResource(
+                                    if (selectedImageUri != null) {
+                                        R.string.compose_caption_placeholder
+                                    } else {
+                                        R.string.compose_placeholder
+                                    }
+                                )
+                            )
+                        },
+                        minLines = if (selectedImageUri != null) 1 else 3
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(onClick = {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }) {
+                            Text("📷")
+                        }
+                        QUICK_EMOJIS.forEach { emoji ->
+                            OutlinedButton(onClick = { text += emoji }) {
+                                Text(emoji)
+                            }
+                        }
                     }
                 }
             }
@@ -111,9 +184,19 @@ fun ComposeMessageScreen(
                 )
             }
 
+            val canSend = uiState !is ComposeUiState.Sending &&
+                (selectedImageUri != null || text.isNotBlank())
+
             Button(
-                onClick = { onSend(text) },
-                enabled = text.isNotBlank() && uiState !is ComposeUiState.Sending,
+                onClick = {
+                    val uri = selectedImageUri
+                    if (uri != null) {
+                        onSendPhoto(uri, text)
+                    } else {
+                        onSend(text)
+                    }
+                },
+                enabled = canSend,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState is ComposeUiState.Sending) {

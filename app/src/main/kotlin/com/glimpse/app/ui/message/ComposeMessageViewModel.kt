@@ -1,6 +1,7 @@
 package com.glimpse.app.ui.message
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.glimpse.app.data.repository.MessageRepository
@@ -28,19 +29,31 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         _uiState.value = ComposeUiState.Sending
         viewModelScope.launch {
             messageRepository.sendMessage(content)
-                .onSuccess {
-                    _uiState.value = ComposeUiState.Sent
-                    // Restarting the sync service re-attaches a fresh Firebase
-                    // listener, which fires immediately with the value we
-                    // just wrote — without this, the widget only refreshes
-                    // whenever its existing (possibly long-dead) listener
-                    // happens to still be alive.
-                    WidgetSyncTrigger.requestSync(getApplication())
-                }
+                .onSuccess { onSent() }
                 .onFailure { throwable ->
                     _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send message.")
                 }
         }
+    }
+
+    fun sendPhotoMessage(imageUri: Uri, caption: String) {
+        _uiState.value = ComposeUiState.Sending
+        viewModelScope.launch {
+            messageRepository.sendPhotoMessage(imageUri, caption)
+                .onSuccess { onSent() }
+                .onFailure { throwable ->
+                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
+                }
+        }
+    }
+
+    private fun onSent() {
+        _uiState.value = ComposeUiState.Sent
+        // Restarting the sync service re-attaches a fresh Firebase listener,
+        // which fires immediately with the value we just wrote — without
+        // this, the widget only refreshes whenever its existing (possibly
+        // long-dead) listener happens to still be alive.
+        WidgetSyncTrigger.requestSync(getApplication())
     }
 
     fun consumeSentState() {

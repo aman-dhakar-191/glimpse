@@ -16,7 +16,8 @@ app/
 ├── src/main/res/                      Android resources, incl. RemoteViews widget layouts
 └── build.gradle.kts                   App module Gradle config
 firebase/
-└── database.rules.json                Firebase Realtime Database security rules
+├── database.rules.json                Firebase Realtime Database security rules
+└── storage.rules                      Firebase Storage security rules (photo uploads)
 ```
 
 ## Building locally
@@ -46,6 +47,11 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
      "uid2": true
    }
    ```
+5. Deploy `firebase/storage.rules` as your Storage security rules (Storage → Rules tab). Note:
+   Storage rules can't reference Realtime Database data, so they can't check `allowedUsers` the
+   way the database rules do — access there is scoped to "signed in" (any authenticated Firebase
+   user) plus per-UID write paths, not specifically the two allowed people. Fine for a private
+   personal project, but worth knowing.
 
 ## CI
 
