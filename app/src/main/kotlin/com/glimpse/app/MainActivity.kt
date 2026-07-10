@@ -1,5 +1,6 @@
 package com.glimpse.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -56,6 +57,23 @@ class MainActivity : ComponentActivity() {
         screen = AppScreen.Login
     }
 
+    // Widgets can't contain a text input field, so tapping the widget's
+    // message area (see ReactionActionBinder.bindOpenComposeAction) opens
+    // the app straight to Compose instead of wherever it was left —
+    // MainActivity is singleTask, so a tap while it's already running comes
+    // through here rather than onCreate.
+    private fun handleOpenComposeIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_COMPOSE, false) == true && loginViewModel.isSignedIn) {
+            screen = AppScreen.Compose
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenComposeIntent(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -66,6 +84,7 @@ class MainActivity : ComponentActivity() {
         googleSignInClient = GoogleSignIn.getClient(this, signInOptions)
 
         screen = if (loginViewModel.isSignedIn) AppScreen.Compose else AppScreen.Login
+        handleOpenComposeIntent(intent)
 
         setContent {
             GlimpseTheme {
@@ -98,5 +117,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_OPEN_COMPOSE = "com.glimpse.app.EXTRA_OPEN_COMPOSE"
     }
 }

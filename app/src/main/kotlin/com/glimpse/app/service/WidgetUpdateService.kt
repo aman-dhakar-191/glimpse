@@ -59,6 +59,7 @@ class WidgetUpdateService : Service() {
         appWidgetIds.forEach { appWidgetId ->
             val remoteViews = RemoteViews(packageName, R.layout.widget_current_message)
             ReactionActionBinder.bindReactionButtons(this, remoteViews, appWidgetId)
+            ReactionActionBinder.bindOpenComposeAction(this, remoteViews, appWidgetId)
             renderMessage(remoteViews, message)
             appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
         }
