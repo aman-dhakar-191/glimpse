@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "shared": {
+      "$resource": {
+        ".read": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()",
+        ".write": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()"
+      }
+    }
+  }
+}
