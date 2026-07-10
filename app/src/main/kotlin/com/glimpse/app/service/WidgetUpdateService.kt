@@ -81,7 +81,7 @@ class WidgetUpdateService : Service() {
 
             appWidgetIds.forEach { appWidgetId ->
                 val remoteViews = RemoteViews(packageName, R.layout.widget_current_message)
-                ReactionActionBinder.bindReactionButtons(this@WidgetUpdateService, remoteViews, appWidgetId)
+                ReactionActionBinder.bindReactAction(this@WidgetUpdateService, remoteViews, appWidgetId)
                 ReactionActionBinder.bindOpenComposeAction(this@WidgetUpdateService, remoteViews, appWidgetId)
                 renderMessage(remoteViews, message, photoBitmap)
                 appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
@@ -120,6 +120,7 @@ class WidgetUpdateService : Service() {
         if (message == null) {
             remoteViews.setTextViewText(R.id.author_name, "")
             remoteViews.setTextViewText(R.id.message_content, getString(R.string.widget_no_message))
+            remoteViews.setViewVisibility(R.id.message_content, View.VISIBLE)
             remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
             remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
             remoteViews.removeAllViews(R.id.reactions_container)
@@ -128,6 +129,14 @@ class WidgetUpdateService : Service() {
 
         remoteViews.setTextViewText(R.id.author_name, message.authorName)
         remoteViews.setTextViewText(R.id.message_content, message.content)
+        // GONE views are skipped entirely when a LinearLayout distributes
+        // weighted space, so hiding this when there's no text (photo
+        // messages) hands its whole weighted share to message_photo instead
+        // of splitting the box with an empty label.
+        remoteViews.setViewVisibility(
+            R.id.message_content,
+            if (message.content.isNotBlank()) View.VISIBLE else View.GONE
+        )
 
         if (message.type == "photo") {
             if (photoBitmap != null) {

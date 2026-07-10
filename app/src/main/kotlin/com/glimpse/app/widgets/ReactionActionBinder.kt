@@ -8,29 +8,23 @@ import com.glimpse.app.MainActivity
 import com.glimpse.app.R
 
 internal object ReactionActionBinder {
-    private val REACTION_BUTTONS = listOf(
-        "❤️" to R.id.btn_react_heart,
-        "😊" to R.id.btn_react_smile,
-        "👍" to R.id.btn_react_thumbsup,
-        "😂" to R.id.btn_react_laugh,
-        "🎉" to R.id.btn_react_fire
-    )
 
-    fun bindReactionButtons(context: Context, remoteViews: RemoteViews, appWidgetId: Int) {
-        REACTION_BUTTONS.forEach { (emoji, viewId) ->
-            val intent = Intent(context, ReactionBroadcastReceiver::class.java).apply {
-                action = ReactionBroadcastReceiver.ACTION_ADD_REACTION
-                putExtra(ReactionBroadcastReceiver.EXTRA_EMOJI, emoji)
-            }
-            val requestCode = "$appWidgetId$emoji".hashCode()
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            remoteViews.setOnClickPendingIntent(viewId, pendingIntent)
+    // RemoteViews can't host an emoji picker (or any text input) itself, so
+    // the React button opens the app straight to a full picker screen
+    // instead of being limited to a fixed preset of reaction emojis.
+    fun bindReactAction(context: Context, remoteViews: RemoteViews, appWidgetId: Int) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            putExtra(MainActivity.EXTRA_OPEN_REACT, true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            "$appWidgetId-react".hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        remoteViews.setOnClickPendingIntent(R.id.btn_react, pendingIntent)
     }
 
     /**

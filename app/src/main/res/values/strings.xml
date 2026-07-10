@@ -16,13 +16,14 @@
     <string name="guide_step_3_desc">Search for our app and select the Current Message widget</string>
     <string name="guide_step_4_title">Choose a size (4x2 or 4x4)</string>
     <string name="guide_step_4_desc">Pick your preferred widget size</string>
-    <string name="guide_step_5_title">Tap reactions directly from the widget!</string>
-    <string name="guide_step_5_desc">No need to open the app</string>
+    <string name="guide_step_5_title">Tap React on the widget to reply with any emoji</string>
+    <string name="guide_step_5_desc">Opens a quick picker right in the app</string>
     <string name="guide_dismiss">Got it, dismiss this guide</string>
     <string name="guide_logout">Log out</string>
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
+    <string name="widget_react_button">😊 React</string>
 
     <string name="compose_title">Send a message</string>
     <string name="compose_placeholder">Say something…</string>
@@ -30,4 +31,9 @@
     <string name="compose_send">Send</string>
     <string name="compose_sent">Sent! It\'s live on the widget now.</string>
     <string name="compose_widget_guide_link">Widget guide</string>
+
+    <string name="react_title">Pick a reaction</string>
+    <string name="react_placeholder">Tap the emoji key on your keyboard…</string>
+    <string name="react_send">React</string>
+    <string name="react_sent">Reaction sent!</string>
 </resources>

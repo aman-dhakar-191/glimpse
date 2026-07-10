@@ -43,11 +43,6 @@
                 android:resource="@xml/widget_current_message_info" />
         </receiver>
 
-        <!-- Reaction Broadcast Receiver -->
-        <receiver
-            android:name=".widgets.ReactionBroadcastReceiver"
-            android:exported="false" />
-
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"

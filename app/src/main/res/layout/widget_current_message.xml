@@ -26,16 +26,26 @@
             android:textSize="12sp"
             android:textColor="@color/text_secondary" />
 
-        <!-- Message Content -->
+        <!-- Message Content — weighted the same as the photo below (and a
+             GONE view is excluded from a LinearLayout's weight distribution
+             entirely), so whichever of the two is actually showing gets all
+             the available space. autoSizeTextType grows a short message
+             (or a single emoji) to fill that space and shrinks a long one
+             to still fit, instead of a fixed 16sp for everything. -->
         <TextView
             android:id="@+id/message_content"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:textColor="@color/text_primary"
             android:layout_marginVertical="8dp"
-            android:maxLines="3"
-            android:ellipsize="end" />
+            android:gravity="center"
+            android:maxLines="6"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeMaxTextSize="72sp"
+            android:autoSizeStepGranularity="2sp" />
 
         <!-- Photo (if applicable) — takes whatever space is left in this
              section so it scales with the widget's size instead of being
@@ -75,57 +85,17 @@
         android:orientation="horizontal"
         android:gravity="center_vertical" />
 
-    <!-- Quick Action Buttons -->
-    <LinearLayout
+    <!-- React button — RemoteViews can't host an emoji picker itself, so this
+         opens the app straight to a full emoji-picker screen (same
+         open-app pattern as tapping the message area to compose) instead
+         of being limited to a fixed set of preset reactions. -->
+    <Button
+        android:id="@+id/btn_react"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:layout_height="48dp"
         android:layout_marginTop="8dp"
-        android:gravity="center">
-
-        <Button
-            android:id="@+id/btn_react_heart"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:text="❤️"
-            android:textSize="28sp" />
-
-        <Button
-            android:id="@+id/btn_react_smile"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:text="😊"
-            android:textSize="28sp" />
-
-        <Button
-            android:id="@+id/btn_react_thumbsup"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:text="👍"
-            android:textSize="28sp" />
-
-        <Button
-            android:id="@+id/btn_react_laugh"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:text="😂"
-            android:textSize="28sp" />
-
-        <Button
-            android:id="@+id/btn_react_fire"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:text="🎉"
-            android:textSize="28sp" />
-    </LinearLayout>
+        android:background="@android:color/transparent"
+        android:text="@string/widget_react_button"
+        android:textSize="16sp"
+        android:textColor="@color/text_primary" />
 </LinearLayout>
