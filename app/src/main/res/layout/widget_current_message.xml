@@ -45,21 +45,18 @@
         android:textStyle="italic"
         android:visibility="gone" />
 
-    <!-- Reactions Bar (scrollable) -->
-    <HorizontalScrollView
-        android:id="@+id/reactions_scroll"
+    <!-- Reactions Bar -->
+    <!-- RemoteViews only supports a fixed whitelist of container/widget classes
+         (FrameLayout, LinearLayout, RelativeLayout, GridLayout, plus specific
+         leaf widgets) — HorizontalScrollView is not on that list and fails to
+         inflate in an app widget, so this row is a plain non-scrolling LinearLayout. -->
+    <LinearLayout
+        android:id="@+id/reactions_container"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:layout_marginTop="8dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/reactions_container"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical" />
-    </HorizontalScrollView>
+        android:orientation="horizontal"
+        android:gravity="center_vertical" />
 
     <!-- Quick Action Buttons -->
     <LinearLayout

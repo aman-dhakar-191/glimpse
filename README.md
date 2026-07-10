@@ -34,8 +34,18 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
    and Cloud Messaging enabled.
 2. Download `google-services.json` from the Firebase console and place it at `app/google-services.json`
    (this file is gitignored — never commit real credentials).
-3. Deploy `firebase/database.rules.json` as your Realtime Database security rules.
-4. Under `shared/settings`, set `allowedUsers` to the UIDs of the two people using the app.
+3. Deploy `firebase/database.rules.json` as your Realtime Database security rules. `shared/settings`
+   is locked to admin/console writes only — the allowlist is the authorization boundary for
+   everything under `shared/*`, so clients must not be able to modify it themselves.
+4. Under `shared/settings`, set `allowedUsers` as a **map keyed by UID** (not an array — Realtime
+   Database security rules match child keys, and arrays are stored as numeric indices, so an array
+   would silently fail the `.child(auth.uid).exists()` check in the rules and lock everyone out):
+   ```json
+   "allowedUsers": {
+     "uid1": true,
+     "uid2": true
+   }
+   ```
 
 ## CI
 
