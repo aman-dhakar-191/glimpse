@@ -56,6 +56,11 @@ jobs:
           VERSION_NAME=$(grep -m1 'val appVersionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Rename debug APK
+        run: |
+          mv app/build/outputs/apk/debug/app-debug.apk \
+             "app/build/outputs/apk/debug/Glimpse-v${{ steps.app_version.outputs.version_name }}-debug.apk"
+
       - name: Check release signing secrets
         # secrets.* can't be referenced directly in a step's `if:` — it must
         # be resolved to a step output (or env var) first, so downstream
@@ -87,6 +92,12 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
+
+      - name: Rename release APK
+        if: steps.release_secrets.outputs.present == 'true'
+        run: |
+          mv app/build/outputs/apk/release/app-release.apk \
+             "app/build/outputs/apk/release/Glimpse-v${{ steps.app_version.outputs.version_name }}-release.apk"
 
       - name: Upload debug APK artifact
         # Only publish once changes land on main — PRs just need to prove

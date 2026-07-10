@@ -89,16 +89,6 @@ android {
     }
 }
 
-// Default output names (app-debug.apk / app-release.apk) don't carry any
-// version info, making it hard to tell builds apart once downloaded.
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            output.outputFileName.set("Glimpse-v$appVersionName-${variant.buildType}.apk")
-        }
-    }
-}
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
