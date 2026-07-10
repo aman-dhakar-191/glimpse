@@ -16,14 +16,19 @@ import androidx.compose.ui.Modifier
 import com.glimpse.app.ui.auth.LoginScreen
 import com.glimpse.app.ui.auth.LoginViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
+import com.glimpse.app.ui.message.ComposeMessageScreen
+import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
+private enum class AppScreen { Login, Compose, Guide }
+
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
+    private val composeMessageViewModel: ComposeMessageViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -39,10 +44,16 @@ class MainActivity : ComponentActivity() {
         loginViewModel.onGoogleSignInResult(account) { onSignedIn() }
     }
 
-    private var showGuide by mutableStateOf(false)
+    private var screen by mutableStateOf(AppScreen.Login)
 
     private fun onSignedIn() {
-        showGuide = true
+        screen = AppScreen.Compose
+    }
+
+    private fun onLogout() {
+        googleSignInClient.signOut()
+        loginViewModel.signOut()
+        screen = AppScreen.Login
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,7 +65,7 @@ class MainActivity : ComponentActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, signInOptions)
 
-        showGuide = loginViewModel.isSignedIn
+        screen = if (loginViewModel.isSignedIn) AppScreen.Compose else AppScreen.Login
 
         setContent {
             GlimpseTheme {
@@ -62,20 +73,26 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val uiState by loginViewModel.uiState.collectAsState()
-                    if (showGuide) {
-                        WidgetGuideScreen(
-                            onDismiss = { finish() },
-                            onLogout = {
-                                googleSignInClient.signOut()
-                                loginViewModel.signOut()
-                                showGuide = false
-                            }
-                        )
-                    } else {
-                        LoginScreen(
-                            uiState = uiState,
+                    val loginUiState by loginViewModel.uiState.collectAsState()
+                    val composeUiState by composeMessageViewModel.uiState.collectAsState()
+
+                    when (screen) {
+                        AppScreen.Login -> LoginScreen(
+                            uiState = loginUiState,
                             onSignInClick = { signInLauncher.launch(googleSignInClient.signInIntent) }
+                        )
+
+                        AppScreen.Compose -> ComposeMessageScreen(
+                            uiState = composeUiState,
+                            onSend = { text -> composeMessageViewModel.sendMessage(text) },
+                            onSentHandled = { composeMessageViewModel.consumeSentState() },
+                            onOpenGuide = { screen = AppScreen.Guide },
+                            onLogout = { onLogout() }
+                        )
+
+                        AppScreen.Guide -> WidgetGuideScreen(
+                            onDismiss = { screen = AppScreen.Compose },
+                            onLogout = { onLogout() }
                         )
                     }
                 }
