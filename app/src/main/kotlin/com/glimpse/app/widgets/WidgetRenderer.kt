@@ -3,6 +3,8 @@ package com.glimpse.app.widgets
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.os.Build
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import coil.ImageLoader
@@ -16,11 +18,13 @@ import com.glimpse.app.data.model.Message
 // startable), so both paths produce identical widget output.
 internal object WidgetRenderer {
 
-    suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
-        val remoteViews = RemoteViews(context.packageName, R.layout.widget_current_message)
-        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
-        ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
+    // Both layouts use identical view IDs (author_name, message_content,
+    // etc.), so applyMessage/ReactionActionBinder need no branching — only
+    // the layout resource and its paddings/text sizes differ per size.
+    private val SQUARE_SIZE = SizeF(110f, 110f)
+    private val RECTANGULAR_SIZE = SizeF(250f, 110f)
 
+    suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on
         // Android 12+ (SecurityException: "Disallowed URI ... in
         // RemoteViews") — widgets can only be handed real pixel data, not a
@@ -32,6 +36,37 @@ internal object WidgetRenderer {
             null
         }
 
+        val rectangularViews = buildViews(
+            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap
+        )
+
+        // The multi-size RemoteViews constructor (which lets the system pick
+        // the best-fitting layout as the user resizes the widget) only
+        // exists on API 31+ — older devices always get the rectangular
+        // layout, same as before this feature existed.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
+
+        val squareViews = buildViews(
+            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap
+        )
+        return RemoteViews(
+            mapOf(
+                SQUARE_SIZE to squareViews,
+                RECTANGULAR_SIZE to rectangularViews
+            )
+        )
+    }
+
+    private fun buildViews(
+        context: Context,
+        appWidgetId: Int,
+        layoutRes: Int,
+        message: Message?,
+        photoBitmap: Bitmap?
+    ): RemoteViews {
+        val remoteViews = RemoteViews(context.packageName, layoutRes)
+        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
+        ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
         applyMessage(context, remoteViews, message, photoBitmap)
         return remoteViews
     }
