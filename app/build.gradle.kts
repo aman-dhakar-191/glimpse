@@ -43,8 +43,8 @@ android {
         // when the secret isn't set, e.g. for local/PR builds.
         buildConfigField(
             "String",
-            "GITHUB_RELEASES_TOKEN",
-            "\"${System.getenv("GITHUB_RELEASES_TOKEN") ?: ""}\""
+            "GLIMPSE_RELEASES_TOKEN",
+            "\"${System.getenv("GLIMPSE_RELEASES_TOKEN") ?: ""}\""
         )
         buildConfigField("String", "RELEASES_REPO_OWNER", "\"aman-dhakar-191\"")
         buildConfigField("String", "RELEASES_REPO_NAME", "\"glimpse\"")
