@@ -51,4 +51,13 @@ class LoginViewModel : ViewModel() {
         authRepository.signOut()
         _uiState.value = LoginUiState.Idle
     }
+
+    // Called on every launch where the user is already signed in, not just a
+    // fresh sign-in — see AuthRepository.ensureFcmTokenRegistered for why
+    // that matters.
+    fun ensureFcmTokenRegistered() {
+        viewModelScope.launch {
+            authRepository.ensureFcmTokenRegistered()
+        }
+    }
 }
