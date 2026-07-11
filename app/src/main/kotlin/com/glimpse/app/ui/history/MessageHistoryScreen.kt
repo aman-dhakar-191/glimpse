@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -234,7 +235,8 @@ private fun MessageBubbleRow(
             // Organic tail on the side facing that message's own edge of
             // the screen — same left/right convention as any chat UI, just
             // a hand-curved tail instead of a clipped-corner triangle.
-            val shape = bubbleShape(tailOnRight = isMine)
+            val density = LocalDensity.current
+            val shape = bubbleShape(tailOnRight = isMine, density = density)
             val bubbleColor = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
             val textColor = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 

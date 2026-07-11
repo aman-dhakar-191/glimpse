@@ -92,8 +92,19 @@ class MainActivity : ComponentActivity() {
 
     private var screen by mutableStateOf(AppScreen.Login)
 
+    // checkPairingStatus's Firebase callback is always asynchronous (posted
+    // via a Handler even when "cached"), so it reliably fires *after*
+    // handleOpenComposeIntent/handleOpenReactIntent already ran synchronously
+    // in onCreate below — except when it doesn't beat them to the punch, in
+    // which case unconditionally jumping to Compose here would clobber a
+    // React deep link that already landed. Only defaulting to Compose when
+    // we're not already sitting on the screen a widget tap explicitly
+    // requested keeps a cold-started React-button tap from bouncing back to
+    // the compose screen a moment after it opens.
     private fun onSignedIn() {
-        screen = AppScreen.Compose
+        if (screen != AppScreen.React) {
+            screen = AppScreen.Compose
+        }
         requestNotificationPermissionIfNeeded()
         loginViewModel.ensureFcmTokenRegistered()
         updateViewModel.checkForUpdate()

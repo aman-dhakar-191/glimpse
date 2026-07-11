@@ -1,7 +1,12 @@
 package com.glimpse.app.ui.theme
 
 import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 
 // The "Blob Pop" shape language: organic asymmetric silhouettes built from
 // real bezier curves (GenericShape gives a Path with the size already
@@ -176,23 +181,29 @@ val BlobChipShapeB: Shape = GenericShape { size, _ ->
 // Chat-bubble shape with an organic curved tail — mirrored for outgoing
 // (your own messages, tail on the right) vs incoming (partner's, tail on
 // the left), same left/right convention as any chat UI.
-fun bubbleShape(tailOnRight: Boolean): Shape = GenericShape { size, _ ->
+//
+// The tail is sized in fixed dp (via Density), not as a fraction of the
+// bubble's own height like the first version was. A short one-line text
+// bubble and a tall photo bubble can differ in height by 5-10x, and a
+// height-fraction tail blows up into a huge distorted diagonal flare on
+// the tall ones instead of staying a small consistent notch — that's
+// what real-device screenshots showed on photo messages.
+fun bubbleShape(tailOnRight: Boolean, density: Density): Shape = GenericShape { size, _ ->
     val w = size.width
     val h = size.height
-    fun mx(fx: Float): Float = if (tailOnRight) (1f - fx) * w else fx * w
+    fun mx(x: Float): Float = if (tailOnRight) w - x else x
 
-    moveTo(mx(0.06f), 0.08f * h)
-    quadraticTo(mx(0.06f), 0f * h, mx(0.14f), 0f * h)
-    lineTo(mx(0.86f), 0f * h)
-    quadraticTo(mx(0.96f), 0f * h, mx(0.96f), 0.1f * h)
-    lineTo(mx(0.96f), 0.62f * h)
-    quadraticTo(mx(0.96f), 0.74f * h, mx(0.84f), 0.74f * h)
-    lineTo(mx(0.32f), 0.74f * h)
-    quadraticTo(mx(0.24f), 0.74f * h, mx(0.18f), 0.8f * h)
-    lineTo(mx(0.08f), 0.92f * h)
-    quadraticTo(mx(0.03f), 0.97f * h, mx(0.04f), 0.89f * h)
-    lineTo(mx(0.06f), 0.76f * h)
-    quadraticTo(mx(0f), 0.74f * h, mx(0f), 0.62f * h)
-    lineTo(mx(0f), 0.08f * h)
+    val corner = with(density) { 16.dp.toPx() }.coerceAtMost(minOf(w, h) / 2.2f)
+    val tailWidth = with(density) { 14.dp.toPx() }
+    val tailDrop = with(density) { 9.dp.toPx() }
+    val tailInset = corner + with(density) { 3.dp.toPx() }
+
+    addRoundRect(RoundRect(Rect(0f, 0f, w, h), CornerRadius(corner, corner)))
+
+    val tailStart = tailInset
+    val tailEnd = tailInset + tailWidth
+    moveTo(mx(tailStart), h)
+    quadraticTo(mx(tailStart - tailWidth * 0.1f), h + tailDrop * 0.55f, mx(tailStart - tailWidth * 0.65f), h + tailDrop)
+    quadraticTo(mx(tailStart + tailWidth * 0.15f), h + tailDrop * 0.4f, mx(tailEnd), h)
     close()
 }
