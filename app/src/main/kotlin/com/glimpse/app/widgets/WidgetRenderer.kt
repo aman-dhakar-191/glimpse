@@ -18,7 +18,7 @@ internal object WidgetRenderer {
 
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_current_message)
-        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId)
+        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
 
         // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on

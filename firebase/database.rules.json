@@ -11,6 +11,11 @@
         ".read": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()",
         ".write": false
       },
+      "messages": {
+        ".indexOn": "createdAt",
+        ".read": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()",
+        ".write": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()"
+      },
       "$resource": {
         ".read": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()",
         ".write": "root.child('shared/settings/allowedUsers').child(auth.uid).exists()"

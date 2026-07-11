@@ -68,6 +68,7 @@ fun ComposeMessageScreen(
     onSendPhoto: (Uri, String) -> Unit,
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
+    onOpenHistory: () -> Unit,
     onLogout: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
@@ -132,6 +133,9 @@ fun ComposeMessageScreen(
             ) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
                 Row {
+                    TextButton(onClick = onOpenHistory) {
+                        Text(stringResource(R.string.compose_history_link))
+                    }
                     TextButton(onClick = onOpenGuide) {
                         Text(stringResource(R.string.compose_widget_guide_link))
                     }

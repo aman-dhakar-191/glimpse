@@ -6,7 +6,6 @@ import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.storage.FirebaseStorage
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 
 class MessageRepository {
@@ -14,18 +13,12 @@ class MessageRepository {
     private val database = FirebaseDatabase.getInstance().reference
     private val storage = FirebaseStorage.getInstance()
 
-    suspend fun addReaction(emoji: String): Result<Unit> = runCatching {
+    suspend fun addReaction(messageId: String, emoji: String): Result<Unit> = runCatching {
         val trimmed = emoji.trim()
         require(trimmed.isNotEmpty()) { "Pick an emoji first." }
-        suspendCancellableCoroutine { continuation ->
-            FirebaseSync.addReaction(trimmed) { success ->
-                if (success) {
-                    continuation.resumeWith(Result.success(Unit))
-                } else {
-                    continuation.resumeWith(Result.failure(IllegalStateException("Failed to send reaction.")))
-                }
-            }
-        }
+        require(messageId.isNotEmpty()) { "No message to react to yet." }
+        val success = FirebaseSync.addReaction(messageId, trimmed)
+        if (!success) error("Failed to send reaction.")
     }
 
     suspend fun sendMessage(content: String): Result<Unit> = runCatching {
@@ -43,10 +36,10 @@ class MessageRepository {
             updatedAt = now,
             expiresAt = now + THIRTY_DAYS_MILLIS
         )
-        // setValue (not updateChildren) replaces the whole node, which is what
-        // we want for a brand new message — it clears out reactions left over
-        // from whatever the previous message was.
-        database.child("shared/current_message").setValue(message).await()
+        // A new push key per message (instead of overwriting one shared
+        // node) is what makes a scrollable history possible — each message
+        // keeps its own reactions rather than a new one wiping out the last.
+        database.child("shared/messages").push().setValue(message).await()
     }
 
     suspend fun sendPhotoMessage(imageUri: Uri, caption: String): Result<Unit> = runCatching {
@@ -70,7 +63,7 @@ class MessageRepository {
             updatedAt = now,
             expiresAt = now + THIRTY_DAYS_MILLIS
         )
-        database.child("shared/current_message").setValue(message).await()
+        database.child("shared/messages").push().setValue(message).await()
     }
 
     private fun isEmojiOnly(text: String): Boolean =
