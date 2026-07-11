@@ -9,7 +9,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
@@ -17,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.glimpse.app.ui.auth.LoginScreen
 import com.glimpse.app.ui.auth.LoginViewModel
@@ -26,6 +30,10 @@ import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
+import com.glimpse.app.ui.update.UpdateBanner
+import com.glimpse.app.ui.update.UpdateUiState
+import com.glimpse.app.ui.update.UpdateViewModel
+import com.glimpse.app.data.update.UpdateChecker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -37,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
     private val composeMessageViewModel: ComposeMessageViewModel by viewModels()
     private val reactionPickerViewModel: ReactionPickerViewModel by viewModels()
+    private val updateViewModel: UpdateViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -74,6 +83,15 @@ class MainActivity : ComponentActivity() {
     private fun onSignedIn() {
         screen = AppScreen.Compose
         requestNotificationPermissionIfNeeded()
+        updateViewModel.checkForUpdate()
+    }
+
+    private fun onUpdateClick() {
+        if (UpdateChecker.canRequestInstalls(this)) {
+            updateViewModel.downloadAndInstall()
+        } else {
+            UpdateChecker.openUnknownSourcesSettings(this)
+        }
     }
 
     private fun onLogout() {
@@ -119,7 +137,10 @@ class MainActivity : ComponentActivity() {
         googleSignInClient = GoogleSignIn.getClient(this, signInOptions)
 
         screen = if (loginViewModel.isSignedIn) AppScreen.Compose else AppScreen.Login
-        if (loginViewModel.isSignedIn) requestNotificationPermissionIfNeeded()
+        if (loginViewModel.isSignedIn) {
+            requestNotificationPermissionIfNeeded()
+            updateViewModel.checkForUpdate()
+        }
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
 
@@ -132,6 +153,7 @@ class MainActivity : ComponentActivity() {
                     val loginUiState by loginViewModel.uiState.collectAsState()
                     val composeUiState by composeMessageViewModel.uiState.collectAsState()
                     val reactUiState by reactionPickerViewModel.uiState.collectAsState()
+                    val updateUiState by updateViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -139,16 +161,30 @@ class MainActivity : ComponentActivity() {
                             onSignInClick = { signInLauncher.launch(googleSignInClient.signInIntent) }
                         )
 
-                        AppScreen.Compose -> ComposeMessageScreen(
-                            uiState = composeUiState,
-                            onSend = { text -> composeMessageViewModel.sendMessage(text) },
-                            onSendPhoto = { uri, caption ->
-                                composeMessageViewModel.sendPhotoMessage(uri, caption)
-                            },
-                            onSentHandled = { composeMessageViewModel.consumeSentState() },
-                            onOpenGuide = { screen = AppScreen.Guide },
-                            onLogout = { onLogout() }
-                        )
+                        AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
+                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.Checking &&
+                                updateUiState !is UpdateUiState.ReadyToInstall
+                            ) {
+                                UpdateBanner(
+                                    uiState = updateUiState,
+                                    onUpdateClick = { onUpdateClick() },
+                                    onDismiss = { updateViewModel.dismiss() },
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                ComposeMessageScreen(
+                                    uiState = composeUiState,
+                                    onSend = { text -> composeMessageViewModel.sendMessage(text) },
+                                    onSendPhoto = { uri, caption ->
+                                        composeMessageViewModel.sendPhotoMessage(uri, caption)
+                                    },
+                                    onSentHandled = { composeMessageViewModel.consumeSentState() },
+                                    onOpenGuide = { screen = AppScreen.Guide },
+                                    onLogout = { onLogout() }
+                                )
+                            }
+                        }
 
                         AppScreen.Guide -> WidgetGuideScreen(
                             onDismiss = { screen = AppScreen.Compose },

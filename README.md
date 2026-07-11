@@ -140,3 +140,21 @@ fingerprint isn't registered will fail to sign in.
 
 Without these secrets, CI still runs `assembleDebug` as the merge gate but skips the release
 build and GitHub Release step entirely.
+
+## In-app update checker
+
+The app checks GitHub Releases on launch and offers to download/install a newer build directly
+(no Play Store — it's sideloaded). Since this repo is private, that requires a token baked into
+the build:
+
+1. Create a fine-grained personal access token: GitHub → Settings → Developer settings →
+   Personal access tokens → Fine-grained tokens → **Generate new token**. Scope it to just this
+   repository, with **Contents: Read-only** permission (nothing else needed).
+2. Add it as a repo secret named `GITHUB_RELEASES_TOKEN`.
+
+Without this secret, `BuildConfig.GITHUB_RELEASES_TOKEN` is blank and the update checker is a
+silent no-op — the app works fine, it just never offers to self-update.
+
+The APK gets installed via `Intent.ACTION_VIEW` with a `FileProvider` URI, which needs the
+"install unknown apps" permission granted to Glimpse specifically (Android prompts for this
+automatically via Settings when the in-app Update button is tapped without it).
