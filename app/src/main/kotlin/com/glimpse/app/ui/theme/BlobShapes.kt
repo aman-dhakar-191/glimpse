@@ -60,15 +60,80 @@ val BlobShapeC: Shape = GenericShape { size, _ ->
     close()
 }
 
+// The original path above reads as a near-perfect flat ellipse once
+// stretched to a fillMaxWidth() button's wide/short aspect ratio — its
+// wobble is spread evenly around the silhouette, and evenly-spread wobble
+// on a squashed shape just looks like a smooth curve. This version instead
+// puts two sharp asymmetric kinks (small width-fraction jumps, so they
+// survive being squashed vertically) at different points on the top and
+// bottom edges, so the organic irregularity still reads at a wide/short
+// aspect ratio instead of averaging out.
 val BlobButtonShape: Shape = GenericShape { size, _ ->
     val w = size.width
     val h = size.height
-    moveTo(0.06f * w, 0.5f * h)
-    cubicTo(0.03f * w, 0.25f * h, 0.2f * w, 0.05f * h, 0.45f * w, 0.03f * h)
-    cubicTo(0.62f * w, 0.01f * h, 0.8f * w, 0.02f * h, 0.9f * w, 0.15f * h)
-    cubicTo(1f * w, 0.28f * h, 0.99f * w, 0.5f * h, 0.95f * w, 0.68f * h)
-    cubicTo(0.9f * w, 0.88f * h, 0.72f * w, 0.99f * h, 0.5f * w, 0.97f * h)
-    cubicTo(0.28f * w, 0.95f * h, 0.09f * w, 0.78f * h, 0.06f * w, 0.5f * h)
+    moveTo(0.07f * w, 0.52f * h)
+    cubicTo(0.02f * w, 0.22f * h, 0.18f * w, -0.04f * h, 0.42f * w, 0.02f * h)
+    cubicTo(0.58f * w, 0.06f * h, 0.55f * w, 0.2f * h, 0.72f * w, 0.14f * h)
+    cubicTo(0.86f * w, 0.09f * h, 1.02f * w, 0.22f * h, 0.98f * w, 0.44f * h)
+    cubicTo(0.96f * w, 0.56f * h, 0.88f * w, 0.5f * h, 0.9f * w, 0.62f * h)
+    cubicTo(0.93f * w, 0.8f * h, 0.78f * w, 1.02f * h, 0.56f * w, 0.98f * h)
+    cubicTo(0.46f * w, 0.96f * h, 0.48f * w, 0.86f * h, 0.34f * w, 0.9f * h)
+    cubicTo(0.16f * w, 0.95f * h, 0.02f * w, 0.8f * h, 0.07f * w, 0.52f * h)
+    close()
+}
+
+// Content-safe counterparts to BlobShapeA/B/C: the same organic asymmetric
+// character, but with the maximum edge inset capped around 10-12% instead
+// of the ~40-50% deep pinches those shapes have at their sharpest corners.
+// Fixed-dp padding (20-28dp) can't reliably clear a pinch that deep on a
+// real device at real card widths — real-device screenshots showed text
+// getting clipped at exactly those corners. Use these on any card carrying
+// paragraph text or multiple text rows; the more dramatic A/B/C are still
+// fine for small, short, centered content like chips and stat numbers.
+val BlobShapeSoftA: Shape = GenericShape { size, _ ->
+    val w = size.width
+    val h = size.height
+    moveTo(0.5f * w, 0.02f * h)
+    cubicTo(0.68f * w, 0f * h, 0.87f * w, 0.06f * h, 0.94f * w, 0.18f * h)
+    cubicTo(1f * w, 0.28f * h, 0.98f * w, 0.4f * h, 0.99f * w, 0.5f * h)
+    cubicTo(1f * w, 0.62f * h, 1f * w, 0.74f * h, 0.93f * w, 0.84f * h)
+    cubicTo(0.85f * w, 0.96f * h, 0.68f * w, 1f * h, 0.5f * w, 0.99f * h)
+    cubicTo(0.33f * w, 0.99f * h, 0.15f * w, 0.95f * h, 0.07f * w, 0.84f * h)
+    cubicTo(0f * w, 0.74f * h, 0.01f * w, 0.62f * h, 0.01f * w, 0.5f * h)
+    cubicTo(0f * w, 0.38f * h, 0.01f * w, 0.24f * h, 0.09f * w, 0.15f * h)
+    cubicTo(0.17f * w, 0.06f * h, 0.33f * w, 0.03f * h, 0.5f * w, 0.02f * h)
+    close()
+}
+
+val BlobShapeSoftB: Shape = GenericShape { size, _ ->
+    val w = size.width
+    val h = size.height
+    moveTo(0.16f * w, 0.06f * h)
+    cubicTo(0.28f * w, -0.01f * h, 0.4f * w, 0.02f * h, 0.5f * w, 0.03f * h)
+    cubicTo(0.63f * w, 0.04f * h, 0.72f * w, -0.01f * h, 0.84f * w, 0.06f * h)
+    cubicTo(0.96f * w, 0.13f * h, 1.01f * w, 0.26f * h, 0.98f * w, 0.4f * h)
+    cubicTo(0.96f * w, 0.5f * h, 1f * w, 0.58f * h, 0.98f * w, 0.68f * h)
+    cubicTo(0.95f * w, 0.84f * h, 0.84f * w, 0.97f * h, 0.68f * w, 0.99f * h)
+    cubicTo(0.58f * w, 1.01f * h, 0.5f * w, 0.96f * h, 0.4f * w, 0.97f * h)
+    cubicTo(0.26f * w, 0.99f * h, 0.12f * w, 0.94f * h, 0.05f * w, 0.82f * h)
+    cubicTo(-0.01f * w, 0.7f * h, 0.02f * w, 0.58f * h, 0.02f * w, 0.46f * h)
+    cubicTo(0.02f * w, 0.3f * h, 0.03f * w, 0.14f * h, 0.16f * w, 0.06f * h)
+    close()
+}
+
+val BlobShapeSoftC: Shape = GenericShape { size, _ ->
+    val w = size.width
+    val h = size.height
+    moveTo(0.12f * w, 0.16f * h)
+    cubicTo(0.18f * w, 0.04f * h, 0.32f * w, -0.01f * h, 0.46f * w, 0.02f * h)
+    cubicTo(0.58f * w, 0.04f * h, 0.68f * w, 0.02f * h, 0.8f * w, 0.08f * h)
+    cubicTo(0.93f * w, 0.14f * h, 1.01f * w, 0.26f * h, 0.98f * w, 0.4f * h)
+    cubicTo(0.96f * w, 0.5f * h, 0.9f * w, 0.46f * h, 0.92f * w, 0.58f * h)
+    cubicTo(0.95f * w, 0.74f * h, 0.9f * w, 0.9f * h, 0.76f * w, 0.97f * h)
+    cubicTo(0.64f * w, 1.02f * h, 0.5f * w, 0.98f * h, 0.38f * w, 0.98f * h)
+    cubicTo(0.24f * w, 0.98f * h, 0.1f * w, 0.94f * h, 0.04f * w, 0.82f * h)
+    cubicTo(-0.01f * w, 0.71f * h, 0.04f * w, 0.6f * h, 0.03f * w, 0.48f * h)
+    cubicTo(0.02f * w, 0.34f * h, 0.05f * w, 0.26f * h, 0.12f * w, 0.16f * h)
     close()
 }
 

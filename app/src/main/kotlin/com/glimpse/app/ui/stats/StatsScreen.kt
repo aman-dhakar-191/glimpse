@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
 import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
-import com.glimpse.app.ui.theme.BlobShapeA
-import com.glimpse.app.ui.theme.BlobShapeB
-import com.glimpse.app.ui.theme.BlobShapeC
+import com.glimpse.app.ui.theme.BlobShapeSoftA
+import com.glimpse.app.ui.theme.BlobShapeSoftB
+import com.glimpse.app.ui.theme.BlobShapeSoftC
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -90,10 +90,10 @@ fun StatsScreen(
                 if (uiState.countsByAuthor.isNotEmpty()) {
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = BlobShapeC,
+                        shape = BlobShapeSoftC,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(R.string.stats_by_person), style = MaterialTheme.typography.titleMedium)
                             uiState.countsByAuthor.forEach { person ->
                                 Row(
@@ -117,7 +117,7 @@ fun StatsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = stringResource(R.string.stats_top_reaction),
                         value = "$emoji  ×$count",
-                        shape = BlobShapeB
+                        shape = BlobShapeSoftB
                     )
                 }
             }
@@ -129,7 +129,7 @@ fun StatsScreen(
 private fun StreakCard(days: Int) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
-        shape = BlobShapeA,
+        shape = BlobShapeSoftA,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -168,7 +168,7 @@ private fun StatTile(modifier: Modifier = Modifier, label: String, value: String
         shape = shape,
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(22.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge)
             Text(
                 label,

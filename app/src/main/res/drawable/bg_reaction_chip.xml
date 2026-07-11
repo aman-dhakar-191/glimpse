@@ -5,10 +5,19 @@
     <stroke
         android:width="1dp"
         android:color="@color/chip_border" />
-    <!-- A radius this large just clamps to half the view's shorter side,
-         giving a full stadium/pill shape regardless of content width —
-         same safe <shape> primitive already used here, just rounder, to
-         match the Blob Pop identity without touching anything closer to
-         the "Can't load widget" crash history (see widget_current_message.xml). -->
-    <corners android:radius="999dp" />
+    <!-- Two opposite corners clamp to a full stadium radius, the other two
+         stay tight — reads as an asymmetric "blob-lite" pill instead of a
+         perfectly uniform one, while staying within the same safe <shape>
+         (GradientDrawable) primitive already proven fine here. A real
+         bezier/vector path isn't used because each chip's width is
+         wrap_content and varies per emoji/count, which would visibly
+         distort a fixed-viewport vector shape; corner radii degrade
+         gracefully at any width instead. Kept well clear of the widget
+         ROOT's background/structure — see widget_current_message.xml for
+         why that specific surface stays a plain solid color. -->
+    <corners
+        android:topLeftRadius="999dp"
+        android:bottomRightRadius="999dp"
+        android:topRightRadius="6dp"
+        android:bottomLeftRadius="6dp" />
 </shape>
