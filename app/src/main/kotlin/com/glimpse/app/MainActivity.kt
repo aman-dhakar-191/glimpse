@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
     private fun onSignedIn() {
         screen = AppScreen.Compose
         requestNotificationPermissionIfNeeded()
+        loginViewModel.ensureFcmTokenRegistered()
         updateViewModel.checkForUpdate()
     }
 
@@ -144,6 +145,7 @@ class MainActivity : ComponentActivity() {
         screen = if (loginViewModel.isSignedIn) AppScreen.Compose else AppScreen.Login
         if (loginViewModel.isSignedIn) {
             requestNotificationPermissionIfNeeded()
+            loginViewModel.ensureFcmTokenRegistered()
             updateViewModel.checkForUpdate()
         }
         handleOpenComposeIntent(intent)
