@@ -37,6 +37,7 @@
     <string name="react_send">React</string>
     <string name="react_sent">Reaction sent!</string>
 
+    <string name="update_checking">Checking for updates…</string>
     <string name="update_available">Update available: v%1$s</string>
     <string name="update_button">Update</string>
     <string name="update_downloading">Downloading update…</string>
