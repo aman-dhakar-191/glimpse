@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Reverted to the last known-good structure: no FrameLayout wrapper, no
-     heart badge, no custom shape/drawable background — those were added by
-     the "cute" reskin and are the suspected cause of "Can't load widget" on
-     at least one real device (Xiaomi HyperOS/POCO), which persisted even
-     after dropping the custom fonts. Reliability wins over polish here;
-     @color/widget_bg still carries the pastel cream tint since a plain
-     solid-color reference is effectively risk-free. -->
+<!-- Structure is the last known-good one from the "Can't load widget"
+     revert (ef10731) on Xiaomi HyperOS/POCO: still no FrameLayout wrapper
+     and no heart badge — those stay off. The root background is now
+     re-trying a <shape> drawable (bg_widget_root.xml) as an isolated
+     experiment; see that file for why this specific piece is being
+     retried and why it's kept in its own revertible commit. If "Can't
+     load widget" recurs, reverting just that commit (back to a plain
+     @color/widget_bg reference) is the fix — no need to touch the rest of
+     this layout. -->
 <LinearLayout
     android:id="@+id/widget_root"
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -13,7 +15,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="@color/widget_bg">
+    android:background="@drawable/bg_widget_root">
 
     <!-- Top content: given all the remaining vertical space (weight=1) so the
          reactions bar and quick-action buttons below stay pinned to the
