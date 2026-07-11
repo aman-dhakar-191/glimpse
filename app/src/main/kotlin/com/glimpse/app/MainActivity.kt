@@ -32,17 +32,20 @@ import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
+import com.glimpse.app.ui.stats.StatsScreen
+import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateBanner
 import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.data.update.UpdateChecker
+import com.glimpse.app.work.StreakCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, React, History }
+private enum class AppScreen { Login, Compose, Guide, React, History, Stats }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private val reactionPickerViewModel: ReactionPickerViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
     private val historyViewModel: MessageHistoryViewModel by viewModels()
+    private val statsViewModel: StatsViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -89,6 +93,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         loginViewModel.ensureFcmTokenRegistered()
         updateViewModel.checkForUpdate()
+        StreakCheckWorker.schedule(this)
     }
 
     private fun onUpdateClick() {
@@ -147,6 +152,7 @@ class MainActivity : ComponentActivity() {
             requestNotificationPermissionIfNeeded()
             loginViewModel.ensureFcmTokenRegistered()
             updateViewModel.checkForUpdate()
+            StreakCheckWorker.schedule(this)
         }
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
@@ -162,6 +168,7 @@ class MainActivity : ComponentActivity() {
                     val reactUiState by reactionPickerViewModel.uiState.collectAsState()
                     val updateUiState by updateViewModel.uiState.collectAsState()
                     val historyUiState by historyViewModel.uiState.collectAsState()
+                    val statsUiState by statsViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -211,9 +218,16 @@ class MainActivity : ComponentActivity() {
                                 uiState = historyUiState,
                                 onBack = { screen = AppScreen.Compose },
                                 onDownloadImage = { url -> historyViewModel.downloadImage(this@MainActivity, url) },
-                                onDownloadResultHandled = { historyViewModel.consumeDownloadResult() }
+                                onDownloadResultHandled = { historyViewModel.consumeDownloadResult() },
+                                onOpenStats = { screen = AppScreen.Stats }
                             )
                         }
+
+                        AppScreen.Stats -> StatsScreen(
+                            uiState = statsUiState,
+                            onLoad = { statsViewModel.load() },
+                            onBack = { screen = AppScreen.History }
+                        )
                     }
                 }
             }

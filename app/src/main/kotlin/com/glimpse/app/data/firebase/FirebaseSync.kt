@@ -25,7 +25,9 @@ object FirebaseSync {
     // than inventing a separate marker) means it shows up as a normal
     // reaction chip on the widget for free, and merges harmlessly if the
     // other person also happens to react with the same emoji themselves.
-    private const val SEEN_EMOJI = "👀" // 👀
+    // Internal (not private) so StatsViewModel can exclude it when computing
+    // "most used reaction" — it's an automatic marker, not a deliberate one.
+    internal const val SEEN_EMOJI = "👀" // 👀
 
     private fun messagesRef() = database.child("shared/messages")
     private fun lastSeenAtRef() = database.child("shared/last_seen_at")
@@ -83,6 +85,16 @@ object FirebaseSync {
 
     fun removeHistoryListener(limit: Int, listener: ValueEventListener) {
         historyQuery(limit).removeEventListener(listener)
+    }
+
+    // Unbounded, one-shot — used by the stats screen, which needs the whole
+    // conversation to count totals rather than just the last N messages
+    // History shows. Fine for a personal 2-person app's message volume.
+    suspend fun fetchAllMessages(): List<Message> = try {
+        messagesRef().get().await().toMessages()
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchAllMessages failed", e)
+        emptyList()
     }
 
     suspend fun addReaction(messageId: String, emoji: String): Boolean {

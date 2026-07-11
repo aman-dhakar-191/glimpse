@@ -48,6 +48,17 @@
     <string name="history_download_success">Saved to your gallery</string>
     <string name="history_download_failed">Couldn\'t save the photo. Try again.</string>
 
+    <string name="stats_title">Relationship Stats</string>
+    <string name="stats_streak_one">1 day streak</string>
+    <string name="stats_streak_many">%1$d day streak</string>
+    <string name="stats_total_messages">Messages sent</string>
+    <string name="stats_first_glimpse">First glimpse</string>
+    <string name="stats_by_person">By person</string>
+    <string name="stats_top_reaction">Most-used reaction</string>
+
+    <string name="streak_notification_title">Miss you 💌</string>
+    <string name="streak_notification_body">You two haven\'t shared a glimpse in a while — say hi?</string>
+
     <string name="update_checking">Checking for updates…</string>
     <string name="update_available">Update available: v%1$s</string>
     <string name="update_button">Update</string>
