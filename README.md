@@ -65,15 +65,34 @@ quota (2M invocations), so realistically this costs $0/month, but it does requir
 billing method to the Firebase project.
 
 1. Upgrade the Firebase project to Blaze: Firebase Console → ⚙️ → Usage and billing → Details & settings.
-2. Install the [Firebase CLI](https://firebase.google.com/docs/cli) and log in: `npm install -g firebase-tools && firebase login`.
-3. Copy `.firebaserc.example` to `.firebaserc` and replace `your-firebase-project-id` with your
+2. Either deploy manually or let CI deploy it on every push to `main` — see below.
+
+### Manual deploy
+
+1. Install the [Firebase CLI](https://firebase.google.com/docs/cli) and log in: `npm install -g firebase-tools && firebase login`.
+2. Copy `.firebaserc.example` to `.firebaserc` and replace `your-firebase-project-id` with your
    actual Firebase project ID (this file isn't sensitive, just gitignored to keep the same
    copy-the-`.example`-file convention as `google-services.json`).
-4. `cd functions && npm install && cd ..`
-5. `firebase deploy --only functions`
+3. `cd functions && npm install && cd ..`
+4. `firebase deploy --only functions`
 
-Whenever you change `functions/index.js`, re-run step 5 to redeploy. There's no CI automation for
-this yet — it's a manual deploy step.
+Whenever you change `functions/index.js`, re-run step 4 to redeploy.
+
+### CI deploy
+
+`.github/workflows/deploy-functions.yml` deploys the Cloud Function automatically on every push to
+`main` that touches `functions/**`, if these two repo secrets are present (skipped otherwise, same
+pattern as the release-signing secrets below):
+
+| Secret | Value |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | base64-encoded service account JSON key — Firebase Console → ⚙️ Project Settings → **Service Accounts** tab → **Generate new private key**, then `base64 -w0 that-file.json` |
+| `FIREBASE_PROJECT_ID` | your Firebase project ID (Project Settings → General) |
+
+If the deploy fails with a permissions error, the downloaded service account may need the **Cloud
+Functions Admin** and **Service Account User** IAM roles added explicitly (Google Cloud Console →
+IAM) — the default Firebase Admin SDK service account usually has these already, but not always
+depending on how the project was set up.
 
 ## CI
 
