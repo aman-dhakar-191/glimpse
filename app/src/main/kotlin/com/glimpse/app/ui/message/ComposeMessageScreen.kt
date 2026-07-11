@@ -7,6 +7,12 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +67,45 @@ private fun createCameraImageUri(context: Context): Uri {
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
+
+// A dedicated animation for photo sends (not text — those are near-instant,
+// so a plain spinner is enough) since a photo upload can take a few seconds
+// and a pulsing heart over the preview reads as "your glimpse is on its way"
+// instead of a generic loading state.
+@Composable
+private fun PhotoUploadingOverlay(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "photo-upload-pulse")
+    val scale by transition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.45f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "💌",
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.scale(scale)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.compose_uploading_photo),
+                color = Color.White,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
 
 @Composable
 fun ComposeMessageScreen(
@@ -156,6 +202,8 @@ fun ComposeMessageScreen(
                     Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
 
+                    val uploadingPhoto = uiState is ComposeUiState.Sending && selectedImageUri != null
+
                     selectedImageUri?.let { uri ->
                         Box(modifier = Modifier.fillMaxWidth()) {
                             AsyncImage(
@@ -168,15 +216,19 @@ fun ComposeMessageScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                             )
-                            IconButton(
-                                onClick = { selectedImageUri = null },
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            ) {
-                                Text(
-                                    "✕",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                            if (uploadingPhoto) {
+                                PhotoUploadingOverlay(modifier = Modifier.fillMaxWidth().height(160.dp))
+                            } else {
+                                IconButton(
+                                    onClick = { selectedImageUri = null },
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Text(
+                                        "✕",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.height(12.dp))
