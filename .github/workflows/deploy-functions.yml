@@ -44,14 +44,35 @@ jobs:
         run: npm install
 
       - name: Decode Firebase service account
+        # Emitted as a step output (not just a file) because
+        # google-github-actions/auth's credentials_json input wants the raw
+        # JSON string — the heredoc form of GITHUB_OUTPUT handles the
+        # multi-line JSON safely.
         if: steps.firebase_secrets.outputs.present == 'true'
+        id: decode_service_account
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d > "$RUNNER_TEMP/firebase-service-account.json"
+        run: |
+          {
+            echo "json<<FIREBASE_SA_EOF"
+            echo "$FIREBASE_SERVICE_ACCOUNT" | base64 -d
+            echo "FIREBASE_SA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        # firebase-tools' own CLI auth doesn't reliably pick up a bare
+        # GOOGLE_APPLICATION_CREDENTIALS env var for deploys ("Failed to
+        # authenticate, have you run firebase login?") — this action is the
+        # officially documented way to set up service-account credentials
+        # that both the Firebase CLI and underlying gcloud/Cloud Build calls
+        # respect.
+        if: steps.firebase_secrets.outputs.present == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ steps.decode_service_account.outputs.json }}
 
       - name: Deploy Cloud Functions
         if: steps.firebase_secrets.outputs.present == 'true'
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: npx firebase-tools deploy --only functions --project "$FIREBASE_PROJECT_ID" --non-interactive
