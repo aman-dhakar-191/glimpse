@@ -34,23 +34,28 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     fun load() {
         viewModelScope.launch {
             val messages = FirebaseSync.fetchAllMessages()
+            val partnerNickname = FirebaseSync.fetchPartnerNicknameOnce()
             _uiState.value = StatsUiState.Loaded(
                 totalMessages = messages.size,
                 firstMessageAt = messages.minByOrNull { it.createdAt }?.createdAt,
-                countsByAuthor = countsByAuthor(messages),
+                countsByAuthor = countsByAuthor(messages, partnerNickname),
                 topReaction = topReaction(messages),
                 streakDays = currentStreakDays(messages)
             )
         }
     }
 
-    private fun countsByAuthor(messages: List<Message>): List<PersonCount> {
+    private fun countsByAuthor(messages: List<Message>, partnerNickname: String): List<PersonCount> {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
         // Latest display name seen per uid, in case it ever changes.
         val namesByUid = messages.associate { it.authorUid to it.authorName }
         return messages.groupingBy { it.authorUid }.eachCount()
             .map { (uid, count) ->
-                val label = if (uid == myUid) "You" else namesByUid[uid].orEmpty().ifBlank { "Partner" }
+                val label = if (uid == myUid) {
+                    "You"
+                } else {
+                    partnerNickname.ifBlank { namesByUid[uid].orEmpty().ifBlank { "Partner" } }
+                }
                 PersonCount(label, count)
             }
             .sortedByDescending { it.count }

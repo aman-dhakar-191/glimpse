@@ -19,9 +19,15 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipboardManager
@@ -30,15 +36,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
 
 @Composable
 fun WidgetGuideScreen(
     pairingUiState: PairingUiState,
     onGenerateCode: () -> Unit,
+    nicknameUiState: NicknameUiState,
+    onLoadNickname: () -> Unit,
+    onSaveNickname: (String) -> Unit,
     onDismiss: () -> Unit,
     onLogout: () -> Unit
 ) {
+    LaunchedEffect(Unit) { onLoadNickname() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -58,6 +70,8 @@ fun WidgetGuideScreen(
         StepCard(5, stringResource(R.string.guide_step_5_title), stringResource(R.string.guide_step_5_desc))
 
         InviteCard(pairingUiState, onGenerateCode)
+
+        NicknameCard(nicknameUiState, onSaveNickname)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -175,6 +189,77 @@ private fun InviteButton(isLoading: Boolean, onClick: () -> Unit) {
             )
         } else {
             Text(stringResource(R.string.guide_invite_button))
+        }
+    }
+}
+
+// Purely local to this device/account — see FirebaseSync.fetchPartnerNicknameOnce
+// for why this never affects what the partner sees on their own side.
+@Composable
+private fun NicknameCard(uiState: NicknameUiState, onSaveNickname: (String) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.guide_nickname_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.guide_nickname_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            if (uiState is NicknameUiState.Loaded) {
+                var nickname by rememberSaveable(uiState.nickname) { mutableStateOf(uiState.nickname) }
+
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.guide_nickname_placeholder)) },
+                    singleLine = true
+                )
+
+                if (uiState.error != null) {
+                    Text(
+                        uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                if (uiState.justSaved) {
+                    Text(
+                        stringResource(R.string.guide_nickname_saved),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+
+                Button(
+                    onClick = { onSaveNickname(nickname) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    enabled = !uiState.isSaving && nickname.trim() != uiState.nickname
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text(stringResource(R.string.guide_nickname_save))
+                    }
+                }
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

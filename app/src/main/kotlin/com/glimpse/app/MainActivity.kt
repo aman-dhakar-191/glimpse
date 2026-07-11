@@ -30,6 +30,7 @@ import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
+import com.glimpse.app.ui.nickname.NicknameViewModel
 import com.glimpse.app.ui.pairing.PairingViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private val historyViewModel: MessageHistoryViewModel by viewModels()
     private val statsViewModel: StatsViewModel by viewModels()
     private val pairingViewModel: PairingViewModel by viewModels()
+    private val nicknameViewModel: NicknameViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -173,6 +175,7 @@ class MainActivity : ComponentActivity() {
                     val historyUiState by historyViewModel.uiState.collectAsState()
                     val statsUiState by statsViewModel.uiState.collectAsState()
                     val pairingUiState by pairingViewModel.uiState.collectAsState()
+                    val nicknameUiState by nicknameViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -211,6 +214,9 @@ class MainActivity : ComponentActivity() {
                         AppScreen.Guide -> WidgetGuideScreen(
                             pairingUiState = pairingUiState,
                             onGenerateCode = { pairingViewModel.generateCode() },
+                            nicknameUiState = nicknameUiState,
+                            onLoadNickname = { nicknameViewModel.load() },
+                            onSaveNickname = { name -> nicknameViewModel.save(name) },
                             onDismiss = { screen = AppScreen.Compose },
                             onLogout = { onLogout() }
                         )

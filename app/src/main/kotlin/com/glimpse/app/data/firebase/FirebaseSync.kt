@@ -31,6 +31,7 @@ object FirebaseSync {
 
     private fun messagesRef() = database.child("shared/messages")
     private fun lastSeenAtRef() = database.child("shared/last_seen_at")
+    private fun partnerNicknameRef(uid: String) = database.child("users/$uid/settings/partnerNickname")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -180,5 +181,27 @@ object FirebaseSync {
 
     fun removeLastSeenAtListener(listener: ValueEventListener) {
         lastSeenAtRef().removeEventListener(listener)
+    }
+
+    // "What I call my partner" — purely local to the signed-in user: stored
+    // under their own users/{uid} node (already owner-only per
+    // database.rules.json, so no rules change needed) and only ever read by
+    // that same person's own client. The partner's copy of the app never
+    // sees or is affected by this value; each side can set their own.
+    suspend fun fetchPartnerNicknameOnce(): String {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return ""
+        return try {
+            partnerNicknameRef(uid).get().await().getValue(String::class.java).orEmpty()
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchPartnerNicknameOnce failed", e)
+            ""
+        }
+    }
+
+    suspend fun setPartnerNickname(nickname: String): Result<Unit> = runCatching {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            partnerNicknameRef(uid).setValue(nickname.trim()).await()
+        }
     }
 }
