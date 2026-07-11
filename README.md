@@ -86,7 +86,7 @@ pattern as the release-signing secrets below):
 
 | Secret | Value |
 |---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | base64-encoded service account JSON key — Firebase Console → ⚙️ Project Settings → **Service Accounts** tab → **Generate new private key**, then `base64 -w0 that-file.json` |
+| `FIREBASE_SERVICE_ACCOUNT` | the raw contents of the service account JSON key file — Firebase Console → ⚙️ Project Settings → **Service Accounts** tab → **Generate new private key**, then paste the downloaded file's contents directly as the secret value (not base64-encoded — `google-github-actions/auth`'s `credentials_json` input needs the actual JSON) |
 | `FIREBASE_PROJECT_ID` | your Firebase project ID (Project Settings → General) |
 
 If the deploy fails with a permissions error, the downloaded service account may need the **Cloud
