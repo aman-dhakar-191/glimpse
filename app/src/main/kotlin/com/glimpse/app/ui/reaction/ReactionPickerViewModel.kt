@@ -3,8 +3,10 @@ package com.glimpse.app.ui.reaction
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.glimpse.app.data.repository.MessageRepository
-import com.glimpse.app.service.WidgetSyncTrigger
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.glimpse.app.util.ConnectivityUtil
+import com.glimpse.app.work.SendReactionWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,13 +15,14 @@ import kotlinx.coroutines.launch
 sealed interface ReactUiState {
     data object Idle : ReactUiState
     data object Sending : ReactUiState
+    // No connection right now — still enqueued via WorkManager, goes out the
+    // moment one comes back.
+    data object Queued : ReactUiState
     data object Sent : ReactUiState
     data class Error(val message: String) : ReactUiState
 }
 
 class ReactionPickerViewModel(application: Application) : AndroidViewModel(application) {
-    private val messageRepository = MessageRepository()
-
     private val _uiState = MutableStateFlow<ReactUiState>(ReactUiState.Idle)
     val uiState: StateFlow<ReactUiState> = _uiState.asStateFlow()
 
@@ -32,23 +35,34 @@ class ReactionPickerViewModel(application: Application) : AndroidViewModel(appli
         targetMessageId = messageId
     }
 
+    // Same NetworkType.CONNECTED-backed WorkManager queue as sendMessage —
+    // reactions are trivially small (a message id + emoji), so unlike
+    // photos there's no durability concern queuing them offline.
     fun sendReaction(emoji: String) {
         if (emoji.isBlank()) return
-        _uiState.value = ReactUiState.Sending
+        val app = getApplication<Application>()
+        _uiState.value = if (ConnectivityUtil.isConnected(app)) {
+            ReactUiState.Sending
+        } else {
+            ReactUiState.Queued
+        }
+
+        val request = SendReactionWorker.buildRequest(targetMessageId, emoji)
+        val workManager = WorkManager.getInstance(app)
+        workManager.enqueue(request)
+
         viewModelScope.launch {
-            messageRepository.addReaction(targetMessageId, emoji)
-                .onSuccess {
-                    _uiState.value = ReactUiState.Sent
-                    // Restarting the sync service re-attaches a fresh Firebase
-                    // listener, which fires immediately with the value we just
-                    // wrote — without this the widget only refreshes whenever
-                    // its existing (possibly long-dead) listener happens to
-                    // still be alive.
-                    WidgetSyncTrigger.requestSync(getApplication())
+            workManager.getWorkInfoByIdFlow(request.id).collect { info ->
+                when (info?.state) {
+                    WorkInfo.State.RUNNING -> _uiState.value = ReactUiState.Sending
+                    WorkInfo.State.SUCCEEDED -> _uiState.value = ReactUiState.Sent
+                    WorkInfo.State.FAILED -> _uiState.value =
+                        ReactUiState.Error("Couldn't send that reaction. Try again.")
+                    WorkInfo.State.CANCELLED -> _uiState.value =
+                        ReactUiState.Error("Reaction send was cancelled.")
+                    else -> Unit // ENQUEUED/BLOCKED — keep whatever was already set above
                 }
-                .onFailure { throwable ->
-                    _uiState.value = ReactUiState.Error(throwable.message ?: "Failed to send reaction.")
-                }
+            }
         }
     }
 

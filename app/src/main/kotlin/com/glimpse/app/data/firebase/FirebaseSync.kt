@@ -13,10 +13,12 @@ import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 
 object FirebaseSync {
     private const val TAG = "FirebaseSync"
+    private const val NETWORK_TIMEOUT_MILLIS = 15_000L
     private val database get() = FirebaseDatabase.getInstance().reference
 
     // Reusing the ordinary reactions mechanism for the "seen" receipt (rather
@@ -89,26 +91,32 @@ object FirebaseSync {
         val reactionsRef = messagesRef().child(messageId).child("reactions").child(emoji)
 
         return try {
-            suspendCancellableCoroutine { continuation ->
-                reactionsRef.runTransaction(object : Transaction.Handler {
-                    override fun doTransaction(mutableData: MutableData): Transaction.Result {
-                        @Suppress("UNCHECKED_CAST")
-                        val userIds = (mutableData.value as? List<String>).orEmpty()
-                        if (userId !in userIds) {
-                            mutableData.value = userIds + userId
+            // A dangling transaction with no network otherwise waits
+            // forever — this bounds it so a caller (the reaction retry
+            // worker, or markSeenIfNeeded firing from the widget) always
+            // gets an answer instead of hanging indefinitely.
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                suspendCancellableCoroutine { continuation ->
+                    reactionsRef.runTransaction(object : Transaction.Handler {
+                        override fun doTransaction(mutableData: MutableData): Transaction.Result {
+                            @Suppress("UNCHECKED_CAST")
+                            val userIds = (mutableData.value as? List<String>).orEmpty()
+                            if (userId !in userIds) {
+                                mutableData.value = userIds + userId
+                            }
+                            return Transaction.success(mutableData)
                         }
-                        return Transaction.success(mutableData)
-                    }
 
-                    override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
-                        if (error != null) {
-                            Log.e(TAG, "addReaction failed", error.toException())
+                        override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                            if (error != null) {
+                                Log.e(TAG, "addReaction failed", error.toException())
+                            }
+                            if (continuation.isActive) {
+                                continuation.resume(error == null && committed)
+                            }
                         }
-                        if (continuation.isActive) {
-                            continuation.resume(error == null && committed)
-                        }
-                    }
-                })
+                    })
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "addReaction failed", e)

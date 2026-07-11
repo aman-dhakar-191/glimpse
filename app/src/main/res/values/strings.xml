@@ -32,11 +32,13 @@
     <string name="compose_sent">Sent! It\'s live on the widget now.</string>
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
+    <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
 
     <string name="react_title">Pick a reaction</string>
     <string name="react_placeholder">Tap the emoji key on your keyboard…</string>
     <string name="react_send">React</string>
     <string name="react_sent">Reaction sent!</string>
+    <string name="react_queued">No connection — we\'ll send this once you\'re back online.</string>
 
     <string name="history_title">Message History</string>
     <string name="history_empty">No messages yet. Say hello!</string>

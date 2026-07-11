@@ -20,7 +20,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
@@ -81,7 +80,7 @@ private fun StepCard(number: Int, title: String, description: String) {
                     .background(MaterialTheme.colorScheme.primary, shape = CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("$number", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("$number", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineSmall)
             }
 
             Column(modifier = Modifier.weight(1f)) {
