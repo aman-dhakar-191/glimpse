@@ -24,17 +24,13 @@ internal object WidgetRenderer {
     private val SQUARE_SIZE = SizeF(110f, 110f)
     private val RECTANGULAR_SIZE = SizeF(250f, 110f)
 
+    // For CurrentMessageWidget. Also opts into the responsive multi-size
+    // RemoteViews on API 31+ as a bonus for launchers that support in-place
+    // resize-to-switch-layout — SquareMessageWidget's own dedicated picker
+    // entry (see renderSquare) is what makes the square shape available
+    // everywhere else.
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
-        // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on
-        // Android 12+ (SecurityException: "Disallowed URI ... in
-        // RemoteViews") — widgets can only be handed real pixel data, not a
-        // URI for the host to fetch itself. So we download it here and hand
-        // over a Bitmap instead.
-        val photoBitmap = if (message?.type == "photo" && message.photoUrl.isNotBlank()) {
-            loadBitmap(context, message.photoUrl)
-        } else {
-            null
-        }
+        val photoBitmap = loadPhotoIfNeeded(context, message)
 
         val rectangularViews = buildViews(
             context, appWidgetId, R.layout.widget_current_message, message, photoBitmap
@@ -56,6 +52,26 @@ internal object WidgetRenderer {
             )
         )
     }
+
+    // For SquareMessageWidget — always the square layout, regardless of API
+    // level, since this provider's own footprint (not an in-place resize) is
+    // what determines its shape.
+    suspend fun renderSquare(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
+        val photoBitmap = loadPhotoIfNeeded(context, message)
+        return buildViews(context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap)
+    }
+
+    // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on
+    // Android 12+ (SecurityException: "Disallowed URI ... in
+    // RemoteViews") — widgets can only be handed real pixel data, not a
+    // URI for the host to fetch itself. So we download it here and hand
+    // over a Bitmap instead.
+    private suspend fun loadPhotoIfNeeded(context: Context, message: Message?): Bitmap? =
+        if (message?.type == "photo" && message.photoUrl.isNotBlank()) {
+            loadBitmap(context, message.photoUrl)
+        } else {
+            null
+        }
 
     private fun buildViews(
         context: Context,

@@ -9,11 +9,13 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.widgets.CurrentMessageWidget
+import com.glimpse.app.widgets.SquareMessageWidget
 import com.glimpse.app.widgets.WidgetRenderer
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CoroutineScope
@@ -56,14 +58,26 @@ class WidgetUpdateService : Service() {
     private fun updateWidgets(message: Message?) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(this@WidgetUpdateService, CurrentMessageWidget::class.java)
-            )
-            appWidgetIds.forEach { appWidgetId ->
-                val remoteViews = WidgetRenderer.render(this@WidgetUpdateService, appWidgetId, message)
-                appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
+            updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
+                WidgetRenderer.render(this@WidgetUpdateService, id, message)
+            }
+            updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
+                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, message)
             }
             FirebaseSync.markSeenIfNeeded(message)
+        }
+    }
+
+    private suspend fun updateProvider(
+        appWidgetManager: AppWidgetManager,
+        providerClass: Class<*>,
+        render: suspend (appWidgetId: Int) -> RemoteViews
+    ) {
+        val appWidgetIds = appWidgetManager.getAppWidgetIds(
+            ComponentName(this@WidgetUpdateService, providerClass)
+        )
+        appWidgetIds.forEach { appWidgetId ->
+            appWidgetManager.updateAppWidget(appWidgetId, render(appWidgetId))
         }
     }
 

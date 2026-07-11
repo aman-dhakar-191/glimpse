@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A separate provider (not just a resize variant of the main widget) so
+     it shows up as its own distinct, pickable entry in every launcher's
+     widget list — the OS-level "resize to switch layout" responsive-RemoteViews
+     approach only surfaces on launchers that support Android 12's flexible
+     widget picker, which isn't universal (see WidgetRenderer.render). -->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/widget_preview_square"
+    android:initialLayout="@layout/widget_current_message_square"
+    android:widgetCategory="home_screen"
+    android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_square_description" />

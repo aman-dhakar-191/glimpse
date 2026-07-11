@@ -41,16 +41,33 @@
             </intent-filter>
         </activity>
 
-        <!-- Current Message Widget -->
+        <!-- Current Message Widget (rectangular, default 4x4) -->
         <receiver
             android:name=".widgets.CurrentMessageWidget"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_label_rectangular">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_current_message_info" />
+        </receiver>
+
+        <!-- Square Message Widget — a separate provider (not a resize
+             variant) so it always shows up as its own entry in the widget
+             picker, regardless of whether the launcher supports Android
+             12's in-place flexible-resize picker. -->
+        <receiver
+            android:name=".widgets.SquareMessageWidget"
+            android:exported="true"
+            android:label="@string/widget_label_square">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_current_message_square_info" />
         </receiver>
 
         <!-- Widget Update Service -->
