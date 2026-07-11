@@ -24,7 +24,7 @@ object UpdateChecker {
     private val client = OkHttpClient()
 
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
-        val token = BuildConfig.GITHUB_RELEASES_TOKEN
+        val token = BuildConfig.GLIMPSE_RELEASES_TOKEN
         if (token.isBlank()) return@withContext null
 
         try {
@@ -82,7 +82,7 @@ object UpdateChecker {
         info: UpdateInfo,
         onProgress: (Float) -> Unit
     ): File? = withContext(Dispatchers.IO) {
-        val token = BuildConfig.GITHUB_RELEASES_TOKEN
+        val token = BuildConfig.GLIMPSE_RELEASES_TOKEN
         if (token.isBlank()) return@withContext null
 
         try {

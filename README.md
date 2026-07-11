@@ -150,9 +150,10 @@ the build:
 1. Create a fine-grained personal access token: GitHub → Settings → Developer settings →
    Personal access tokens → Fine-grained tokens → **Generate new token**. Scope it to just this
    repository, with **Contents: Read-only** permission (nothing else needed).
-2. Add it as a repo secret named `GITHUB_RELEASES_TOKEN`.
+2. Add it as a repo secret named `GLIMPSE_RELEASES_TOKEN` (GitHub reserves the `GITHUB_` prefix
+   for its own secrets, so that name isn't allowed).
 
-Without this secret, `BuildConfig.GITHUB_RELEASES_TOKEN` is blank and the update checker is a
+Without this secret, `BuildConfig.GLIMPSE_RELEASES_TOKEN` is blank and the update checker is a
 silent no-op — the app works fine, it just never offers to self-update.
 
 The APK gets installed via `Intent.ACTION_VIEW` with a `FileProvider` URI, which needs the
