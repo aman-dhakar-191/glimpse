@@ -15,6 +15,7 @@ import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.widgets.CurrentMessageWidget
+import com.glimpse.app.widgets.LargeMessageWidget
 import com.glimpse.app.widgets.SquareMessageWidget
 import com.glimpse.app.widgets.WidgetRenderer
 import com.google.firebase.database.ValueEventListener
@@ -63,6 +64,9 @@ class WidgetUpdateService : Service() {
             }
             updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
                 WidgetRenderer.renderSquare(this@WidgetUpdateService, id, message)
+            }
+            updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
+                WidgetRenderer.render(this@WidgetUpdateService, id, message)
             }
             FirebaseSync.markSeenIfNeeded(message)
         }

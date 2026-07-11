@@ -70,6 +70,20 @@
                 android:resource="@xml/widget_current_message_square_info" />
         </receiver>
 
+        <!-- Large Message Widget (4x6) — a separate provider so it's a
+             guaranteed, always-visible entry in the widget picker. -->
+        <receiver
+            android:name=".widgets.LargeMessageWidget"
+            android:exported="true"
+            android:label="@string/widget_label_large">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_current_message_large_info" />
+        </receiver>
+
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"
