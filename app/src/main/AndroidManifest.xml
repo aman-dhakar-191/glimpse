@@ -9,6 +9,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Only needed to save a photo to the gallery on Android 9 and below —
+         API 29+ writes through MediaStore without this permission at all
+         (scoped storage), so it's capped to the OS versions that need it. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <!-- Sideloaded (not Play Store) — installing a downloaded update APK
          needs this special permission, granted per-app via Settings, not a
          runtime dangerous-permission prompt. -->

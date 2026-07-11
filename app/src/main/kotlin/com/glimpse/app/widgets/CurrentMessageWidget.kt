@@ -27,11 +27,12 @@ class CurrentMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
-                val message = FirebaseSync.fetchCurrentMessageOnce()
+                val message = FirebaseSync.fetchLatestMessageOnce()
                 appWidgetIds.forEach { appWidgetId ->
                     val remoteViews = WidgetRenderer.render(context, appWidgetId, message)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
+                FirebaseSync.markSeenIfNeeded(message)
             } finally {
                 pendingResult.finish()
             }

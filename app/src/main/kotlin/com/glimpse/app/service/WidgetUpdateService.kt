@@ -39,13 +39,13 @@ class WidgetUpdateService : Service() {
         // be a non-null reference to a dead listener, so a null-check guard
         // would permanently skip re-attaching even after the underlying
         // problem (like a missing allowedUsers entry) is fixed.
-        listener?.let { FirebaseSync.removeCurrentMessageListener(it) }
-        listener = FirebaseSync.listenToCurrentMessage(::updateWidgets)
+        listener?.let { FirebaseSync.removeLatestMessageListener(it) }
+        listener = FirebaseSync.listenToLatestMessage(::updateWidgets)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        listener?.let { FirebaseSync.removeCurrentMessageListener(it) }
+        listener?.let { FirebaseSync.removeLatestMessageListener(it) }
         listener = null
         serviceJob.cancel()
         super.onDestroy()
@@ -63,6 +63,7 @@ class WidgetUpdateService : Service() {
                 val remoteViews = WidgetRenderer.render(this@WidgetUpdateService, appWidgetId, message)
                 appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
             }
+            FirebaseSync.markSeenIfNeeded(message)
         }
     }
 

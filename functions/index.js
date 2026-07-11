@@ -54,13 +54,17 @@ async function sendToTokens(recipients, data) {
   return response;
 }
 
-// setValue() replaces the whole current_message node for every new message
-// (see MessageRepository.sendMessage), so this fires once per new message —
-// reactions live under a separate child path and don't touch this trigger.
+// Each message now gets its own push key under shared/messages/{messageId}
+// (see MessageRepository.sendMessage) instead of overwriting one shared
+// node, so History can show a scrollback instead of just the latest message.
+// onCreate (not onWrite) so this fires exactly once, when the message is
+// first written — reactions live under a more specific child path and are
+// handled by onNewReaction below instead, per Firebase's closest-ancestor
+// trigger matching.
 exports.onNewMessage = functions.database
-  .ref("/shared/current_message")
-  .onWrite(async (change) => {
-    const after = change.after.val();
+  .ref("/shared/messages/{messageId}")
+  .onCreate(async (snapshot) => {
+    const after = snapshot.val();
     if (!after) return null;
 
     const tokens = await tokensForUsersExcept(after.authorUid);
@@ -78,14 +82,22 @@ exports.onNewMessage = functions.database
     });
   });
 
+// 👀 is written automatically (FirebaseSync.markSeenIfNeeded) the moment the
+// other person's widget/app loads your message — it's meant to be a quiet
+// visual "seen" cue on the widget, not a push notification, so it's excluded
+// here rather than firing "X reacted 👀" every time a message is opened.
+const AUTO_SEEN_EMOJI = "👀";
+
 exports.onNewReaction = functions.database
-  .ref("/shared/current_message/reactions/{emoji}")
+  .ref("/shared/messages/{messageId}/reactions/{emoji}")
   .onWrite(async (change, context) => {
+    if (context.params.emoji === AUTO_SEEN_EMOJI) return null;
+
     const before = change.before.val() || [];
     const after = change.after.val() || [];
     if (after.length <= before.length) return null; // only notify on additions
 
-    const messageSnap = await db.ref("shared/current_message").get();
+    const messageSnap = await db.ref(`shared/messages/${context.params.messageId}`).get();
     const message = messageSnap.val();
     if (!message) return null;
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,8 @@ import androidx.core.content.ContextCompat
 import com.glimpse.app.ui.auth.LoginScreen
 import com.glimpse.app.ui.auth.LoginViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
+import com.glimpse.app.ui.history.MessageHistoryScreen
+import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
@@ -39,13 +42,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, React }
+private enum class AppScreen { Login, Compose, Guide, React, History }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
     private val composeMessageViewModel: ComposeMessageViewModel by viewModels()
     private val reactionPickerViewModel: ReactionPickerViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
+    private val historyViewModel: MessageHistoryViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -116,6 +120,7 @@ class MainActivity : ComponentActivity() {
     // straight to one instead.
     private fun handleOpenReactIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_REACT, false) == true && loginViewModel.isSignedIn) {
+            reactionPickerViewModel.setTarget(intent.getStringExtra(EXTRA_REACT_MESSAGE_ID).orEmpty())
             screen = AppScreen.React
         }
     }
@@ -154,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     val composeUiState by composeMessageViewModel.uiState.collectAsState()
                     val reactUiState by reactionPickerViewModel.uiState.collectAsState()
                     val updateUiState by updateViewModel.uiState.collectAsState()
+                    val historyUiState by historyViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -179,6 +185,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
                                     onOpenGuide = { screen = AppScreen.Guide },
+                                    onOpenHistory = { screen = AppScreen.History },
                                     onLogout = { onLogout() }
                                 )
                             }
@@ -195,6 +202,16 @@ class MainActivity : ComponentActivity() {
                             onSentHandled = { reactionPickerViewModel.consumeSentState() },
                             onDismiss = { screen = AppScreen.Compose }
                         )
+
+                        AppScreen.History -> {
+                            LaunchedEffect(Unit) { historyViewModel.start() }
+                            MessageHistoryScreen(
+                                uiState = historyUiState,
+                                onBack = { screen = AppScreen.Compose },
+                                onDownloadImage = { url -> historyViewModel.downloadImage(this@MainActivity, url) },
+                                onDownloadResultHandled = { historyViewModel.consumeDownloadResult() }
+                            )
+                        }
                     }
                 }
             }
@@ -204,5 +221,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_COMPOSE = "com.glimpse.app.EXTRA_OPEN_COMPOSE"
         const val EXTRA_OPEN_REACT = "com.glimpse.app.EXTRA_OPEN_REACT"
+        const val EXTRA_REACT_MESSAGE_ID = "com.glimpse.app.EXTRA_REACT_MESSAGE_ID"
     }
 }

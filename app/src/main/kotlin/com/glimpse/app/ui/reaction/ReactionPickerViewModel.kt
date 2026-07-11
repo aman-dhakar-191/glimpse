@@ -23,11 +23,20 @@ class ReactionPickerViewModel(application: Application) : AndroidViewModel(appli
     private val _uiState = MutableStateFlow<ReactUiState>(ReactUiState.Idle)
     val uiState: StateFlow<ReactUiState> = _uiState.asStateFlow()
 
+    // Set from the React button's intent extra (MainActivity.EXTRA_REACT_MESSAGE_ID)
+    // — reactions now attach to a specific message rather than an implicit
+    // "current" one, since there can be many messages in history.
+    private var targetMessageId: String = ""
+
+    fun setTarget(messageId: String) {
+        targetMessageId = messageId
+    }
+
     fun sendReaction(emoji: String) {
         if (emoji.isBlank()) return
         _uiState.value = ReactUiState.Sending
         viewModelScope.launch {
-            messageRepository.addReaction(emoji)
+            messageRepository.addReaction(targetMessageId, emoji)
                 .onSuccess {
                     _uiState.value = ReactUiState.Sent
                     // Restarting the sync service re-attaches a fresh Firebase
