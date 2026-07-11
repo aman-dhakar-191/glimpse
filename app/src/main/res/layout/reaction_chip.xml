@@ -8,7 +8,6 @@
     android:paddingHorizontal="10dp"
     android:paddingVertical="4dp"
     android:background="@drawable/bg_reaction_chip"
-    android:fontFamily="@font/nunito"
     android:textStyle="bold"
     android:textSize="13sp"
     android:textColor="@color/text_primary" />
