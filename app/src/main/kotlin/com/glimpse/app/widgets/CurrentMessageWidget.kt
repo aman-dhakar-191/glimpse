@@ -3,9 +3,12 @@ package com.glimpse.app.widgets
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import android.widget.RemoteViews
-import com.glimpse.app.R
+import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.service.WidgetSyncTrigger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class CurrentMessageWidget : AppWidgetProvider() {
 
@@ -14,12 +17,28 @@ class CurrentMessageWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        appWidgetIds.forEach { appWidgetId ->
-            val remoteViews = RemoteViews(context.packageName, R.layout.widget_current_message)
-            ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId)
-            ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
-            appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
+        // A plain one-shot fetch+render, independent of
+        // WidgetUpdateService's foreground service — that service can't
+        // always start immediately from this receiver context (Android 12+
+        // background-start restrictions, most visible right after the
+        // widget is (re-)added), which previously left the widget blank
+        // until the app was opened. This guarantees real content shows up
+        // right away regardless.
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
+            try {
+                val message = FirebaseSync.fetchCurrentMessageOnce()
+                appWidgetIds.forEach { appWidgetId ->
+                    val remoteViews = WidgetRenderer.render(context, appWidgetId, message)
+                    appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
+                }
+            } finally {
+                pendingResult.finish()
+            }
         }
+
+        // Best-effort: also start the live-listener service, for real-time
+        // updates from here on whenever the OS allows it.
         WidgetSyncTrigger.requestSync(context)
     }
 

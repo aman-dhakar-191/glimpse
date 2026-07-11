@@ -9,10 +9,23 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.MutableData
 import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.tasks.await
 
 object FirebaseSync {
     private const val TAG = "FirebaseSync"
     private val database get() = FirebaseDatabase.getInstance().reference
+
+    // A plain one-shot read (not a live listener), so the widget can show
+    // real content immediately on (re-)add without depending on
+    // WidgetUpdateService's foreground-service-backed live listener, which
+    // can't always start right away (see WidgetSyncTrigger).
+    suspend fun fetchCurrentMessageOnce(): Message? = try {
+        database.child("shared").child("current_message").get().await()
+            .getValue(Message::class.java)
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchCurrentMessageOnce failed", e)
+        null
+    }
 
     fun listenToCurrentMessage(onMessage: (Message?) -> Unit): ValueEventListener {
         val listener = object : ValueEventListener {
