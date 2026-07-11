@@ -36,4 +36,11 @@
     <string name="react_placeholder">Tap the emoji key on your keyboard…</string>
     <string name="react_send">React</string>
     <string name="react_sent">Reaction sent!</string>
+
+    <string name="update_available">Update available: v%1$s</string>
+    <string name="update_button">Update</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_install_permission">Allow Glimpse to install updates in Settings, then tap Update again.</string>
+    <string name="update_open_settings">Open Settings</string>
+    <string name="update_dismiss">Dismiss</string>
 </resources>

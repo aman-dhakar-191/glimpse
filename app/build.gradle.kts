@@ -35,6 +35,19 @@ android {
         versionName = appFullVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Fine-grained PAT (Contents: Read-only, scoped to this repo) used
+        // to check/download GitHub Releases from the Android app — the repo
+        // is private, so the unauthenticated public API isn't usable here.
+        // Left blank (and the in-app update check silently does nothing)
+        // when the secret isn't set, e.g. for local/PR builds.
+        buildConfigField(
+            "String",
+            "GITHUB_RELEASES_TOKEN",
+            "\"${System.getenv("GITHUB_RELEASES_TOKEN") ?: ""}\""
+        )
+        buildConfigField("String", "RELEASES_REPO_OWNER", "\"aman-dhakar-191\"")
+        buildConfigField("String", "RELEASES_REPO_NAME", "\"glimpse\"")
     }
 
     // Release signing comes from env vars CI populates from repo secrets
@@ -81,6 +94,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     sourceSets {
@@ -121,6 +135,7 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

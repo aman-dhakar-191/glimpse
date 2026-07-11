@@ -46,6 +46,8 @@ jobs:
 
       - name: Build debug APK
         # Runs on every PR and push as the merge-gate validation.
+        env:
+          GITHUB_RELEASES_TOKEN: ${{ secrets.GITHUB_RELEASES_TOKEN }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Read app version
@@ -94,6 +96,7 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          GITHUB_RELEASES_TOKEN: ${{ secrets.GITHUB_RELEASES_TOKEN }}
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Rename release APK
