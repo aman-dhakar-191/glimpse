@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taller (4x6) sibling of widget_current_message_info.xml — a separate
+     provider (see LargeMessageWidget) so it's a guaranteed, always-visible
+     picker entry rather than something the user has to discover by
+     manually resizing the default 4x4 widget. -->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="330dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="6"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/widget_preview_large"
+    android:initialLayout="@layout/widget_current_message"
+    android:widgetCategory="home_screen"
+    android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_large_description" />

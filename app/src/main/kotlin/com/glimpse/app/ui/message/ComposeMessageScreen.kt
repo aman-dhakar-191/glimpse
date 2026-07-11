@@ -7,6 +7,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -42,15 +55,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import kotlinx.coroutines.delay
 import java.io.File
 
 private fun createCameraImageUri(context: Context): Uri {
@@ -60,6 +76,45 @@ private fun createCameraImageUri(context: Context): Uri {
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
+
+// A dedicated animation for photo sends (not text — those are near-instant,
+// so a plain spinner is enough) since a photo upload can take a few seconds
+// and a pulsing heart over the preview reads as "your glimpse is on its way"
+// instead of a generic loading state.
+@Composable
+private fun PhotoUploadingOverlay(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "photo-upload-pulse")
+    val scale by transition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.45f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "💌",
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.scale(scale)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.compose_uploading_photo),
+                color = Color.White,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
 
 @Composable
 fun ComposeMessageScreen(
@@ -74,6 +129,7 @@ fun ComposeMessageScreen(
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var showSentBurst by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.compose_sent)
     val context = LocalContext.current
@@ -113,14 +169,27 @@ fun ComposeMessageScreen(
             text = ""
             selectedImageUri = null
             pendingCameraUri = null
+            showSentBurst = true
             snackbarHostState.showSnackbar(sentMessage)
             onSentHandled()
+        }
+    }
+
+    // Auto-dismiss the heart burst on its own timer, independent of
+    // uiState — by the time Sent fires onSentHandled() above, uiState has
+    // already moved on to Idle, so this can't key off uiState the way the
+    // effect above does.
+    LaunchedEffect(showSentBurst) {
+        if (showSentBurst) {
+            delay(1100)
+            showSentBurst = false
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -156,6 +225,8 @@ fun ComposeMessageScreen(
                     Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
 
+                    val uploadingPhoto = uiState is ComposeUiState.Sending && selectedImageUri != null
+
                     selectedImageUri?.let { uri ->
                         Box(modifier = Modifier.fillMaxWidth()) {
                             AsyncImage(
@@ -168,15 +239,19 @@ fun ComposeMessageScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                             )
-                            IconButton(
-                                onClick = { selectedImageUri = null },
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            ) {
-                                Text(
-                                    "✕",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                            if (uploadingPhoto) {
+                                PhotoUploadingOverlay(modifier = Modifier.fillMaxWidth().height(160.dp))
+                            } else {
+                                IconButton(
+                                    onClick = { selectedImageUri = null },
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Text(
+                                        "✕",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -266,6 +341,24 @@ fun ComposeMessageScreen(
                     Text(stringResource(R.string.compose_send))
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = showSentBurst,
+            modifier = Modifier.align(Alignment.Center),
+            enter = scaleIn(
+                initialScale = 0.4f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            ) + fadeIn(),
+            exit = fadeOut()
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_heart),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(96.dp)
+            )
+        }
         }
     }
 }

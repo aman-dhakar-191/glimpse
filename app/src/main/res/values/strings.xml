@@ -16,9 +16,9 @@
     <string name="guide_step_2_title">Select \'Widgets\'</string>
     <string name="guide_step_2_desc">Tap the widgets option</string>
     <string name="guide_step_3_title">Find \'Glimpse\'</string>
-    <string name="guide_step_3_desc">Search for our app — you\'ll see two widgets: \"Glimpse\" and \"Glimpse (Square)\"</string>
-    <string name="guide_step_4_title">Pick the shape you want</string>
-    <string name="guide_step_4_desc">\"Glimpse\" is the default rectangular widget (4x4) — resize it anytime. \"Glimpse (Square)\" is a compact square version.</string>
+    <string name="guide_step_3_desc">Search for our app — you\'ll see three widgets: \"Glimpse\", \"Glimpse (Square)\", and \"Glimpse (Large)\"</string>
+    <string name="guide_step_4_title">Pick the size you want</string>
+    <string name="guide_step_4_desc">\"Glimpse\" is the default 4x4 widget, \"Glimpse (Square)\" is compact, and \"Glimpse (Large)\" is a taller 4x6 with more room for photos. All resize afterward too.</string>
     <string name="guide_step_5_title">Tap React on the widget to reply with any emoji</string>
     <string name="guide_step_5_desc">Opens a quick picker right in the app</string>
     <string name="guide_dismiss">Got it, dismiss this guide</string>
@@ -33,8 +33,10 @@
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
     <string name="widget_square_description">A compact square version of the Glimpse widget.</string>
+    <string name="widget_large_description">A taller version of the Glimpse widget with more room for photos.</string>
     <string name="widget_label_rectangular">Glimpse</string>
     <string name="widget_label_square">Glimpse (Square)</string>
+    <string name="widget_label_large">Glimpse (Large)</string>
     <string name="widget_react_button">😊 React</string>
 
     <string name="compose_title">Send a message</string>
@@ -45,6 +47,7 @@
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
     <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
+    <string name="compose_uploading_photo">Sending your glimpse…</string>
 
     <string name="react_title">Pick a reaction</string>
     <string name="react_placeholder">Tap the emoji key on your keyboard…</string>
