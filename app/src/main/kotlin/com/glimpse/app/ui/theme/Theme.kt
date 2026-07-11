@@ -1,10 +1,12 @@
 package com.glimpse.app.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val GlimpseColorScheme = lightColorScheme(
+private val GlimpseLightColorScheme = lightColorScheme(
     primary = GlimpsePink,
     onPrimary = GlimpseSurface,
     primaryContainer = GlimpseChipBg,
@@ -25,10 +27,30 @@ private val GlimpseColorScheme = lightColorScheme(
     surfaceTint = GlimpsePink
 )
 
+private val GlimpseDarkColorScheme = darkColorScheme(
+    primary = GlimpsePinkOnDark,
+    // Dark text on the lighter dark-mode pink reads better than white does —
+    // the light-theme primary is dark enough for white text, the dark-theme
+    // one isn't.
+    onPrimary = GlimpseBackgroundOnDark,
+    primaryContainer = GlimpseChipBgOnDark,
+    onPrimaryContainer = GlimpsePinkDarkOnDark,
+    secondary = GlimpseLavenderOnDark,
+    onSecondary = GlimpseBackgroundOnDark,
+    background = GlimpseBackgroundOnDark,
+    surface = GlimpseSurfaceOnDark,
+    surfaceVariant = GlimpseChipBgOnDark,
+    onBackground = GlimpseTextPrimaryOnDark,
+    onSurface = GlimpseTextPrimaryOnDark,
+    onSurfaceVariant = GlimpseTextSecondaryOnDark,
+    surfaceTint = GlimpsePinkOnDark
+)
+
 @Composable
 fun GlimpseTheme(content: @Composable () -> Unit) {
+    val colorScheme = if (isSystemInDarkTheme()) GlimpseDarkColorScheme else GlimpseLightColorScheme
     MaterialTheme(
-        colorScheme = GlimpseColorScheme,
+        colorScheme = colorScheme,
         shapes = GlimpseShapes,
         typography = GlimpseTypography,
         content = content

@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 
 class MessageRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -39,31 +40,43 @@ class MessageRepository {
         // A new push key per message (instead of overwriting one shared
         // node) is what makes a scrollable history possible — each message
         // keeps its own reactions rather than a new one wiping out the last.
-        database.child("shared/messages").push().setValue(message).await()
+        //
+        // Firebase's own Task never times out on its own — with no network
+        // it just sits pending forever (the SDK queues the write and waits
+        // for a connection), which without this would leave the UI stuck on
+        // its spinner indefinitely instead of failing visibly. Callers here
+        // (SendMessageWorker) run behind a NetworkType.CONNECTED constraint,
+        // so this timeout is really a safety net for connectivity dropping
+        // mid-write, not the primary offline handling.
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            database.child("shared/messages").push().setValue(message).await()
+        }
     }
 
     suspend fun sendPhotoMessage(imageUri: Uri, caption: String): Result<Unit> = runCatching {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
 
-        // glimpse/ namespace since this Storage bucket is shared with other
-        // projects on the same Firebase project.
-        val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.jpg")
-        photoRef.putFile(imageUri).await()
-        val photoUrl = photoRef.downloadUrl.await().toString()
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            // glimpse/ namespace since this Storage bucket is shared with other
+            // projects on the same Firebase project.
+            val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.jpg")
+            photoRef.putFile(imageUri).await()
+            val photoUrl = photoRef.downloadUrl.await().toString()
 
-        val message = Message(
-            authorUid = user.uid,
-            authorName = user.displayName.orEmpty(),
-            type = "photo",
-            content = "",
-            photoUrl = photoUrl,
-            caption = caption.trim(),
-            createdAt = now,
-            updatedAt = now,
-            expiresAt = now + THIRTY_DAYS_MILLIS
-        )
-        database.child("shared/messages").push().setValue(message).await()
+            val message = Message(
+                authorUid = user.uid,
+                authorName = user.displayName.orEmpty(),
+                type = "photo",
+                content = "",
+                photoUrl = photoUrl,
+                caption = caption.trim(),
+                createdAt = now,
+                updatedAt = now,
+                expiresAt = now + THIRTY_DAYS_MILLIS
+            )
+            database.child("shared/messages").push().setValue(message).await()
+        }
     }
 
     private fun isEmojiOnly(text: String): Boolean =
@@ -71,5 +84,6 @@ class MessageRepository {
 
     companion object {
         private const val THIRTY_DAYS_MILLIS = 30L * 24 * 60 * 60 * 1000
+        private const val NETWORK_TIMEOUT_MILLIS = 15_000L
     }
 }

@@ -234,8 +234,15 @@ fun ComposeMessageScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
+            if (uiState is ComposeUiState.Queued) {
+                Text(
+                    stringResource(R.string.compose_queued),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
 
-            val canSend = uiState !is ComposeUiState.Sending &&
+            val canSend = uiState !is ComposeUiState.Sending && uiState !is ComposeUiState.Queued &&
                 (selectedImageUri != null || text.isNotBlank())
 
             Button(
@@ -250,7 +257,7 @@ fun ComposeMessageScreen(
                 enabled = canSend,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (uiState is ComposeUiState.Sending) {
+                if (uiState is ComposeUiState.Sending || uiState is ComposeUiState.Queued) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimary

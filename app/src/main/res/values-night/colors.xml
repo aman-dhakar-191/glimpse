@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picked up automatically by the widget's plain @color/* references (see
+     widget_current_message.xml, reaction_chip.xml, bg_reaction_chip.xml) —
+     RemoteViews inflation respects the night resource qualifier same as any
+     other view, so this needs no code changes on the widget side. Same
+     palette as ui/theme/Color.kt's dark tokens, kept in sync by hand since
+     Compose and RemoteViews can't share a single source of truth. -->
+<resources>
+    <color name="primary">#FFA0BB</color>
+    <color name="primary_dark">#FF87A8</color>
+    <color name="secondary">#C9B8F5</color>
+    <color name="background">#2A2129</color>
+    <color name="widget_bg">#35272F</color>
+    <color name="widget_border">#4B3540</color>
+    <color name="text_primary">#FBEEF2</color>
+    <color name="text_secondary">#CBAEB9</color>
+    <color name="chip_bg">#4B3540</color>
+    <color name="chip_border">#5F4650</color>
+    <color name="button_bg">#4B3540</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

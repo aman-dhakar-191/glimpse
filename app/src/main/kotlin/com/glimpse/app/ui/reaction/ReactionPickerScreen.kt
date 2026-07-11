@@ -115,13 +115,20 @@ fun ReactionPickerScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
+            if (uiState is ReactUiState.Queued) {
+                Text(
+                    stringResource(R.string.react_queued),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
 
             Button(
                 onClick = { onReact(emoji) },
-                enabled = uiState !is ReactUiState.Sending && emoji.isNotBlank(),
+                enabled = uiState !is ReactUiState.Sending && uiState !is ReactUiState.Queued && emoji.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (uiState is ReactUiState.Sending) {
+                if (uiState is ReactUiState.Sending || uiState is ReactUiState.Queued) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimary
