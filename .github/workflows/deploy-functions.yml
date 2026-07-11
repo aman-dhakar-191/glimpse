@@ -77,4 +77,8 @@ jobs:
           # function belonging to another app on this same shared Firebase
           # project. Naming our functions explicitly scopes the deploy to
           # only touch them, leaving everything else alone.
-          firebase deploy --only functions:onNewMessage,functions:onNewReaction --project "$FIREBASE_PROJECT_ID" --non-interactive
+          # --force is needed for the CLI to auto-set an Artifact Registry
+          # cleanup policy in non-interactive mode — without it, the deploy
+          # itself succeeds but the command still exits non-zero because it
+          # can't prompt for that policy.
+          firebase deploy --only functions:onNewMessage,functions:onNewReaction --project "$FIREBASE_PROJECT_ID" --non-interactive --force
