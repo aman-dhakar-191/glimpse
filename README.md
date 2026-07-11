@@ -22,6 +22,15 @@ functions/                             Cloud Functions: sends FCM push on new me
 firebase.json                          Firebase CLI config (rules + functions source)
 ```
 
+## Design
+
+App and widget both use a shared "soft pastel + rounded" theme: `ui/theme/Color.kt`,
+`Shape.kt`, and `Type.kt` define the palette, corner-radius scale, and typography, and cascade
+through Compose via `GlimpseTheme`. Two variable fonts are bundled under `res/font/` —
+[Fredoka](https://fonts.google.com/specimen/Fredoka) for display/headline text and
+[Nunito](https://fonts.google.com/specimen/Nunito) for body copy — both SIL Open Font
+License 1.1 (full license text under `app/src/main/assets/licenses/`).
+
 ## Building locally
 
 ```bash

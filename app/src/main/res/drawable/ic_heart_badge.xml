@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp"
+    android:height="26dp"
+    android:viewportWidth="26"
+    android:viewportHeight="26">
+    <!-- White sticker backing so the heart pops off the card corner -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M13,26 A13,13 0 1 1 13,0 A13,13 0 0 1 13,26 Z" />
+    <!-- Heart, centered in a 16x16 box within the 26x26 viewport -->
+    <path
+        android:fillColor="@color/primary"
+        android:pathData="M13,20.5
+                           C7,16.3 4,13.4 4,10
+                           C4,7.5 6,5.5 8.5,5.5
+                           C10,5.5 11.4,6.2 13,7.8
+                           C14.6,6.2 16,5.5 17.5,5.5
+                           C20,5.5 22,7.5 22,10
+                           C22,13.4 19,16.3 13,20.5 Z" />
+</vector>
