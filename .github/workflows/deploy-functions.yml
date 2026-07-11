@@ -81,4 +81,4 @@ jobs:
           # cleanup policy in non-interactive mode — without it, the deploy
           # itself succeeds but the command still exits non-zero because it
           # can't prompt for that policy.
-          firebase deploy --only functions:onNewMessage,functions:onNewReaction --project "$FIREBASE_PROJECT_ID" --non-interactive --force
+          firebase deploy --only functions:onNewMessage,functions:onNewReaction,functions:createPairingCode,functions:redeemPairingCode --project "$FIREBASE_PROJECT_ID" --non-interactive --force
