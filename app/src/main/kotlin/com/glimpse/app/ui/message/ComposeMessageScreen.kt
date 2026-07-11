@@ -7,12 +7,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -52,12 +59,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import kotlinx.coroutines.delay
 import java.io.File
 
 private fun createCameraImageUri(context: Context): Uri {
@@ -120,6 +129,7 @@ fun ComposeMessageScreen(
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var showSentBurst by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.compose_sent)
     val context = LocalContext.current
@@ -159,14 +169,27 @@ fun ComposeMessageScreen(
             text = ""
             selectedImageUri = null
             pendingCameraUri = null
+            showSentBurst = true
             snackbarHostState.showSnackbar(sentMessage)
             onSentHandled()
+        }
+    }
+
+    // Auto-dismiss the heart burst on its own timer, independent of
+    // uiState — by the time Sent fires onSentHandled() above, uiState has
+    // already moved on to Idle, so this can't key off uiState the way the
+    // effect above does.
+    LaunchedEffect(showSentBurst) {
+        if (showSentBurst) {
+            delay(1100)
+            showSentBurst = false
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -318,6 +341,24 @@ fun ComposeMessageScreen(
                     Text(stringResource(R.string.compose_send))
                 }
             }
+        }
+
+        AnimatedVisibility(
+            visible = showSentBurst,
+            modifier = Modifier.align(Alignment.Center),
+            enter = scaleIn(
+                initialScale = 0.4f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            ) + fadeIn(),
+            exit = fadeOut()
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_heart),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(96.dp)
+            )
+        }
         }
     }
 }
