@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -38,6 +41,14 @@ import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
+import com.glimpse.app.ui.theme.BlobButtonShape
+import com.glimpse.app.ui.theme.BlobShapeA
+import com.glimpse.app.ui.theme.BlobShapeB
+import com.glimpse.app.ui.theme.BlobShapeC
+
+// Generous, matching the same reasoning as the login/compose blob buttons —
+// these shapes pinch inward at the edges more than a plain pill would.
+private val BlobButtonPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
 
 @Composable
 fun WidgetGuideScreen(
@@ -63,11 +74,11 @@ fun WidgetGuideScreen(
             style = MaterialTheme.typography.headlineSmall
         )
 
-        StepCard(1, stringResource(R.string.guide_step_1_title), stringResource(R.string.guide_step_1_desc))
-        StepCard(2, stringResource(R.string.guide_step_2_title), stringResource(R.string.guide_step_2_desc))
-        StepCard(3, stringResource(R.string.guide_step_3_title), stringResource(R.string.guide_step_3_desc))
-        StepCard(4, stringResource(R.string.guide_step_4_title), stringResource(R.string.guide_step_4_desc))
-        StepCard(5, stringResource(R.string.guide_step_5_title), stringResource(R.string.guide_step_5_desc))
+        StepCard(1, stringResource(R.string.guide_step_1_title), stringResource(R.string.guide_step_1_desc), BlobShapeA, -0.6f)
+        StepCard(2, stringResource(R.string.guide_step_2_title), stringResource(R.string.guide_step_2_desc), BlobShapeB, 0.5f)
+        StepCard(3, stringResource(R.string.guide_step_3_title), stringResource(R.string.guide_step_3_desc), BlobShapeC, -0.4f)
+        StepCard(4, stringResource(R.string.guide_step_4_title), stringResource(R.string.guide_step_4_desc), BlobShapeA, 0.6f)
+        StepCard(5, stringResource(R.string.guide_step_5_title), stringResource(R.string.guide_step_5_desc), BlobShapeB, -0.5f)
 
         InviteCard(pairingUiState, onGenerateCode)
 
@@ -77,7 +88,9 @@ fun WidgetGuideScreen(
 
         OutlinedButton(
             onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = BlobButtonShape,
+            contentPadding = BlobButtonPadding
         ) {
             Text(stringResource(R.string.guide_dismiss))
         }
@@ -92,13 +105,16 @@ fun WidgetGuideScreen(
 }
 
 @Composable
-private fun StepCard(number: Int, title: String, description: String) {
+private fun StepCard(number: Int, title: String, description: String, shape: Shape, tiltDegrees: Float) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(tiltDegrees),
+        shape = shape,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(
@@ -123,11 +139,14 @@ private fun InviteCard(uiState: PairingUiState, onGenerateCode: () -> Unit) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(-0.5f),
+        shape = BlobShapeC,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Text(
                 stringResource(R.string.guide_invite_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -156,7 +175,9 @@ private fun InviteCard(uiState: PairingUiState, onGenerateCode: () -> Unit) {
                     )
                     OutlinedButton(
                         onClick = { clipboardManager.setText(AnnotatedString(uiState.code)) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = BlobButtonShape,
+                        contentPadding = BlobButtonPadding
                     ) {
                         Text(stringResource(R.string.guide_invite_copy))
                     }
@@ -181,7 +202,13 @@ private fun InviteCard(uiState: PairingUiState, onGenerateCode: () -> Unit) {
 
 @Composable
 private fun InviteButton(isLoading: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading,
+        shape = BlobButtonShape,
+        contentPadding = BlobButtonPadding
+    ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
@@ -198,10 +225,13 @@ private fun InviteButton(isLoading: Boolean, onClick: () -> Unit) {
 @Composable
 private fun NicknameCard(uiState: NicknameUiState, onSaveNickname: (String) -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(0.6f),
+        shape = BlobShapeB,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(24.dp)) {
             Text(
                 stringResource(R.string.guide_nickname_title),
                 style = MaterialTheme.typography.titleMedium
@@ -246,7 +276,9 @@ private fun NicknameCard(uiState: NicknameUiState, onSaveNickname: (String) -> U
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
-                    enabled = !uiState.isSaving && nickname.trim() != uiState.nickname
+                    enabled = !uiState.isSaving && nickname.trim() != uiState.nickname,
+                    shape = BlobButtonShape,
+                    contentPadding = BlobButtonPadding
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(

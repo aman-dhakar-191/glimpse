@@ -48,18 +48,12 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.ui.theme.bubbleShape
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-
-private val OUTGOING_SHAPE = RoundedCornerShape(
-    topStart = 20.dp, topEnd = 20.dp, bottomEnd = 6.dp, bottomStart = 20.dp
-)
-private val INCOMING_SHAPE = RoundedCornerShape(
-    topStart = 20.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 6.dp
-)
 
 private sealed interface HistoryItem {
     data class DateDivider(val label: String) : HistoryItem
@@ -236,7 +230,10 @@ private fun MessageBubbleRow(
             modifier = Modifier.widthIn(max = 280.dp),
             horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
         ) {
-            val shape = if (isMine) OUTGOING_SHAPE else INCOMING_SHAPE
+            // Organic tail on the side facing that message's own edge of
+            // the screen — same left/right convention as any chat UI, just
+            // a hand-curved tail instead of a clipped-corner triangle.
+            val shape = bubbleShape(tailOnRight = isMine)
             val bubbleColor = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
             val textColor = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
@@ -246,7 +243,7 @@ private fun MessageBubbleRow(
                     shape = shape,
                     modifier = Modifier.width(220.dp)
                 ) {
-                    Column(modifier = Modifier.padding(6.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Box {
                             AsyncImage(
                                 model = message.photoUrl,
@@ -266,12 +263,16 @@ private fun MessageBubbleRow(
                                 Text("⬇", style = MaterialTheme.typography.titleMedium)
                             }
                         }
+                        // Always present (not just when there's a caption) —
+                        // keeps the photo's own rectangular corner clear of
+                        // the bubble's curved tail notch below it.
+                        Spacer(Modifier.height(10.dp))
                         if (message.caption.isNotBlank()) {
                             Text(
                                 message.caption,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = textColor,
-                                modifier = Modifier.padding(8.dp, 6.dp, 8.dp, 2.dp)
+                                modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
                             )
                         }
                     }
@@ -282,7 +283,10 @@ private fun MessageBubbleRow(
                         message.content,
                         style = MaterialTheme.typography.bodyLarge,
                         color = textColor,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        // Generous, and asymmetric on the bottom — the
+                        // bubble's tail eats into that corner, so the last
+                        // line of text needs more clearance there.
+                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 20.dp)
                     )
                 }
             }

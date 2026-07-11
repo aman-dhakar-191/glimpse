@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -45,6 +44,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.theme.BlobButtonShape
+import com.glimpse.app.ui.theme.BlobMarkShape
+
+// Generous padding on purpose — BlobButtonShape pinches inward at its
+// left/right edges more than a plain pill would, so default Material
+// button padding risks clipping the label there.
+private val BlobButtonPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
 
 @Composable
 fun LoginScreen(
@@ -94,7 +100,7 @@ fun LoginScreen(
                     brush = Brush.linearGradient(
                         listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
                     ),
-                    shape = RoundedCornerShape(22.dp)
+                    shape = BlobMarkShape
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -143,7 +149,9 @@ fun LoginScreen(
             Button(
                 onClick = onSignInClick,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = uiState !is LoginUiState.Loading
+                enabled = uiState !is LoginUiState.Loading,
+                shape = BlobButtonShape,
+                contentPadding = BlobButtonPadding
             ) {
                 Text(stringResource(R.string.login_button))
             }
@@ -194,7 +202,9 @@ private fun PairingCodeEntry(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp),
-        enabled = !isSubmitting && code.length == 6
+        enabled = !isSubmitting && code.length == 6,
+        shape = BlobButtonShape,
+        contentPadding = BlobButtonPadding
     ) {
         if (isSubmitting) {
             CircularProgressIndicator(

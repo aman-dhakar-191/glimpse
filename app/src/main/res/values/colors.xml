@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#FF8FAB</color>
-    <color name="primary_dark">#E06B8C</color>
-    <color name="secondary">#B8A6E8</color>
-    <color name="background">#FFF7F3</color>
-    <color name="widget_bg">#FFF0EC</color>
-    <color name="widget_border">#FFD9CF</color>
-    <color name="text_primary">#4A3B42</color>
-    <color name="text_secondary">#9C8790</color>
-    <color name="chip_bg">#FFD3E4</color>
-    <color name="chip_border">#FFB8D2</color>
-    <color name="button_bg">#FFE1EA</color>
+    <color name="primary">#FF6FA5</color>
+    <color name="primary_dark">#D94E85</color>
+    <color name="secondary">#4FC3E8</color>
+    <color name="background">#FDF3FA</color>
+    <color name="widget_bg">#FDF0FA</color>
+    <color name="widget_border">#FFD1E6</color>
+    <color name="text_primary">#2B1B33</color>
+    <color name="text_secondary">#6B5A73</color>
+    <color name="chip_bg">#FFE1EC</color>
+    <color name="chip_border">#FFC2DC</color>
+    <color name="button_bg">#FFD9EA</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 </resources>
