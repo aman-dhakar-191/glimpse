@@ -99,7 +99,8 @@ fun MessageHistoryScreen(
     uiState: HistoryUiState,
     onBack: () -> Unit,
     onDownloadImage: (String) -> Unit,
-    onDownloadResultHandled: () -> Unit
+    onDownloadResultHandled: () -> Unit,
+    onOpenStats: () -> Unit
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -152,6 +153,11 @@ fun MessageHistoryScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenStats) {
+                        Text("📊", style = MaterialTheme.typography.titleLarge)
                     }
                 }
             )
