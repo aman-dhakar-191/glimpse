@@ -2,6 +2,7 @@ package com.glimpse.app.ui.reaction
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.theme.BlobButtonShape
+import com.glimpse.app.ui.theme.BlobChipShapeA
+import com.glimpse.app.ui.theme.BlobChipShapeB
+
+private val BlobChipPadding = PaddingValues(12.dp)
 
 // Shown as one-tap shortcuts above the free-form field — typing/picking any
 // other emoji still works via the keyboard's own emoji tab, this list just
@@ -86,10 +92,12 @@ fun ReactionPickerScreen(
                 columns = GridCells.Fixed(6),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(SUGGESTED_EMOJIS) { suggestion ->
+                itemsIndexed(SUGGESTED_EMOJIS) { index, suggestion ->
                     OutlinedButton(
                         onClick = { onReact(suggestion) },
-                        modifier = Modifier.padding(4.dp)
+                        modifier = Modifier.padding(4.dp),
+                        shape = if (index % 2 == 0) BlobChipShapeA else BlobChipShapeB,
+                        contentPadding = BlobChipPadding
                     ) {
                         Text(suggestion, style = MaterialTheme.typography.titleLarge)
                     }
@@ -126,7 +134,9 @@ fun ReactionPickerScreen(
             Button(
                 onClick = { onReact(emoji) },
                 enabled = uiState !is ReactUiState.Sending && uiState !is ReactUiState.Queued && emoji.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = BlobButtonShape,
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
             ) {
                 if (uiState is ReactUiState.Sending || uiState is ReactUiState.Queued) {
                     CircularProgressIndicator(

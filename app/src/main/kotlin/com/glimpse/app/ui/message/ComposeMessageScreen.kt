@@ -23,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +68,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import com.glimpse.app.ui.theme.BlobButtonShape
+import com.glimpse.app.ui.theme.BlobChipShapeA
+import com.glimpse.app.ui.theme.BlobChipShapeB
+import com.glimpse.app.ui.theme.BlobShapeB
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -76,6 +82,10 @@ private fun createCameraImageUri(context: Context): Uri {
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
+
+// Slightly more generous and symmetric than OutlinedButton's default —
+// keeps single-emoji content clear of the blob chip shapes' edge pinches.
+private val BlobChipPadding = PaddingValues(14.dp)
 
 // A dedicated animation for photo sends (not text — those are near-instant,
 // so a plain spinner is enough) since a photo upload can take a few seconds
@@ -217,11 +227,17 @@ fun ComposeMessageScreen(
             Spacer(Modifier.height(24.dp))
 
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(0.8f),
+                shape = BlobShapeB,
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                // More generous than a plain rounded card would need —
+                // BlobShapeB pinches inward at several points along its
+                // edge, so the content needs breathing room to avoid
+                // sitting in a concave notch.
+                Column(modifier = Modifier.padding(28.dp)) {
                     Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
 
@@ -278,21 +294,35 @@ fun ComposeMessageScreen(
                     Spacer(Modifier.height(12.dp))
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(onClick = { launchCamera() }) {
+                        // Alternating blob shapes so the row of icon
+                        // buttons isn't just the same chip repeated.
+                        OutlinedButton(
+                            onClick = { launchCamera() },
+                            shape = BlobChipShapeA,
+                            contentPadding = BlobChipPadding
+                        ) {
                             Text("📸")
                         }
-                        OutlinedButton(onClick = {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }) {
+                        OutlinedButton(
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            shape = BlobChipShapeB,
+                            contentPadding = BlobChipPadding
+                        ) {
                             Text("🖼️")
                         }
-                        QUICK_EMOJIS.forEach { emoji ->
-                            OutlinedButton(onClick = { text += emoji }) {
+                        QUICK_EMOJIS.forEachIndexed { index, emoji ->
+                            OutlinedButton(
+                                onClick = { text += emoji },
+                                shape = if (index % 2 == 0) BlobChipShapeA else BlobChipShapeB,
+                                contentPadding = BlobChipPadding
+                            ) {
                                 Text(emoji)
                             }
                         }
@@ -330,7 +360,9 @@ fun ComposeMessageScreen(
                     }
                 },
                 enabled = canSend,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = BlobButtonShape,
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
             ) {
                 if (uiState is ComposeUiState.Sending || uiState is ComposeUiState.Queued) {
                     CircularProgressIndicator(

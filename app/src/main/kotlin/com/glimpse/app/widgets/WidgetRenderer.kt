@@ -10,7 +10,9 @@ import android.widget.RemoteViews
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
+import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
+import com.google.firebase.auth.FirebaseAuth
 
 // Shared between WidgetUpdateService (live Firebase listener, while its
 // foreground service is allowed to run) and CurrentMessageWidget's onUpdate
@@ -31,9 +33,10 @@ internal object WidgetRenderer {
     // everywhere else.
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val photoBitmap = loadPhotoIfNeeded(context, message)
+        val displayAuthorName = resolveAuthorName(message)
 
         val rectangularViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap
+            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap, displayAuthorName
         )
 
         // The multi-size RemoteViews constructor (which lets the system pick
@@ -43,7 +46,7 @@ internal object WidgetRenderer {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
 
         val squareViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap
+            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName
         )
         return RemoteViews(
             mapOf(
@@ -58,7 +61,23 @@ internal object WidgetRenderer {
     // what determines its shape.
     suspend fun renderSquare(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val photoBitmap = loadPhotoIfNeeded(context, message)
-        return buildViews(context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap)
+        val displayAuthorName = resolveAuthorName(message)
+        return buildViews(
+            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName
+        )
+    }
+
+    // The message's stored authorName is whatever the sender's Google
+    // account display name was at send time — this device's own
+    // "what I call my partner" setting (see FirebaseSync.fetchPartnerNicknameOnce)
+    // overrides that display, but only for messages that aren't mine, and
+    // only locally: it never touches the stored message data itself.
+    private suspend fun resolveAuthorName(message: Message?): String {
+        if (message == null) return ""
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        if (message.authorUid == myUid) return message.authorName
+        val nickname = FirebaseSync.fetchPartnerNicknameOnce()
+        return nickname.ifBlank { message.authorName }
     }
 
     // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on
@@ -78,12 +97,13 @@ internal object WidgetRenderer {
         appWidgetId: Int,
         layoutRes: Int,
         message: Message?,
-        photoBitmap: Bitmap?
+        photoBitmap: Bitmap?,
+        displayAuthorName: String
     ): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, layoutRes)
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
-        applyMessage(context, remoteViews, message, photoBitmap)
+        applyMessage(context, remoteViews, message, photoBitmap, displayAuthorName)
         return remoteViews
     }
 
@@ -119,7 +139,8 @@ internal object WidgetRenderer {
         context: Context,
         remoteViews: RemoteViews,
         message: Message?,
-        photoBitmap: Bitmap?
+        photoBitmap: Bitmap?,
+        displayAuthorName: String
     ) {
         if (message == null) {
             remoteViews.setTextViewText(R.id.author_name, "")
@@ -131,7 +152,7 @@ internal object WidgetRenderer {
             return
         }
 
-        remoteViews.setTextViewText(R.id.author_name, message.authorName)
+        remoteViews.setTextViewText(R.id.author_name, displayAuthorName)
         remoteViews.setTextViewText(R.id.message_content, message.content)
         // GONE views are skipped entirely when a LinearLayout distributes
         // weighted space, so hiding this when there's no text (photo

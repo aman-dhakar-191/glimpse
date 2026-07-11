@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -21,9 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.theme.BlobChipShapeA
+import com.glimpse.app.ui.theme.BlobChipShapeB
+import com.glimpse.app.ui.theme.BlobShapeA
+import com.glimpse.app.ui.theme.BlobShapeB
+import com.glimpse.app.ui.theme.BlobShapeC
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -71,22 +76,24 @@ fun StatsScreen(
                     StatTile(
                         modifier = Modifier.weight(1f),
                         label = stringResource(R.string.stats_total_messages),
-                        value = uiState.totalMessages.toString()
+                        value = uiState.totalMessages.toString(),
+                        shape = BlobChipShapeA
                     )
                     StatTile(
                         modifier = Modifier.weight(1f),
                         label = stringResource(R.string.stats_first_glimpse),
-                        value = uiState.firstMessageAt?.let(::formatDate) ?: "—"
+                        value = uiState.firstMessageAt?.let(::formatDate) ?: "—",
+                        shape = BlobChipShapeB
                     )
                 }
 
                 if (uiState.countsByAuthor.isNotEmpty()) {
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = BlobShapeC,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(R.string.stats_by_person), style = MaterialTheme.typography.titleMedium)
                             uiState.countsByAuthor.forEach { person ->
                                 Row(
@@ -109,7 +116,8 @@ fun StatsScreen(
                     StatTile(
                         modifier = Modifier.fillMaxWidth(),
                         label = stringResource(R.string.stats_top_reaction),
-                        value = "$emoji  ×$count"
+                        value = "$emoji  ×$count",
+                        shape = BlobShapeB
                     )
                 }
             }
@@ -121,13 +129,13 @@ fun StatsScreen(
 private fun StreakCard(days: Int) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(24.dp),
+        shape = BlobShapeA,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("🔥", style = MaterialTheme.typography.headlineSmall)
@@ -154,13 +162,13 @@ private fun StatRow(content: @Composable RowScope.() -> Unit) {
 }
 
 @Composable
-private fun StatTile(modifier: Modifier = Modifier, label: String, value: String) {
+private fun StatTile(modifier: Modifier = Modifier, label: String, value: String, shape: Shape) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(20.dp),
+        shape = shape,
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge)
             Text(
                 label,

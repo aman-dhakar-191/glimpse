@@ -30,6 +30,12 @@
     <string name="guide_invite_expiry">Valid for 15 minutes</string>
     <string name="guide_invite_copy">Copy code</string>
 
+    <string name="guide_nickname_title">Give your partner a nickname</string>
+    <string name="guide_nickname_desc">Only you\'ll see it — in your app and widget, instead of their Google name.</string>
+    <string name="guide_nickname_placeholder">e.g. Babe, Love, Sunshine…</string>
+    <string name="guide_nickname_save">Save</string>
+    <string name="guide_nickname_saved">Saved!</string>
+
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
     <string name="widget_square_description">A compact square version of the Glimpse widget.</string>
