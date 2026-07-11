@@ -53,9 +53,7 @@
                 android:maxLines="6"
                 android:ellipsize="end"
                 android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="14sp"
-                android:autoSizeMaxTextSize="72sp"
-                android:autoSizeStepGranularity="2sp" />
+                android:autoSizePresetSizes="@array/widget_message_autosize_presets" />
 
             <!-- Photo (if applicable) — takes whatever space is left in this
                  section so it scales with the widget's size instead of being

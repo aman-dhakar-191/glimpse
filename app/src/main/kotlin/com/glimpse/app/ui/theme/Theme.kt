@@ -16,7 +16,13 @@ private val GlimpseColorScheme = lightColorScheme(
     surfaceVariant = GlimpseChipBg,
     onBackground = GlimpseTextPrimary,
     onSurface = GlimpseTextPrimary,
-    onSurfaceVariant = GlimpseTextSecondary
+    onSurfaceVariant = GlimpseTextSecondary,
+    // Material3 blends surfaceTint into any elevated surface (e.g. Card)
+    // whose container color is exactly colorScheme.surface — left
+    // unspecified, it defaults to a baseline purple, which is why cards
+    // rendered muddy gray-lavender instead of clean white. Pinning it to
+    // our own accent keeps that blend on-brand (a faint pink cast) instead.
+    surfaceTint = GlimpsePink
 )
 
 @Composable
