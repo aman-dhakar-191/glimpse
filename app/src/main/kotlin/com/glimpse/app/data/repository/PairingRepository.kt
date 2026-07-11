@@ -17,8 +17,11 @@ class PairingRepository {
 
     suspend fun createPairingCode(): Result<PairingCode> = runCatching {
         val result = functions.getHttpsCallable("createPairingCode").call().await()
+        // result.data (property syntax) resolves to a private backing field
+        // on HttpsCallableResult rather than the public getData() getter —
+        // call the getter explicitly to avoid a Kotlin/Java interop compile error.
         @Suppress("UNCHECKED_CAST")
-        val data = result.data as Map<String, Any>
+        val data = result.getData() as Map<String, Any>
         PairingCode(
             code = data["code"] as String,
             expiresAt = (data["expiresAt"] as Number).toLong()
