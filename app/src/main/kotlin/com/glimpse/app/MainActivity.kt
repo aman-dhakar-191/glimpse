@@ -162,9 +162,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
-                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.Checking &&
-                                updateUiState !is UpdateUiState.ReadyToInstall
-                            ) {
+                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
                                 UpdateBanner(
                                     uiState = updateUiState,
                                     onUpdateClick = { onUpdateClick() },
