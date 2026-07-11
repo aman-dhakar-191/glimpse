@@ -30,6 +30,7 @@ import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
+import com.glimpse.app.ui.pairing.PairingViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
 import com.glimpse.app.ui.stats.StatsScreen
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private val updateViewModel: UpdateViewModel by viewModels()
     private val historyViewModel: MessageHistoryViewModel by viewModels()
     private val statsViewModel: StatsViewModel by viewModels()
+    private val pairingViewModel: PairingViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -147,12 +149,13 @@ class MainActivity : ComponentActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, signInOptions)
 
-        screen = if (loginViewModel.isSignedIn) AppScreen.Compose else AppScreen.Login
+        // Being signed in to Firebase Auth no longer implies being allowed
+        // into the app — a paired-but-not-yet-redeemed account stays on
+        // AppScreen.Login rendering LoginUiState.NeedsPairing instead, so
+        // this always starts there and lets checkPairingStatus decide.
+        screen = AppScreen.Login
         if (loginViewModel.isSignedIn) {
-            requestNotificationPermissionIfNeeded()
-            loginViewModel.ensureFcmTokenRegistered()
-            updateViewModel.checkForUpdate()
-            StreakCheckWorker.schedule(this)
+            loginViewModel.checkPairingStatus(onPaired = { onSignedIn() })
         }
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
@@ -169,11 +172,16 @@ class MainActivity : ComponentActivity() {
                     val updateUiState by updateViewModel.uiState.collectAsState()
                     val historyUiState by historyViewModel.uiState.collectAsState()
                     val statsUiState by statsViewModel.uiState.collectAsState()
+                    val pairingUiState by pairingViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
                             uiState = loginUiState,
-                            onSignInClick = { signInLauncher.launch(googleSignInClient.signInIntent) }
+                            onSignInClick = { signInLauncher.launch(googleSignInClient.signInIntent) },
+                            onRedeemCode = { code ->
+                                loginViewModel.redeemPairingCode(code, onPaired = { onSignedIn() })
+                            },
+                            onLogout = { onLogout() }
                         )
 
                         AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
@@ -201,6 +209,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                         AppScreen.Guide -> WidgetGuideScreen(
+                            pairingUiState = pairingUiState,
+                            onGenerateCode = { pairingViewModel.generateCode() },
                             onDismiss = { screen = AppScreen.Compose },
                             onLogout = { onLogout() }
                         )
