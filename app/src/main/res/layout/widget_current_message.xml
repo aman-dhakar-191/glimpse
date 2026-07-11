@@ -1,122 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Outer frame is transparent and unpadded-to-the-eye except for a small
-     6dp gutter, which exists only so the heart badge below has somewhere to
-     overlap "off" the card's corner without being clipped. -->
-<FrameLayout
+<!-- Reverted to the last known-good structure: no FrameLayout wrapper, no
+     heart badge, no custom shape/drawable background — those were added by
+     the "cute" reskin and are the suspected cause of "Can't load widget" on
+     at least one real device (Xiaomi HyperOS/POCO), which persisted even
+     after dropping the custom fonts. Reliability wins over polish here;
+     @color/widget_bg still carries the pastel cream tint since a plain
+     solid-color reference is effectively risk-free. -->
+<LinearLayout
+    android:id="@+id/widget_root"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="6dp">
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/widget_bg">
 
+    <!-- Top content: given all the remaining vertical space (weight=1) so the
+         reactions bar and quick-action buttons below stay pinned to the
+         bottom of the widget instead of floating right under a short
+         message. -->
     <LinearLayout
-        android:id="@+id/widget_root"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:background="@drawable/bg_widget_card">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-        <!-- Top content: given all the remaining vertical space (weight=1) so the
-             reactions bar and quick-action buttons below stay pinned to the
-             bottom of the widget instead of floating right under a short
-             message. -->
-        <LinearLayout
+        <!-- Author -->
+        <TextView
+            android:id="@+id/author_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
+
+        <!-- Message Content — weighted the same as the photo below (and a
+             GONE view is excluded from a LinearLayout's weight distribution
+             entirely), so whichever of the two is actually showing gets all
+             the available space. autoSizeTextType grows a short message
+             (or a single emoji) to fill that space and shrinks a long one
+             to still fit, instead of a fixed 16sp for everything. -->
+        <TextView
+            android:id="@+id/message_content"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:orientation="vertical">
+            android:textColor="@color/text_primary"
+            android:layout_marginVertical="8dp"
+            android:gravity="center"
+            android:maxLines="6"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeMaxTextSize="72sp"
+            android:autoSizeStepGranularity="2sp" />
 
-            <!-- Author -->
-            <TextView
-                android:id="@+id/author_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary" />
-
-            <!-- Message Content — weighted the same as the photo below (and a
-                 GONE view is excluded from a LinearLayout's weight distribution
-                 entirely), so whichever of the two is actually showing gets all
-                 the available space. autoSizeTextType grows a short message
-                 (or a single emoji) to fill that space and shrinks a long one
-                 to still fit, instead of a fixed 16sp for everything. -->
-            <TextView
-                android:id="@+id/message_content"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:layout_marginVertical="8dp"
-                android:gravity="center"
-                android:maxLines="6"
-                android:ellipsize="end"
-                android:autoSizeTextType="uniform"
-                android:autoSizePresetSizes="@array/widget_message_autosize_presets" />
-
-            <!-- Photo (if applicable) — takes whatever space is left in this
-                 section so it scales with the widget's size instead of being
-                 cropped into a fixed 100dp strip. fitCenter (not centerCrop)
-                 shows the whole image letterboxed rather than cropping it to
-                 fill the box. -->
-            <ImageView
-                android:id="@+id/message_photo"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:scaleType="fitCenter"
-                android:contentDescription="@null"
-                android:visibility="gone" />
-
-            <!-- Photo Caption -->
-            <TextView
-                android:id="@+id/photo_caption"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary"
-                android:textStyle="italic"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <!-- Reactions Bar -->
-        <!-- RemoteViews only supports a fixed whitelist of container/widget classes
-             (FrameLayout, LinearLayout, RelativeLayout, GridLayout, plus specific
-             leaf widgets) — HorizontalScrollView is not on that list and fails to
-             inflate in an app widget, so this row is a plain non-scrolling LinearLayout. -->
-        <LinearLayout
-            android:id="@+id/reactions_container"
+        <!-- Photo (if applicable) — takes whatever space is left in this
+             section so it scales with the widget's size instead of being
+             cropped into a fixed 100dp strip. fitCenter (not centerCrop)
+             shows the whole image letterboxed rather than cropping it to
+             fill the box. -->
+        <ImageView
+            android:id="@+id/message_photo"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null"
+            android:visibility="gone" />
 
-        <!-- React button — RemoteViews can't host an emoji picker itself, so this
-             opens the app straight to a full emoji-picker screen (same
-             open-app pattern as tapping the message area to compose) instead
-             of being limited to a fixed set of preset reactions. -->
-        <Button
-            android:id="@+id/btn_react"
+        <!-- Photo Caption -->
+        <TextView
+            android:id="@+id/photo_caption"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_pill_button"
-            android:text="@string/widget_react_button"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/primary_dark" />
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:textStyle="italic"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Heart sticker, peeking off the card's top-end corner into the outer
-         frame's 6dp gutter — a small shape flourish that isn't subject to
-         the launcher's rounded-rect clip the way the card background is. -->
-    <ImageView
-        android:layout_width="26dp"
-        android:layout_height="26dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="-8dp"
-        android:layout_marginEnd="-4dp"
-        android:src="@drawable/ic_heart_badge"
-        android:contentDescription="@null" />
+    <!-- Reactions Bar -->
+    <!-- RemoteViews only supports a fixed whitelist of container/widget classes
+         (FrameLayout, LinearLayout, RelativeLayout, GridLayout, plus specific
+         leaf widgets) — HorizontalScrollView is not on that list and fails to
+         inflate in an app widget, so this row is a plain non-scrolling LinearLayout. -->
+    <LinearLayout
+        android:id="@+id/reactions_container"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical" />
 
-</FrameLayout>
+    <!-- React button — RemoteViews can't host an emoji picker itself, so this
+         opens the app straight to a full emoji-picker screen (same
+         open-app pattern as tapping the message area to compose) instead
+         of being limited to a fixed set of preset reactions. -->
+    <Button
+        android:id="@+id/btn_react"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@android:color/transparent"
+        android:text="@string/widget_react_button"
+        android:textSize="16sp"
+        android:textColor="@color/text_primary" />
+</LinearLayout>
