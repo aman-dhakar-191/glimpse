@@ -71,7 +71,7 @@ import com.glimpse.app.R
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
-import com.glimpse.app.ui.theme.BlobShapeB
+import com.glimpse.app.ui.theme.BlobShapeSoftB
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -230,13 +230,13 @@ fun ComposeMessageScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .rotate(0.8f),
-                shape = BlobShapeB,
+                shape = BlobShapeSoftB,
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                // More generous than a plain rounded card would need —
-                // BlobShapeB pinches inward at several points along its
-                // edge, so the content needs breathing room to avoid
-                // sitting in a concave notch.
+                // The content-safe soft variant — this card carries an
+                // OutlinedTextField plus a row of action buttons, so it
+                // needs a shape whose deepest pinch a normal padding value
+                // can actually clear (see BlobShapes.kt).
                 Column(modifier = Modifier.padding(28.dp)) {
                     Text(stringResource(R.string.compose_title), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))

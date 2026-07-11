@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -42,9 +45,9 @@ import com.glimpse.app.R
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
-import com.glimpse.app.ui.theme.BlobShapeA
-import com.glimpse.app.ui.theme.BlobShapeB
-import com.glimpse.app.ui.theme.BlobShapeC
+import com.glimpse.app.ui.theme.BlobShapeSoftA
+import com.glimpse.app.ui.theme.BlobShapeSoftB
+import com.glimpse.app.ui.theme.BlobShapeSoftC
 
 // Generous, matching the same reasoning as the login/compose blob buttons —
 // these shapes pinch inward at the edges more than a plain pill would.
@@ -66,6 +69,7 @@ fun WidgetGuideScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -74,11 +78,11 @@ fun WidgetGuideScreen(
             style = MaterialTheme.typography.headlineSmall
         )
 
-        StepCard(1, stringResource(R.string.guide_step_1_title), stringResource(R.string.guide_step_1_desc), BlobShapeA, -0.6f)
-        StepCard(2, stringResource(R.string.guide_step_2_title), stringResource(R.string.guide_step_2_desc), BlobShapeB, 0.5f)
-        StepCard(3, stringResource(R.string.guide_step_3_title), stringResource(R.string.guide_step_3_desc), BlobShapeC, -0.4f)
-        StepCard(4, stringResource(R.string.guide_step_4_title), stringResource(R.string.guide_step_4_desc), BlobShapeA, 0.6f)
-        StepCard(5, stringResource(R.string.guide_step_5_title), stringResource(R.string.guide_step_5_desc), BlobShapeB, -0.5f)
+        StepCard(1, stringResource(R.string.guide_step_1_title), stringResource(R.string.guide_step_1_desc), BlobShapeSoftA, -0.6f)
+        StepCard(2, stringResource(R.string.guide_step_2_title), stringResource(R.string.guide_step_2_desc), BlobShapeSoftB, 0.5f)
+        StepCard(3, stringResource(R.string.guide_step_3_title), stringResource(R.string.guide_step_3_desc), BlobShapeSoftC, -0.4f)
+        StepCard(4, stringResource(R.string.guide_step_4_title), stringResource(R.string.guide_step_4_desc), BlobShapeSoftA, 0.6f)
+        StepCard(5, stringResource(R.string.guide_step_5_title), stringResource(R.string.guide_step_5_desc), BlobShapeSoftB, -0.5f)
 
         InviteCard(pairingUiState, onGenerateCode)
 
@@ -114,7 +118,7 @@ private fun StepCard(number: Int, title: String, description: String, shape: Sha
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(28.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(
@@ -142,11 +146,11 @@ private fun InviteCard(uiState: PairingUiState, onGenerateCode: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .rotate(-0.5f),
-        shape = BlobShapeC,
+        shape = BlobShapeSoftC,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(28.dp)) {
             Text(
                 stringResource(R.string.guide_invite_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -228,10 +232,10 @@ private fun NicknameCard(uiState: NicknameUiState, onSaveNickname: (String) -> U
         modifier = Modifier
             .fillMaxWidth()
             .rotate(0.6f),
-        shape = BlobShapeB,
+        shape = BlobShapeSoftB,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(modifier = Modifier.padding(28.dp)) {
             Text(
                 stringResource(R.string.guide_nickname_title),
                 style = MaterialTheme.typography.titleMedium
