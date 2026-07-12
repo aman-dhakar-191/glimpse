@@ -34,7 +34,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,11 +76,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import com.glimpse.app.ui.countdown.CountdownUiState
 import com.glimpse.app.ui.dailyprompt.DailyPromptUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
 import com.glimpse.app.ui.theme.BlobShapeSoftB
+import com.glimpse.app.ui.theme.BlobShapeSoftC
 import kotlinx.coroutines.delay
 import java.io.File
 import java.time.Instant
@@ -94,6 +98,7 @@ private fun createCameraImageUri(context: Context): Uri {
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
+private val MOOD_EMOJIS = listOf("😊", "🥰", "😴", "😢", "😡", "😐", "🤒", "🎉")
 
 // Slightly more generous and symmetric than OutlinedButton's default —
 // keeps single-emoji content clear of the blob chip shapes' edge pinches.
@@ -155,7 +160,11 @@ fun ComposeMessageScreen(
     partnerMoodEmoji: String,
     onLoadPartnerMood: () -> Unit,
     myMoodEmoji: String,
-    onLoadMyMood: () -> Unit
+    onLoadMyMood: () -> Unit,
+    onSetMood: (String) -> Unit,
+    countdownUiState: CountdownUiState,
+    onSetCountdown: (label: String, month: Int, day: Int) -> Unit,
+    onClearCountdown: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -270,18 +279,10 @@ fun ComposeMessageScreen(
                 }
             }
 
-            // Confirms your own pick actually saved — the emoji up in the
-            // title row is always your PARTNER's mood, never your own, so
-            // without this there'd be no in-app feedback that setting your
-            // mood in Settings did anything.
-            if (myMoodEmoji.isNotBlank()) {
-                Text(
-                    stringResource(R.string.compose_my_mood, myMoodEmoji),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            // The emoji up in the title row is always your PARTNER's mood,
+            // never your own — this is where you set and confirm yours,
+            // right on the main screen instead of buried in Settings.
+            MyMoodPicker(myMoodEmoji = myMoodEmoji, onSetMood = onSetMood)
 
             Spacer(Modifier.height(24.dp))
 
@@ -504,6 +505,10 @@ fun ComposeMessageScreen(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            CountdownEditorCard(countdownUiState, onSetCountdown, onClearCountdown)
+
             Spacer(Modifier.height(10.dp))
 
             // A separate, always-available action rather than folded into
@@ -573,6 +578,227 @@ fun ComposeMessageScreen(
             }
         ) {
             DatePicker(state = lockDatePickerState)
+        }
+    }
+}
+
+// Right next to the title instead of buried in Settings — the emoji up
+// there is always your PARTNER's mood (see WidgetRenderer.applyMoodStatus),
+// so this is the only place your own mood is actually set and confirmed.
+// Quick-pick chips cover the common cases; the free-form field underneath
+// (same pattern as ReactionPickerScreen) takes any emoji at all, not just
+// this fixed set.
+@Composable
+private fun MyMoodPicker(myMoodEmoji: String, onSetMood: (String) -> Unit) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    TextButton(onClick = { showPicker = true }, contentPadding = PaddingValues(0.dp)) {
+        Text(
+            if (myMoodEmoji.isNotBlank()) {
+                stringResource(R.string.compose_my_mood, myMoodEmoji)
+            } else {
+                stringResource(R.string.compose_my_mood_unset)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (showPicker) {
+        var customEmoji by rememberSaveable { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(stringResource(R.string.guide_mood_title)) },
+            text = {
+                Column {
+                    val rows = MOOD_EMOJIS.chunked(4)
+                    rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                            row.forEachIndexed { index, emoji ->
+                                val isSelected = emoji == myMoodEmoji
+                                OutlinedButton(
+                                    onClick = {
+                                        onSetMood(emoji)
+                                        showPicker = false
+                                    },
+                                    shape = if (index % 2 == 0) BlobChipShapeA else BlobChipShapeB,
+                                    contentPadding = BlobChipPadding,
+                                    colors = if (isSelected) {
+                                        ButtonDefaults.outlinedButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    } else {
+                                        ButtonDefaults.outlinedButtonColors()
+                                    }
+                                ) {
+                                    Text(emoji)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = customEmoji,
+                        onValueChange = { customEmoji = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.compose_mood_custom_placeholder)) },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (customEmoji.isNotBlank()) {
+                            onSetMood(customEmoji.trim())
+                            customEmoji = ""
+                        }
+                        showPicker = false
+                    },
+                    enabled = customEmoji.isNotBlank()
+                ) {
+                    Text(stringResource(R.string.compose_mood_set))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.guide_dismiss))
+                }
+            }
+        )
+    }
+}
+
+// Shared, single countdown for the pair — see FirebaseSync.setSpecialDate/
+// CountdownViewModel for why either of you setting this changes it for
+// both. Lives here (below the Send button) rather than in Settings — same
+// reasoning as the mood picker above, this is a thing you actually look at
+// and change often enough to want on the main screen, not tucked away.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CountdownEditorCard(
+    uiState: CountdownUiState,
+    onSetDate: (label: String, month: Int, day: Int) -> Unit,
+    onClearDate: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    var labelInput by rememberSaveable { mutableStateOf("") }
+    val datePickerState = rememberDatePickerState()
+    val defaultLabel = stringResource(R.string.guide_countdown_title)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(-0.5f),
+        shape = BlobShapeSoftC,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.guide_countdown_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.guide_countdown_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            if (uiState is CountdownUiState.Loaded) {
+                if (uiState.error != null) {
+                    Text(
+                        uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                uiState.specialDate?.let { date ->
+                    Text(
+                        stringResource(R.string.guide_countdown_current, date.label, date.month, date.day),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = labelInput,
+                    onValueChange = { labelInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.guide_countdown_label_placeholder)) },
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isSaving,
+                        shape = BlobButtonShape,
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(stringResource(R.string.guide_countdown_pick_date))
+                        }
+                    }
+
+                    if (uiState.specialDate != null) {
+                        OutlinedButton(
+                            onClick = onClearDate,
+                            enabled = !uiState.isSaving,
+                            shape = BlobButtonShape,
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+                        ) {
+                            Text(stringResource(R.string.guide_countdown_remove))
+                        }
+                    }
+                }
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = datePickerState.selectedDateMillis
+                    if (millis != null) {
+                        // Same UTC-midnight reasoning as the time-capsule date
+                        // picker above.
+                        val picked = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        val label = labelInput.ifBlank { defaultLabel }
+                        onSetDate(label, picked.monthValue, picked.dayOfMonth)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(R.string.guide_countdown_pick_date))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.guide_dismiss))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

@@ -266,7 +266,11 @@ class MainActivity : ComponentActivity() {
                                     partnerMoodEmoji = (partnerMoodUiState as? PartnerMoodUiState.Loaded)?.emoji.orEmpty(),
                                     onLoadPartnerMood = { moodViewModel.loadPartnerMood() },
                                     myMoodEmoji = (moodUiState as? MoodUiState.Loaded)?.currentEmoji.orEmpty(),
-                                    onLoadMyMood = { moodViewModel.load() }
+                                    onLoadMyMood = { moodViewModel.load() },
+                                    onSetMood = { emoji -> moodViewModel.setMood(emoji) },
+                                    countdownUiState = countdownUiState,
+                                    onSetCountdown = { label, month, day -> countdownViewModel.setDate(label, month, day) },
+                                    onClearCountdown = { countdownViewModel.clearDate() }
                                 )
                             }
                             // Ambient/low-urgency status, not something that needs
@@ -299,13 +303,6 @@ class MainActivity : ComponentActivity() {
                             onSaveNickname = { name -> nicknameViewModel.save(name) },
                             onBack = { screen = AppScreen.Compose },
                             onLogout = { onLogout() },
-                            moodUiState = moodUiState,
-                            onLoadMood = { moodViewModel.load() },
-                            onSetMood = { emoji -> moodViewModel.setMood(emoji) },
-                            countdownUiState = countdownUiState,
-                            onLoadCountdown = { countdownViewModel.load() },
-                            onSetCountdown = { label, month, day -> countdownViewModel.setDate(label, month, day) },
-                            onClearCountdown = { countdownViewModel.clearDate() },
                             quietHoursUiState = quietHoursUiState,
                             onLoadQuietHours = { quietHoursViewModel.load() },
                             onSetQuietHoursEnabled = { enabled -> quietHoursViewModel.setEnabled(enabled) },
