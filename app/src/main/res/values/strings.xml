@@ -42,6 +42,9 @@
     <string name="guide_background_change">Change photo</string>
     <string name="guide_background_remove">Remove</string>
 
+    <string name="guide_mood_title">Your mood</string>
+    <string name="guide_mood_desc">Shows on your partner\'s widget — a quick status, separate from your messages.</string>
+
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
     <string name="widget_square_description">A compact square version of the Glimpse widget.</string>
