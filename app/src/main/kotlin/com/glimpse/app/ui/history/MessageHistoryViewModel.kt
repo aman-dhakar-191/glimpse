@@ -26,7 +26,8 @@ data class HistoryUiState(
     // iMessage/WhatsApp) — null when that message isn't yours, or there's
     // nothing to show yet.
     val lastMessageSeenStatus: SeenStatus? = null,
-    val downloadResult: DownloadResult? = null
+    val downloadResult: DownloadResult? = null,
+    val searchQuery: String = ""
 )
 
 sealed interface DownloadResult {
@@ -79,6 +80,14 @@ class MessageHistoryViewModel(application: Application) : AndroidViewModel(appli
 
     fun consumeDownloadResult() {
         _uiState.value = _uiState.value.copy(downloadResult = null)
+    }
+
+    // Filtering happens client-side in the screen (see MessageHistoryScreen)
+    // against the already-loaded HISTORY_LIMIT window — Realtime Database
+    // has no real full-text search, and 50 messages is a small enough set
+    // that a server round-trip would just be slower than filtering locally.
+    fun search(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query)
     }
 
     override fun onCleared() {

@@ -71,6 +71,8 @@
 
     <string name="history_title">Message History</string>
     <string name="history_empty">No messages yet. Say hello!</string>
+    <string name="history_search_placeholder">Search messages…</string>
+    <string name="history_search_empty">No messages match your search.</string>
     <string name="history_seen">Seen · %1$s</string>
     <string name="history_sent">Sent</string>
     <string name="history_download">Save photo</string>
@@ -99,4 +101,12 @@
     <string name="update_install_permission">Allow Glimpse to install updates in Settings, then tap Update again.</string>
     <string name="update_open_settings">Open Settings</string>
     <string name="update_dismiss">Dismiss</string>
+
+    <string name="on_this_day_title">💭 On this day, %1$s</string>
+    <string name="on_this_day_week">a week ago</string>
+    <string name="on_this_day_month">a month ago</string>
+    <string name="on_this_day_three_months">three months ago</string>
+    <string name="on_this_day_six_months">six months ago</string>
+    <string name="on_this_day_year">a year ago</string>
+    <string name="on_this_day_photo_preview">📷 A photo you shared</string>
 </resources>
