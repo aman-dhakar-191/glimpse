@@ -2,6 +2,7 @@ package com.glimpse.app.data.firebase
 
 import android.util.Log
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.data.model.SpecialDate
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -34,6 +35,7 @@ object FirebaseSync {
     private fun partnerNicknameRef(uid: String) = database.child("users/$uid/settings/partnerNickname")
     private fun allowedUsersRef() = database.child("shared/settings/allowedUsers")
     private fun moodsRef() = database.child("shared/moods")
+    private fun specialDateRef() = database.child("shared/specialDate")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -254,6 +256,37 @@ object FirebaseSync {
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerMoodOnce failed", e)
             ""
+        }
+    }
+
+    // Shared — either of you can set/see it, same reasoning as mood above.
+    // Either person setting this changes it for both, which is the right
+    // behavior for a single shared anniversary/birthday countdown.
+    suspend fun setSpecialDate(label: String, month: Int, day: Int): Result<Unit> = runCatching {
+        val data = mapOf("label" to label.trim(), "month" to month, "day" to day)
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            specialDateRef().setValue(data).await()
+        }
+    }
+
+    suspend fun fetchSpecialDateOnce(): SpecialDate? = try {
+        val snapshot = specialDateRef().get().await()
+        val label = snapshot.child("label").getValue(String::class.java)
+        val month = snapshot.child("month").getValue(Int::class.java)
+        val day = snapshot.child("day").getValue(Int::class.java)
+        if (label.isNullOrBlank() || month == null || day == null) {
+            null
+        } else {
+            SpecialDate(label, month, day)
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchSpecialDateOnce failed", e)
+        null
+    }
+
+    suspend fun clearSpecialDate(): Result<Unit> = runCatching {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            specialDateRef().removeValue().await()
         }
     }
 }

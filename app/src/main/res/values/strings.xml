@@ -45,6 +45,16 @@
     <string name="guide_mood_title">Your mood</string>
     <string name="guide_mood_desc">Shows on your partner\'s widget — a quick status, separate from your messages.</string>
 
+    <string name="guide_countdown_title">Countdown to a special date</string>
+    <string name="guide_countdown_desc">A shared anniversary or birthday countdown — set once, repeats every year.</string>
+    <string name="guide_countdown_label_placeholder">e.g. Our Anniversary</string>
+    <string name="guide_countdown_pick_date">Pick date</string>
+    <string name="guide_countdown_remove">Remove</string>
+    <string name="guide_countdown_current">%1$s — %2$d/%3$d</string>
+    <string name="countdown_banner_today">🎉 Today is %1$s!</string>
+    <string name="countdown_banner_tomorrow">💫 %1$s is tomorrow!</string>
+    <string name="countdown_banner_days">💫 %2$d days until %1$s</string>
+
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
     <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
     <string name="widget_square_description">A compact square version of the Glimpse widget.</string>
