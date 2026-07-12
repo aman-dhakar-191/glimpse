@@ -38,6 +38,7 @@ import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.mood.MoodViewModel
+import com.glimpse.app.ui.mood.PartnerMoodUiState
 import com.glimpse.app.ui.nickname.NicknameViewModel
 import com.glimpse.app.ui.onthisday.OnThisDayBanner
 import com.glimpse.app.ui.onthisday.OnThisDayViewModel
@@ -206,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
                     val moodUiState by moodViewModel.uiState.collectAsState()
+                    val partnerMoodUiState by moodViewModel.partnerMood.collectAsState()
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
@@ -259,7 +261,9 @@ class MainActivity : ComponentActivity() {
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     dailyPromptUiState = dailyPromptUiState,
                                     onLoadDailyPrompt = { dailyPromptViewModel.check() },
-                                    onDismissDailyPrompt = { dailyPromptViewModel.dismiss() }
+                                    onDismissDailyPrompt = { dailyPromptViewModel.dismiss() },
+                                    partnerMoodEmoji = (partnerMoodUiState as? PartnerMoodUiState.Loaded)?.emoji.orEmpty(),
+                                    onLoadPartnerMood = { moodViewModel.loadPartnerMood() }
                                 )
                             }
                             // Ambient/low-urgency status, not something that needs
