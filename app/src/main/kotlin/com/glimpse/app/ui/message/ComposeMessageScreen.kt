@@ -151,7 +151,9 @@ fun ComposeMessageScreen(
     onLoadDailyPrompt: () -> Unit,
     onDismissDailyPrompt: () -> Unit,
     partnerMoodEmoji: String,
-    onLoadPartnerMood: () -> Unit
+    onLoadPartnerMood: () -> Unit,
+    myMoodEmoji: String,
+    onLoadMyMood: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -198,6 +200,7 @@ fun ComposeMessageScreen(
     LaunchedEffect(Unit) {
         onLoadDailyPrompt()
         onLoadPartnerMood()
+        onLoadMyMood()
     }
 
     LaunchedEffect(uiState) {
@@ -262,6 +265,19 @@ fun ComposeMessageScreen(
                         Text(stringResource(R.string.compose_settings_link))
                     }
                 }
+            }
+
+            // Confirms your own pick actually saved — the emoji up in the
+            // title row is always your PARTNER's mood, never your own, so
+            // without this there'd be no in-app feedback that setting your
+            // mood in Settings did anything.
+            if (myMoodEmoji.isNotBlank()) {
+                Text(
+                    stringResource(R.string.compose_my_mood, myMoodEmoji),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
 
             Spacer(Modifier.height(24.dp))

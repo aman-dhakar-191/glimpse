@@ -15,14 +15,22 @@ import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 
 // Shared between WidgetUpdateService (live Firebase listener, while its
-// foreground service is allowed to run) and CurrentMessageWidget's onUpdate
-// (an immediate one-shot render that doesn't depend on that service being
-// startable), so both paths produce identical widget output.
+// foreground service is allowed to run) and each AppWidgetProvider's own
+// onUpdate (an immediate one-shot render that doesn't depend on that service
+// being startable), so both paths produce identical widget output.
 internal object WidgetRenderer {
 
+    // Bounds both the Firebase fetch (FirebaseSync.fetchRecentMessagesOnce/
+    // listenToHistory) and the RemoteViews payload — each carousel page can
+    // carry its own downscaled photo, and RemoteViews' Parcel has to stay
+    // well under the Binder transaction size limit even in a worst case of
+    // several photo messages queued up in one catch-up window.
+    const val CAROUSEL_LIMIT = 5
+
     // Both layouts use identical view IDs (author_name, message_content,
-    // etc.), so applyMessage/ReactionActionBinder need no branching — only
-    // the layout resource and its paddings/text sizes differ per size.
+    // etc.) inside their carousel page layout, so buildPage/ReactionActionBinder
+    // need no branching — only the layout resources (widget + page) differ
+    // per size.
     private val SQUARE_SIZE = SizeF(110f, 110f)
     private val RECTANGULAR_SIZE = SizeF(250f, 110f)
 
@@ -31,13 +39,9 @@ internal object WidgetRenderer {
     // resize-to-switch-layout — SquareMessageWidget's own dedicated picker
     // entry (see renderSquare) is what makes the square shape available
     // everywhere else.
-    suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
-        val photoBitmap = loadPhotoIfNeeded(context, message)
-        val displayAuthorName = resolveAuthorName(message)
-        val partnerMood = FirebaseSync.fetchPartnerMoodOnce()
-
+    suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
         val rectangularViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap, displayAuthorName, partnerMood
+            context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages
         )
 
         // The multi-size RemoteViews constructor (which lets the system pick
@@ -47,7 +51,7 @@ internal object WidgetRenderer {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
 
         val squareViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName, partnerMood
+            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages
         )
         return RemoteViews(
             mapOf(
@@ -60,13 +64,60 @@ internal object WidgetRenderer {
     // For SquareMessageWidget — always the square layout, regardless of API
     // level, since this provider's own footprint (not an in-place resize) is
     // what determines its shape.
-    suspend fun renderSquare(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
-        val photoBitmap = loadPhotoIfNeeded(context, message)
-        val displayAuthorName = resolveAuthorName(message)
+    suspend fun renderSquare(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews =
+        buildViews(context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages)
+
+    // Whatever a render actually put on screen (see carouselWindow below) is
+    // exactly what gets marked seen — kept here rather than in each caller
+    // so "what counts as seen" has one definition next to the rendering
+    // logic it has to match.
+    suspend fun markSeenForRender(messages: List<Message>) {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        FirebaseSync.markMessagesSeenIfNeeded(carouselWindow(messages, myUid))
+    }
+
+    // Oldest-still-unseen through newest — a "catch up from where you left
+    // off" order that ends on the most recent message, same as opening a
+    // chat scrolled to your last read position. Falls back to just the
+    // latest message (the widget's original single-message behavior) once
+    // everything's been seen, so the common steady-state case still renders
+    // the same single, long-proven page instead of a pointless 1-page
+    // "carousel".
+    internal fun carouselWindow(messages: List<Message>, myUid: String?): List<Message> {
+        if (messages.isEmpty()) return emptyList()
+        val firstUnseenIndex = messages.indexOfFirst { it.isUnseenBy(myUid) }
+        return if (firstUnseenIndex == -1) listOf(messages.last()) else messages.subList(firstUnseenIndex, messages.size)
+    }
+
+    private fun Message.isUnseenBy(uid: String?): Boolean =
+        authorUid != uid && reactions[FirebaseSync.SEEN_EMOJI]?.contains(uid) != true
+
+    private suspend fun buildViews(
+        context: Context,
+        appWidgetId: Int,
+        layoutRes: Int,
+        pageLayoutRes: Int,
+        messages: List<Message>
+    ): RemoteViews {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        val window = carouselWindow(messages, myUid)
+        val partnerNickname = FirebaseSync.fetchPartnerNicknameOnce()
         val partnerMood = FirebaseSync.fetchPartnerMoodOnce()
-        return buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName, partnerMood
-        )
+
+        val remoteViews = RemoteViews(context.packageName, layoutRes)
+        ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
+
+        if (window.isEmpty()) {
+            remoteViews.addView(R.id.widget_carousel, buildEmptyPage(context, pageLayoutRes, appWidgetId, partnerMood))
+        } else {
+            window.forEach { message ->
+                remoteViews.addView(
+                    R.id.widget_carousel,
+                    buildPage(context, pageLayoutRes, appWidgetId, message, myUid, partnerNickname, partnerMood)
+                )
+            }
+        }
+        return remoteViews
     }
 
     // The message's stored authorName is whatever the sender's Google
@@ -74,46 +125,92 @@ internal object WidgetRenderer {
     // "what I call my partner" setting (see FirebaseSync.fetchPartnerNicknameOnce)
     // overrides that display, but only for messages that aren't mine, and
     // only locally: it never touches the stored message data itself.
-    private suspend fun resolveAuthorName(message: Message?): String {
-        if (message == null) return ""
-        val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        if (message.authorUid == myUid) return message.authorName
-        val nickname = FirebaseSync.fetchPartnerNicknameOnce()
-        return nickname.ifBlank { message.authorName }
-    }
-
-    // RemoteViews.setImageViewUri() rejects arbitrary https:// URLs on
-    // Android 12+ (SecurityException: "Disallowed URI ... in
-    // RemoteViews") — widgets can only be handed real pixel data, not a
-    // URI for the host to fetch itself. So we download it here and hand
-    // over a Bitmap instead.
-    private suspend fun loadPhotoIfNeeded(context: Context, message: Message?): Bitmap? =
-        if (message?.type == "photo" && message.photoUrl.isNotBlank()) {
-            loadBitmap(context, message.photoUrl)
-        } else {
-            null
-        }
-
-    private suspend fun buildViews(
+    private suspend fun buildPage(
         context: Context,
+        pageLayoutRes: Int,
         appWidgetId: Int,
-        layoutRes: Int,
-        message: Message?,
-        photoBitmap: Bitmap?,
-        displayAuthorName: String,
+        message: Message,
+        myUid: String?,
+        partnerNickname: String,
         partnerMood: String
     ): RemoteViews {
-        val remoteViews = RemoteViews(context.packageName, layoutRes)
-        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
-        ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
-        applyMessage(context, remoteViews, message, photoBitmap, displayAuthorName)
-        applyMoodStatus(remoteViews, partnerMood)
-        return remoteViews
+        val page = RemoteViews(context.packageName, pageLayoutRes)
+        ReactionActionBinder.bindReactAction(context, page, appWidgetId, message.id)
+        applyMoodStatus(page, partnerMood)
+
+        val displayAuthorName = if (message.authorUid == myUid) {
+            message.authorName
+        } else {
+            partnerNickname.ifBlank { message.authorName }
+        }
+        page.setTextViewText(R.id.author_name, displayAuthorName)
+
+        // Only hidden from the recipient — same rule as MessageHistoryScreen.
+        // Widgets aren't per-account UI in the OS sense, but this device is
+        // signed into one specific account, so "am I the author" still
+        // resolves the same way it does in-app.
+        val hiddenByLock = message.isLocked && message.authorUid != myUid
+
+        if (hiddenByLock) {
+            page.setTextViewText(R.id.message_content, context.getString(R.string.widget_locked_message))
+            page.setViewVisibility(R.id.message_content, View.VISIBLE)
+            page.setViewVisibility(R.id.message_photo, View.GONE)
+            page.setViewVisibility(R.id.photo_caption, View.GONE)
+        } else {
+            page.setTextViewText(R.id.message_content, message.content)
+            // GONE views are skipped entirely when a LinearLayout distributes
+            // weighted space, so hiding this when there's no text (photo
+            // messages) hands its whole weighted share to message_photo instead
+            // of splitting the box with an empty label.
+            page.setViewVisibility(
+                R.id.message_content,
+                if (message.content.isNotBlank()) View.VISIBLE else View.GONE
+            )
+
+            if (message.type == "photo") {
+                val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
+                if (photoBitmap != null) {
+                    page.setImageViewBitmap(R.id.message_photo, photoBitmap)
+                    page.setViewVisibility(R.id.message_photo, View.VISIBLE)
+                } else {
+                    page.setViewVisibility(R.id.message_photo, View.GONE)
+                }
+                page.setTextViewText(R.id.photo_caption, message.caption)
+                page.setViewVisibility(
+                    R.id.photo_caption,
+                    if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
+                )
+            } else {
+                page.setViewVisibility(R.id.message_photo, View.GONE)
+                page.setViewVisibility(R.id.photo_caption, View.GONE)
+            }
+        }
+
+        message.reactions.filterValues { it.isNotEmpty() }.forEach { (emoji, userIds) ->
+            val chip = RemoteViews(context.packageName, R.layout.reaction_chip)
+            chip.setTextViewText(R.id.reaction_text, "$emoji ${userIds.size}")
+            page.addView(R.id.reactions_container, chip)
+        }
+
+        return page
+    }
+
+    private fun buildEmptyPage(context: Context, pageLayoutRes: Int, appWidgetId: Int, partnerMood: String): RemoteViews {
+        val page = RemoteViews(context.packageName, pageLayoutRes)
+        ReactionActionBinder.bindReactAction(context, page, appWidgetId, "")
+        applyMoodStatus(page, partnerMood)
+        page.setTextViewText(R.id.author_name, "")
+        page.setTextViewText(R.id.message_content, context.getString(R.string.widget_no_message))
+        page.setViewVisibility(R.id.message_content, View.VISIBLE)
+        page.setViewVisibility(R.id.message_photo, View.GONE)
+        page.setViewVisibility(R.id.photo_caption, View.GONE)
+        return page
     }
 
     // A plain TextView leaf (partner_mood) next to author_name — see
     // FirebaseSync.setMood for why this is safe to show (shared, not
-    // sensitive) and MoodViewModel for where it's set.
+    // sensitive) and MoodViewModel for where it's set. Applied identically
+    // to every page since it isn't message-specific.
     private fun applyMoodStatus(remoteViews: RemoteViews, partnerMood: String) {
         if (partnerMood.isNotBlank()) {
             remoteViews.setTextViewText(R.id.partner_mood, partnerMood)
@@ -148,74 +245,6 @@ internal object WidgetRenderer {
             }
         } catch (e: Exception) {
             null
-        }
-    }
-
-    private fun applyMessage(
-        context: Context,
-        remoteViews: RemoteViews,
-        message: Message?,
-        photoBitmap: Bitmap?,
-        displayAuthorName: String
-    ) {
-        if (message == null) {
-            remoteViews.setTextViewText(R.id.author_name, "")
-            remoteViews.setTextViewText(R.id.message_content, context.getString(R.string.widget_no_message))
-            remoteViews.setViewVisibility(R.id.message_content, View.VISIBLE)
-            remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
-            remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
-            remoteViews.removeAllViews(R.id.reactions_container)
-            return
-        }
-
-        remoteViews.setTextViewText(R.id.author_name, displayAuthorName)
-
-        // Only hidden from the recipient — same rule as MessageHistoryScreen.
-        // Widgets aren't per-account UI in the OS sense, but this device is
-        // signed into one specific account, so "am I the author" still
-        // resolves the same way it does in-app.
-        val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        val hiddenByLock = message.isLocked && message.authorUid != myUid
-
-        if (hiddenByLock) {
-            remoteViews.setTextViewText(R.id.message_content, context.getString(R.string.widget_locked_message))
-            remoteViews.setViewVisibility(R.id.message_content, View.VISIBLE)
-            remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
-            remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
-        } else {
-            remoteViews.setTextViewText(R.id.message_content, message.content)
-            // GONE views are skipped entirely when a LinearLayout distributes
-            // weighted space, so hiding this when there's no text (photo
-            // messages) hands its whole weighted share to message_photo instead
-            // of splitting the box with an empty label.
-            remoteViews.setViewVisibility(
-                R.id.message_content,
-                if (message.content.isNotBlank()) View.VISIBLE else View.GONE
-            )
-
-            if (message.type == "photo") {
-                if (photoBitmap != null) {
-                    remoteViews.setImageViewBitmap(R.id.message_photo, photoBitmap)
-                    remoteViews.setViewVisibility(R.id.message_photo, View.VISIBLE)
-                } else {
-                    remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
-                }
-                remoteViews.setTextViewText(R.id.photo_caption, message.caption)
-                remoteViews.setViewVisibility(
-                    R.id.photo_caption,
-                    if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
-                )
-            } else {
-                remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
-                remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
-            }
-        }
-
-        remoteViews.removeAllViews(R.id.reactions_container)
-        message.reactions.filterValues { it.isNotEmpty() }.forEach { (emoji, userIds) ->
-            val chip = RemoteViews(context.packageName, R.layout.reaction_chip)
-            chip.setTextViewText(R.id.reaction_text, "$emoji ${userIds.size}")
-            remoteViews.addView(R.id.reactions_container, chip)
         }
     }
 }
