@@ -25,12 +25,14 @@ class SquareMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
+                // Carousel temporarily disabled (latestOnly = true) — see
+                // WidgetUpdateService.updateWidgets for why.
                 val messages = FirebaseSync.fetchRecentMessagesOnce(WidgetRenderer.CAROUSEL_LIMIT)
                 appWidgetIds.forEach { appWidgetId ->
-                    val remoteViews = WidgetRenderer.renderSquare(context, appWidgetId, messages)
+                    val remoteViews = WidgetRenderer.renderSquare(context, appWidgetId, messages, latestOnly = true)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
-                WidgetRenderer.markSeenForRender(messages)
+                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
             } finally {
                 pendingResult.finish()
             }

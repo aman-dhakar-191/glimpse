@@ -21,7 +21,7 @@
     <string name="guide_step_3_title">Find \'Glimpse\'</string>
     <string name="guide_step_3_desc">Search for our app — you\'ll see five widgets: \"Glimpse\", \"Glimpse (Square)\", \"Glimpse (Large)\", \"Glimpse (Latest Only)\", and \"Glimpse (Blob Shape — Experimental)\"</string>
     <string name="guide_step_4_title">Pick the one(s) you want</string>
-    <string name="guide_step_4_desc">Auto-scrolling group (cycles through any unseen messages, oldest first, then settles on the latest): \"Glimpse\" is the default 4x4, \"Glimpse (Square)\" is compact, \"Glimpse (Large)\" is a taller 4x6 with more room for photos. Stays-still group (always just the newest message, no auto-scrolling): \"Glimpse (Latest Only)\" is the plain rectangle, \"Glimpse (Blob Shape — Experimental)\" has a custom outline instead. Add as many as you like — all resize afterward too.</string>
+    <string name="guide_step_4_desc">All five currently show just the newest message: \"Glimpse\" is the default 4x4, \"Glimpse (Square)\" is compact, \"Glimpse (Large)\" is a taller 4x6 with more room for photos, \"Glimpse (Latest Only)\" is the plain rectangle, \"Glimpse (Blob Shape — Experimental)\" has a custom outline instead. Add as many as you like.</string>
     <string name="guide_step_5_title">Tap React on the widget to reply with any emoji</string>
     <string name="guide_step_5_desc">Opens a quick picker right in the app</string>
     <string name="guide_dismiss">Got it, dismiss this guide</string>
@@ -59,11 +59,11 @@
     <string name="countdown_banner_days">💫 %2$d days until %1$s</string>
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
-    <string name="widget_description">Default 4x4 size. Auto-scrolls through any unseen messages (oldest first), then settles on the latest — react right from the widget.</string>
-    <string name="widget_square_description">Compact square size. Auto-scrolls through any unseen messages, same as the default Glimpse widget.</string>
-    <string name="widget_large_description">Taller 4x6 size with more room for photos. Auto-scrolls through any unseen messages, same as the default Glimpse widget.</string>
-    <string name="widget_latest_description">Always shows just the latest message only — no auto-scrolling through older ones, unlike the other Glimpse widgets. Pick this instead of (or alongside) \"Glimpse\" if you\'d rather it stayed still.</string>
-    <string name="widget_shaped_description">Experimental: a custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Like \"Latest Only\", always shows just the newest message with no auto-scrolling. If it ever fails to load, remove it and use one of the other Glimpse widgets instead.</string>
+    <string name="widget_description">Default 4x4 size. Shows the newest message — react right from the widget.</string>
+    <string name="widget_square_description">Compact square size. Shows the newest message, same as the default Glimpse widget.</string>
+    <string name="widget_large_description">Taller 4x6 size with more room for photos. Shows the newest message, same as the default Glimpse widget.</string>
+    <string name="widget_latest_description">Always shows just the newest message. Pick this instead of (or alongside) \"Glimpse\" for a plain rectangle.</string>
+    <string name="widget_shaped_description">Experimental: a custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Shows the newest message, photo included. If it ever fails to load, remove it and use one of the other Glimpse widgets instead.</string>
     <string name="widget_photo_fallback">📷 A photo</string>
     <string name="widget_label_rectangular">Glimpse</string>
     <string name="widget_label_square">Glimpse (Square)</string>

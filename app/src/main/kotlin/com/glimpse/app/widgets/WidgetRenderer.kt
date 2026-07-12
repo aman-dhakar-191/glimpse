@@ -1,5 +1,6 @@
 package com.glimpse.app.widgets
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
@@ -43,18 +44,34 @@ internal object WidgetRenderer {
     // entry (see renderSquare) is what makes the square shape available
     // everywhere else.
     suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>, latestOnly: Boolean = false): RemoteViews {
-        val rectangularViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages, latestOnly
-        )
-
         // The multi-size RemoteViews constructor (which lets the system pick
         // the best-fitting layout as the user resizes the widget) only
         // exists on API 31+ — older devices always get the rectangular
         // layout, same as before this feature existed.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return buildViews(
+                context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages, latestOnly,
+                allowPhoto = true
+            )
+        }
 
+        // Both size variants get bundled into ONE RemoteViews and sent in a
+        // single Binder transaction. Embedding the current page's photo in
+        // BOTH would double that transaction's payload right at the point
+        // it's already closest to the size limit (see loadPhoto in
+        // buildPage) — that was silently failing for exactly this reason
+        // whenever the current message was a photo. Only the size variant
+        // actually on screen right now loads the real photo; the other
+        // stays text-only until it becomes the active size, at which point
+        // onAppWidgetOptionsChanged (see each provider) re-renders for real.
+        val activeIsSquare = isCurrentlySquare(context, appWidgetId)
+        val rectangularViews = buildViews(
+            context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages, latestOnly,
+            allowPhoto = !activeIsSquare
+        )
         val squareViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly
+            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly,
+            allowPhoto = activeIsSquare
         )
         return RemoteViews(
             mapOf(
@@ -66,9 +83,34 @@ internal object WidgetRenderer {
 
     // For SquareMessageWidget — always the square layout, regardless of API
     // level, since this provider's own footprint (not an in-place resize) is
-    // what determines its shape.
-    suspend fun renderSquare(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews =
-        buildViews(context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly = false)
+    // what determines its shape. Only ever one size variant in the
+    // transaction, so no doubled-payload risk — always safe to load the photo.
+    suspend fun renderSquare(context: Context, appWidgetId: Int, messages: List<Message>, latestOnly: Boolean = false): RemoteViews =
+        buildViews(
+            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly,
+            allowPhoto = true
+        )
+
+    // Approximates which of the two responsive size entries the system is
+    // currently displaying, since RemoteViews exposes no direct "which
+    // variant is active" query — compares the widget's current dp bounds
+    // against each variant's aspect ratio (same signal the system itself
+    // uses to pick a size entry). Defaults to rectangular (false) if
+    // options aren't available yet, matching the pre-API-31 fallback.
+    private fun isCurrentlySquare(context: Context, appWidgetId: Int): Boolean {
+        return try {
+            val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId)
+            val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, -1)
+            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, -1)
+            if (width <= 0 || height <= 0) return false
+            val ratio = width.toFloat() / height
+            val squareDistance = kotlin.math.abs(ratio - SQUARE_SIZE.width / SQUARE_SIZE.height)
+            val rectangularDistance = kotlin.math.abs(ratio - RECTANGULAR_SIZE.width / RECTANGULAR_SIZE.height)
+            squareDistance < rectangularDistance
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     // Whatever a render actually put on screen (see carouselWindow/
     // latestOnly below) is exactly what gets marked seen — kept here rather
@@ -102,7 +144,8 @@ internal object WidgetRenderer {
         layoutRes: Int,
         pageLayoutRes: Int,
         messages: List<Message>,
-        latestOnly: Boolean
+        latestOnly: Boolean,
+        allowPhoto: Boolean
     ): RemoteViews {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
         // LatestMessageWidget's whole point is to always show just the
@@ -117,7 +160,7 @@ internal object WidgetRenderer {
 
         if (window.isEmpty()) {
             remoteViews.addView(R.id.widget_carousel, buildEmptyPage(context, pageLayoutRes, appWidgetId, partnerMood))
-            applyCarouselIndicator(context, remoteViews, appWidgetId, pageCount = 0, currentIndex = 0)
+            applyCarouselIndicator(context, remoteViews, appWidgetId, pageCount = 0, currentIndex = 0, latestOnly = latestOnly)
         } else {
             // The app now owns "which page is showing" entirely — there's
             // no more autoStart/flipInterval on the ViewFlipper (see
@@ -136,28 +179,39 @@ internal object WidgetRenderer {
                     R.id.widget_carousel,
                     buildPage(
                         context, pageLayoutRes, appWidgetId, message, myUid, partnerNickname, partnerMood,
-                        loadPhoto = index == currentIndex
+                        loadPhoto = allowPhoto && index == currentIndex
                     )
                 )
             }
             remoteViews.setDisplayedChild(R.id.widget_carousel, currentIndex)
-            applyCarouselIndicator(context, remoteViews, appWidgetId, window.size, currentIndex)
+            applyCarouselIndicator(context, remoteViews, appWidgetId, window.size, currentIndex, latestOnly = latestOnly)
         }
         return remoteViews
     }
 
     // One dot per message actually in the window, the current one drawn
-    // larger/filled — each dot is independently tappable and jumps
-    // straight to that page (see ReactionActionBinder.bindCarouselJumpAction/
-    // WidgetCarouselJumpReceiver). Hidden entirely at 0-1 messages, i.e.
-    // the widget doesn't actually have anything to page through — that's
-    // also how someone can tell apart a carousel-capable widget sitting at
-    // its steady state from LatestMessageWidget, which always renders
-    // through this same layout/indicator view but with a window capped at
-    // size 1.
-    private fun applyCarouselIndicator(context: Context, remoteViews: RemoteViews, appWidgetId: Int, pageCount: Int, currentIndex: Int) {
+    // larger/filled — each dot is independently tappable and jumps straight
+    // to that page (see ReactionActionBinder.bindCarouselJumpAction/
+    // WidgetCarouselJumpReceiver).
+    //
+    // For carousel-capable widgets (latestOnly = false), this row is the
+    // permanent visual marker for "this is the scrolling one": it stays
+    // visible — even as a single dot — for as long as there's at least one
+    // message, since otherwise a carousel widget sitting at its steady
+    // state (only the latest message, nothing to page through yet) looks
+    // pixel-identical to LatestMessageWidget. LatestMessageWidget itself
+    // (latestOnly = true) never shows this row at all, so its absence is
+    // what marks a widget as the non-scrolling kind.
+    private fun applyCarouselIndicator(
+        context: Context,
+        remoteViews: RemoteViews,
+        appWidgetId: Int,
+        pageCount: Int,
+        currentIndex: Int,
+        latestOnly: Boolean
+    ) {
         remoteViews.removeAllViews(R.id.carousel_indicator)
-        if (pageCount <= 1) {
+        if (latestOnly || pageCount < 1) {
             remoteViews.setViewVisibility(R.id.carousel_indicator, View.GONE)
             return
         }
