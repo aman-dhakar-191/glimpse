@@ -72,6 +72,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import com.glimpse.app.ui.dailyprompt.DailyPromptUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
@@ -145,7 +146,10 @@ fun ComposeMessageScreen(
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
     onLogout: () -> Unit,
-    onSendNudge: () -> Unit
+    onSendNudge: () -> Unit,
+    dailyPromptUiState: DailyPromptUiState,
+    onLoadDailyPrompt: () -> Unit,
+    onDismissDailyPrompt: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -188,6 +192,8 @@ fun ComposeMessageScreen(
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
+
+    LaunchedEffect(Unit) { onLoadDailyPrompt() }
 
     LaunchedEffect(uiState) {
         if (uiState is ComposeUiState.Sent) {
@@ -241,6 +247,44 @@ fun ComposeMessageScreen(
             }
 
             Spacer(Modifier.height(24.dp))
+
+            // A prompt to answer together on quiet days — same deterministic
+            // question on both devices (see DailyPromptViewModel). Lives
+            // here (not as a MainActivity-level sibling banner like
+            // OnThisDay/Countdown) because "Use this" needs direct access
+            // to this screen's own `text` field state.
+            if (dailyPromptUiState is DailyPromptUiState.Visible) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            stringResource(R.string.daily_prompt_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            dailyPromptUiState.prompt,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                        )
+                        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                            TextButton(onClick = onDismissDailyPrompt) {
+                                Text(stringResource(R.string.update_dismiss))
+                            }
+                            TextButton(onClick = {
+                                text = dailyPromptUiState.prompt
+                                onDismissDailyPrompt()
+                            }) {
+                                Text(stringResource(R.string.daily_prompt_use))
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
 
             Card(
                 modifier = Modifier
