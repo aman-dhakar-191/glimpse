@@ -64,7 +64,7 @@
     <string name="widget_large_description">Taller 4x6 size with more room for photos. Auto-scrolls through any unseen messages, same as the default Glimpse widget.</string>
     <string name="widget_latest_description">Always shows just the latest message only — no auto-scrolling through older ones, unlike the other Glimpse widgets. Pick this instead of (or alongside) \"Glimpse\" if you\'d rather it stayed still.</string>
     <string name="widget_shaped_description">Experimental: a custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Like \"Latest Only\", always shows just the newest message with no auto-scrolling. If it ever fails to load, remove it and use one of the other Glimpse widgets instead.</string>
-    <string name="widget_shaped_photo_fallback">📷 A photo</string>
+    <string name="widget_photo_fallback">📷 A photo</string>
     <string name="widget_label_rectangular">Glimpse</string>
     <string name="widget_label_square">Glimpse (Square)</string>
     <string name="widget_label_large">Glimpse (Large)</string>

@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.glimpse.app.R
@@ -17,6 +18,8 @@ import com.glimpse.app.data.model.Message
 import com.glimpse.app.widgets.CurrentMessageWidget
 import com.glimpse.app.widgets.LargeMessageWidget
 import com.glimpse.app.widgets.LatestMessageWidget
+import com.glimpse.app.widgets.ShapedMessageWidget
+import com.glimpse.app.widgets.ShapedWidgetRenderer
 import com.glimpse.app.widgets.SquareMessageWidget
 import com.glimpse.app.widgets.WidgetRenderer
 import com.google.firebase.database.ValueEventListener
@@ -70,6 +73,15 @@ class WidgetUpdateService : Service() {
             val hasLatestOnlyWidget = updateProvider(appWidgetManager, LatestMessageWidget::class.java) { id ->
                 WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
             }
+            // ShapedMessageWidget is entirely separate rendering code (see
+            // ShapedWidgetRenderer) and always just the single latest
+            // message, same as LatestMessageWidget — this was missing
+            // before, so this widget only ever refreshed on its own
+            // 30-minute periodic tick or when re-added, never promptly
+            // when a new message actually arrived.
+            val hasShapedWidget = updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
+                ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages.lastOrNull())
+            }
 
             // Mark seen based on whatever's actually on screen: if any
             // carousel-capable widget is present, the whole catch-up window
@@ -79,7 +91,7 @@ class WidgetUpdateService : Service() {
             // that's genuinely all it ever shows.
             if (hasCarouselWidget) {
                 WidgetRenderer.markSeenForRender(messages)
-            } else if (hasLatestOnlyWidget) {
+            } else if (hasLatestOnlyWidget || hasShapedWidget) {
                 WidgetRenderer.markSeenForRender(messages, latestOnly = true)
             }
         }
@@ -87,6 +99,15 @@ class WidgetUpdateService : Service() {
 
     // Returns whether this provider actually has any widget instances —
     // callers use that to decide how "seen" should be interpreted overall.
+    //
+    // Each widget instance's render+push is isolated in its own try/catch:
+    // previously, one instance throwing (e.g. TransactionTooLargeException
+    // from too much photo data in a single RemoteViews Parcel) aborted this
+    // whole suspend function, which in turn aborted updateWidgets' entire
+    // coroutine — silently skipping every OTHER provider queued after it,
+    // not just the one that actually failed. That's a real bug this
+    // fixes on its own; see WidgetRenderer's loadPhoto param for the fix
+    // to the actual oversized-payload cause.
     private suspend fun updateProvider(
         appWidgetManager: AppWidgetManager,
         providerClass: Class<*>,
@@ -96,7 +117,11 @@ class WidgetUpdateService : Service() {
             ComponentName(this@WidgetUpdateService, providerClass)
         )
         appWidgetIds.forEach { appWidgetId ->
-            appWidgetManager.updateAppWidget(appWidgetId, render(appWidgetId))
+            try {
+                appWidgetManager.updateAppWidget(appWidgetId, render(appWidgetId))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update $providerClass widget $appWidgetId", e)
+            }
         }
         return appWidgetIds.isNotEmpty()
     }
@@ -119,6 +144,7 @@ class WidgetUpdateService : Service() {
     }
 
     companion object {
+        private const val TAG = "WidgetUpdateService"
         private const val CHANNEL_ID = "widget_sync"
         private const val NOTIFICATION_ID = 1001
     }

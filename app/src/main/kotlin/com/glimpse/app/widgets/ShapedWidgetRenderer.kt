@@ -38,7 +38,7 @@ internal object ShapedWidgetRenderer {
             hiddenByLock -> context.getString(R.string.widget_locked_message)
             // No photo rendering in this experimental layout — a caption
             // (or a plain fallback) stands in for it.
-            message.type == "photo" -> message.caption.ifBlank { context.getString(R.string.widget_shaped_photo_fallback) }
+            message.type == "photo" -> message.caption.ifBlank { context.getString(R.string.widget_photo_fallback) }
             else -> message.content
         }
         remoteViews.setTextViewText(R.id.shaped_message_content, content)
