@@ -38,9 +38,10 @@ internal object WidgetRenderer {
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val photoBitmap = loadPhotoIfNeeded(context, message)
         val displayAuthorName = resolveAuthorName(message)
+        val partnerMood = FirebaseSync.fetchPartnerMoodOnce()
 
         val rectangularViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap, displayAuthorName
+            context, appWidgetId, R.layout.widget_current_message, message, photoBitmap, displayAuthorName, partnerMood
         )
 
         // The multi-size RemoteViews constructor (which lets the system pick
@@ -50,7 +51,7 @@ internal object WidgetRenderer {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
 
         val squareViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName
+            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName, partnerMood
         )
         return RemoteViews(
             mapOf(
@@ -66,8 +67,9 @@ internal object WidgetRenderer {
     suspend fun renderSquare(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val photoBitmap = loadPhotoIfNeeded(context, message)
         val displayAuthorName = resolveAuthorName(message)
+        val partnerMood = FirebaseSync.fetchPartnerMoodOnce()
         return buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName
+            context, appWidgetId, R.layout.widget_current_message_square, message, photoBitmap, displayAuthorName, partnerMood
         )
     }
 
@@ -102,14 +104,28 @@ internal object WidgetRenderer {
         layoutRes: Int,
         message: Message?,
         photoBitmap: Bitmap?,
-        displayAuthorName: String
+        displayAuthorName: String,
+        partnerMood: String
     ): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, layoutRes)
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
         applyMessage(context, remoteViews, message, photoBitmap, displayAuthorName)
         applyBackgroundPhoto(context, remoteViews, layoutRes)
+        applyMoodStatus(remoteViews, partnerMood)
         return remoteViews
+    }
+
+    // A plain TextView leaf (partner_mood) next to author_name — see
+    // FirebaseSync.setMood for why this is safe to show (shared, not
+    // sensitive) and MoodViewModel for where it's set.
+    private fun applyMoodStatus(remoteViews: RemoteViews, partnerMood: String) {
+        if (partnerMood.isNotBlank()) {
+            remoteViews.setTextViewText(R.id.partner_mood, partnerMood)
+            remoteViews.setViewVisibility(R.id.partner_mood, View.VISIBLE)
+        } else {
+            remoteViews.setViewVisibility(R.id.partner_mood, View.GONE)
+        }
     }
 
     // Local-only, per-device customization — see WidgetBackgroundPhotoStore.

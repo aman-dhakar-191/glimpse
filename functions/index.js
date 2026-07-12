@@ -138,6 +138,20 @@ exports.onNudge = functions.database
     });
   });
 
+// shared/moods/{uid} is set by MoodViewModel/FirebaseSync.setMood — no
+// title/body here on purpose: FCMService.onMessageReceived triggers a
+// widget refresh (WidgetSyncTrigger.requestSync) for *any* received push
+// before it even looks at title/body, and only shows a visible
+// notification if a title is present. So this just gets the partner's
+// widget to pick up the new mood promptly, with no notification popup for
+// what's meant to be a quiet status change, not an alert.
+exports.onMoodChanged = functions.database
+  .ref("/shared/moods/{uid}")
+  .onWrite(async (change, context) => {
+    const tokens = await tokensForUsersExcept(context.params.uid);
+    return sendToTokens(tokens, { type: "mood" });
+  });
+
 // shared/settings is deliberately locked to ".write": false in the database
 // rules (see database.rules.json) — allowedUsers is the authorization
 // boundary for the whole app, so no client can grant itself access there

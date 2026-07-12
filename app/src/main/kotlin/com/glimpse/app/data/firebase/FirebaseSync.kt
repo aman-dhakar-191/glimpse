@@ -32,6 +32,8 @@ object FirebaseSync {
     private fun messagesRef() = database.child("shared/messages")
     private fun lastSeenAtRef() = database.child("shared/last_seen_at")
     private fun partnerNicknameRef(uid: String) = database.child("users/$uid/settings/partnerNickname")
+    private fun allowedUsersRef() = database.child("shared/settings/allowedUsers")
+    private fun moodsRef() = database.child("shared/moods")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -202,6 +204,56 @@ object FirebaseSync {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             partnerNicknameRef(uid).setValue(nickname.trim()).await()
+        }
+    }
+
+    // Mood is shared (unlike the nickname above, which is purely local) —
+    // the whole point is for your partner to see it, so it lives under
+    // shared/ rather than users/{myUid}/, matching the same $resource
+    // catch-all read/write rule messages and nudges already use.
+    //
+    // shared/settings/allowedUsers is the app's whole 2-person authorization
+    // boundary (see database.rules.json) — "the other uid in there" is the
+    // same "everyone except me" logic the onNewMessage/onNewReaction Cloud
+    // Functions use server-side, just done client-side here since we only
+    // ever need the one partner uid, not a token fan-out.
+    private suspend fun fetchPartnerUidOnce(): String? {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: return null
+        return try {
+            allowedUsersRef().get().await().children.mapNotNull { it.key }.firstOrNull { it != myUid }
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchPartnerUidOnce failed", e)
+            null
+        }
+    }
+
+    suspend fun setMood(emoji: String): Result<Unit> = runCatching {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
+        val mood = mapOf("emoji" to emoji, "updatedAt" to ServerValue.TIMESTAMP)
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            moodsRef().child(uid).setValue(mood).await()
+        }
+    }
+
+    suspend fun fetchMyMoodOnce(): String {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return ""
+        return try {
+            moodsRef().child(uid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchMyMoodOnce failed", e)
+            ""
+        }
+    }
+
+    // Used by the widget renderer to show "how they're doing" without
+    // either of you needing to open the app.
+    suspend fun fetchPartnerMoodOnce(): String {
+        val partnerUid = fetchPartnerUidOnce() ?: return ""
+        return try {
+            moodsRef().child(partnerUid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchPartnerMoodOnce failed", e)
+            ""
         }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,9 +47,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.mood.MoodUiState
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
+import com.glimpse.app.ui.theme.BlobChipShapeA
+import com.glimpse.app.ui.theme.BlobChipShapeB
 import com.glimpse.app.ui.theme.BlobShapeSoftA
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
@@ -70,11 +74,15 @@ fun WidgetGuideScreen(
     backgroundUiState: WidgetBackgroundUiState,
     onLoadBackground: () -> Unit,
     onPickBackground: (Uri) -> Unit,
-    onClearBackground: () -> Unit
+    onClearBackground: () -> Unit,
+    moodUiState: MoodUiState,
+    onLoadMood: () -> Unit,
+    onSetMood: (String) -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
         onLoadBackground()
+        onLoadMood()
     }
 
     Column(
@@ -101,6 +109,8 @@ fun WidgetGuideScreen(
         NicknameCard(nicknameUiState, onSaveNickname)
 
         BackgroundPhotoCard(backgroundUiState, onPickBackground, onClearBackground)
+
+        MoodCard(moodUiState, onSetMood)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -394,6 +404,75 @@ private fun BackgroundPhotoCard(
                             contentPadding = BlobButtonPadding
                         ) {
                             Text(stringResource(R.string.guide_background_remove))
+                        }
+                    }
+                }
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+// Shared status line — see FirebaseSync.setMood/MoodViewModel for why this
+// one (unlike nicknames and the background photo) is visible to your
+// partner.
+private val MOOD_EMOJIS = listOf("😊", "🥰", "😴", "😢", "😡", "😐", "🤒", "🎉")
+
+@Composable
+private fun MoodCard(uiState: MoodUiState, onSetMood: (String) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(0.5f),
+        shape = BlobShapeSoftC,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.guide_mood_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.guide_mood_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            if (uiState is MoodUiState.Loaded) {
+                if (uiState.error != null) {
+                    Text(
+                        uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                val rows = MOOD_EMOJIS.chunked(4)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            row.forEachIndexed { index, emoji ->
+                                val shape = if (index % 2 == 0) BlobChipShapeA else BlobChipShapeB
+                                val isSelected = emoji == uiState.currentEmoji
+                                OutlinedButton(
+                                    onClick = { onSetMood(emoji) },
+                                    enabled = !uiState.isSaving,
+                                    shape = shape,
+                                    contentPadding = PaddingValues(14.dp),
+                                    colors = if (isSelected) {
+                                        ButtonDefaults.outlinedButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    } else {
+                                        ButtonDefaults.outlinedButtonColors()
+                                    }
+                                ) {
+                                    Text(emoji)
+                                }
+                            }
                         }
                     }
                 }

@@ -30,6 +30,7 @@ import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
+import com.glimpse.app.ui.mood.MoodViewModel
 import com.glimpse.app.ui.nickname.NicknameViewModel
 import com.glimpse.app.ui.onthisday.OnThisDayBanner
 import com.glimpse.app.ui.onthisday.OnThisDayViewModel
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private val nicknameViewModel: NicknameViewModel by viewModels()
     private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
     private val onThisDayViewModel: OnThisDayViewModel by viewModels()
+    private val moodViewModel: MoodViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -194,6 +196,7 @@ class MainActivity : ComponentActivity() {
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
                     val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
+                    val moodUiState by moodViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -247,7 +250,10 @@ class MainActivity : ComponentActivity() {
                             backgroundUiState = widgetBackgroundUiState,
                             onLoadBackground = { widgetBackgroundViewModel.load() },
                             onPickBackground = { uri -> widgetBackgroundViewModel.setPhoto(uri) },
-                            onClearBackground = { widgetBackgroundViewModel.clearPhoto() }
+                            onClearBackground = { widgetBackgroundViewModel.clearPhoto() },
+                            moodUiState = moodUiState,
+                            onLoadMood = { moodViewModel.load() },
+                            onSetMood = { emoji -> moodViewModel.setMood(emoji) }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(

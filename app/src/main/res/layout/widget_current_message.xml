@@ -59,13 +59,30 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <!-- Author -->
-            <TextView
-                android:id="@+id/author_name"
+            <!-- Author + partner's mood status (a plain TextView leaf, same
+                 pattern as author_name/message_content — not a new
+                 container class, so it doesn't carry the same risk as the
+                 background-photo RelativeLayout wrapper above). -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary" />
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/author_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary" />
+
+                <TextView
+                    android:id="@+id/partner_mood"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <!-- Message Content — weighted the same as the photo below (and a
                  GONE view is excluded from a LinearLayout's weight distribution
