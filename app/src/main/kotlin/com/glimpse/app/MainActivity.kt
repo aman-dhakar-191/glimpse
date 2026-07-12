@@ -40,6 +40,7 @@ import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateBanner
 import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
+import com.glimpse.app.ui.widgetbackground.WidgetBackgroundViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.StreakCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private val statsViewModel: StatsViewModel by viewModels()
     private val pairingViewModel: PairingViewModel by viewModels()
     private val nicknameViewModel: NicknameViewModel by viewModels()
+    private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -187,6 +189,7 @@ class MainActivity : ComponentActivity() {
                     val statsUiState by statsViewModel.uiState.collectAsState()
                     val pairingUiState by pairingViewModel.uiState.collectAsState()
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
+                    val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -230,7 +233,11 @@ class MainActivity : ComponentActivity() {
                             onLoadNickname = { nicknameViewModel.load() },
                             onSaveNickname = { name -> nicknameViewModel.save(name) },
                             onDismiss = { screen = AppScreen.Compose },
-                            onLogout = { onLogout() }
+                            onLogout = { onLogout() },
+                            backgroundUiState = widgetBackgroundUiState,
+                            onLoadBackground = { widgetBackgroundViewModel.load() },
+                            onPickBackground = { uri -> widgetBackgroundViewModel.setPhoto(uri) },
+                            onClearBackground = { widgetBackgroundViewModel.clearPhoto() }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(
