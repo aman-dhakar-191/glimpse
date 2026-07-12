@@ -47,7 +47,6 @@ import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateBanner
 import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
-import com.glimpse.app.ui.widgetbackground.WidgetBackgroundViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.StreakCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -66,7 +65,6 @@ class MainActivity : ComponentActivity() {
     private val statsViewModel: StatsViewModel by viewModels()
     private val pairingViewModel: PairingViewModel by viewModels()
     private val nicknameViewModel: NicknameViewModel by viewModels()
-    private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
     private val onThisDayViewModel: OnThisDayViewModel by viewModels()
     private val moodViewModel: MoodViewModel by viewModels()
     private val countdownViewModel: CountdownViewModel by viewModels()
@@ -201,7 +199,6 @@ class MainActivity : ComponentActivity() {
                     val statsUiState by statsViewModel.uiState.collectAsState()
                     val pairingUiState by pairingViewModel.uiState.collectAsState()
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
-                    val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
                     val moodUiState by moodViewModel.uiState.collectAsState()
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
@@ -267,10 +264,6 @@ class MainActivity : ComponentActivity() {
                             onSaveNickname = { name -> nicknameViewModel.save(name) },
                             onDismiss = { screen = AppScreen.Compose },
                             onLogout = { onLogout() },
-                            backgroundUiState = widgetBackgroundUiState,
-                            onLoadBackground = { widgetBackgroundViewModel.load() },
-                            onPickBackground = { uri -> widgetBackgroundViewModel.setPhoto(uri) },
-                            onClearBackground = { widgetBackgroundViewModel.clearPhoto() },
                             moodUiState = moodUiState,
                             onLoadMood = { moodViewModel.load() },
                             onSetMood = { emoji -> moodViewModel.setMood(emoji) },

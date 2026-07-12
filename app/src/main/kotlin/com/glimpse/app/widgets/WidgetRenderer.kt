@@ -2,7 +2,6 @@ package com.glimpse.app.widgets
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.util.SizeF
@@ -11,12 +10,9 @@ import android.widget.RemoteViews
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
-import com.glimpse.app.data.WidgetBackgroundPhotoStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 // Shared between WidgetUpdateService (live Firebase listener, while its
 // foreground service is allowed to run) and CurrentMessageWidget's onUpdate
@@ -111,7 +107,6 @@ internal object WidgetRenderer {
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
         applyMessage(context, remoteViews, message, photoBitmap, displayAuthorName)
-        applyBackgroundPhoto(context, remoteViews, layoutRes)
         applyMoodStatus(remoteViews, partnerMood)
         return remoteViews
     }
@@ -125,29 +120,6 @@ internal object WidgetRenderer {
             remoteViews.setViewVisibility(R.id.partner_mood, View.VISIBLE)
         } else {
             remoteViews.setViewVisibility(R.id.partner_mood, View.GONE)
-        }
-    }
-
-    // Local-only, per-device customization — see WidgetBackgroundPhotoStore.
-    // Defaults (no photo set) leave widget_root's normal opaque background
-    // completely untouched, so this is a no-op for anyone who hasn't opted
-    // in via WidgetGuideScreen's background-photo card.
-    private suspend fun applyBackgroundPhoto(context: Context, remoteViews: RemoteViews, layoutRes: Int) {
-        val backgroundBitmap = withContext(Dispatchers.IO) { WidgetBackgroundPhotoStore.loadBitmap(context) }
-        if (backgroundBitmap != null) {
-            remoteViews.setImageViewBitmap(R.id.widget_background_photo, backgroundBitmap)
-            remoteViews.setViewVisibility(R.id.widget_background_photo, View.VISIBLE)
-            remoteViews.setViewVisibility(R.id.widget_background_scrim, View.VISIBLE)
-            remoteViews.setInt(R.id.widget_root, "setBackgroundColor", Color.TRANSPARENT)
-        } else {
-            remoteViews.setViewVisibility(R.id.widget_background_photo, View.GONE)
-            remoteViews.setViewVisibility(R.id.widget_background_scrim, View.GONE)
-            val defaultBackgroundRes = if (layoutRes == R.layout.widget_current_message_square) {
-                R.drawable.bg_widget_root_square
-            } else {
-                R.drawable.bg_widget_root
-            }
-            remoteViews.setInt(R.id.widget_root, "setBackgroundResource", defaultBackgroundRes)
         }
     }
 

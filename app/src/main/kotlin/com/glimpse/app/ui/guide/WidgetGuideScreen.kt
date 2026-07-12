@@ -1,9 +1,5 @@
 package com.glimpse.app.ui.guide
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,7 +63,6 @@ import com.glimpse.app.ui.theme.BlobChipShapeB
 import com.glimpse.app.ui.theme.BlobShapeSoftA
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
-import com.glimpse.app.ui.widgetbackground.WidgetBackgroundUiState
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneOffset
@@ -86,10 +81,6 @@ fun WidgetGuideScreen(
     onSaveNickname: (String) -> Unit,
     onDismiss: () -> Unit,
     onLogout: () -> Unit,
-    backgroundUiState: WidgetBackgroundUiState,
-    onLoadBackground: () -> Unit,
-    onPickBackground: (Uri) -> Unit,
-    onClearBackground: () -> Unit,
     moodUiState: MoodUiState,
     onLoadMood: () -> Unit,
     onSetMood: (String) -> Unit,
@@ -105,7 +96,6 @@ fun WidgetGuideScreen(
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
-        onLoadBackground()
         onLoadMood()
         onLoadCountdown()
         onLoadQuietHours()
@@ -133,8 +123,6 @@ fun WidgetGuideScreen(
         InviteCard(pairingUiState, onGenerateCode)
 
         NicknameCard(nicknameUiState, onSaveNickname)
-
-        BackgroundPhotoCard(backgroundUiState, onPickBackground, onClearBackground)
 
         MoodCard(moodUiState, onSetMood)
 
@@ -345,96 +333,6 @@ private fun NicknameCard(uiState: NicknameUiState, onSaveNickname: (String) -> U
                         )
                     } else {
                         Text(stringResource(R.string.guide_nickname_save))
-                    }
-                }
-            } else {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-            }
-        }
-    }
-}
-
-// Local-only, per-device widget customization — see WidgetBackgroundPhotoStore
-// for why this never touches Firebase or the partner's own widget.
-@Composable
-private fun BackgroundPhotoCard(
-    uiState: WidgetBackgroundUiState,
-    onPickBackground: (Uri) -> Unit,
-    onClearBackground: () -> Unit
-) {
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri -> if (uri != null) onPickBackground(uri) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .rotate(-0.4f),
-        shape = BlobShapeSoftA,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(28.dp)) {
-            Text(
-                stringResource(R.string.guide_background_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                stringResource(R.string.guide_background_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
-            )
-
-            if (uiState is WidgetBackgroundUiState.Loaded) {
-                if (uiState.error != null) {
-                    Text(
-                        uiState.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
-                val pickLabel = if (uiState.hasPhoto) {
-                    stringResource(R.string.guide_background_change)
-                } else {
-                    stringResource(R.string.guide_background_choose)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = !uiState.isSaving,
-                        shape = BlobButtonShape,
-                        contentPadding = BlobButtonPadding
-                    ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Text(pickLabel)
-                        }
-                    }
-
-                    if (uiState.hasPhoto) {
-                        OutlinedButton(
-                            onClick = onClearBackground,
-                            enabled = !uiState.isSaving,
-                            shape = BlobButtonShape,
-                            contentPadding = BlobButtonPadding
-                        ) {
-                            Text(stringResource(R.string.guide_background_remove))
-                        }
                     }
                 }
             } else {
