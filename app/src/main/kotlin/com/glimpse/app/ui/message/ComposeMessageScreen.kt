@@ -149,7 +149,9 @@ fun ComposeMessageScreen(
     onSendNudge: () -> Unit,
     dailyPromptUiState: DailyPromptUiState,
     onLoadDailyPrompt: () -> Unit,
-    onDismissDailyPrompt: () -> Unit
+    onDismissDailyPrompt: () -> Unit,
+    partnerMoodEmoji: String,
+    onLoadPartnerMood: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -193,7 +195,10 @@ fun ComposeMessageScreen(
         }
     }
 
-    LaunchedEffect(Unit) { onLoadDailyPrompt() }
+    LaunchedEffect(Unit) {
+        onLoadDailyPrompt()
+        onLoadPartnerMood()
+    }
 
     LaunchedEffect(uiState) {
         if (uiState is ComposeUiState.Sent) {
@@ -230,9 +235,22 @@ fun ComposeMessageScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+                    // Same emoji WidgetRenderer.applyMoodStatus shows next to
+                    // author_name on the widget — just also surfaced here so
+                    // it isn't widget-only.
+                    if (partnerMoodEmoji.isNotBlank()) {
+                        Text(
+                            partnerMoodEmoji,
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
                 Row {
                     TextButton(onClick = onOpenHistory) {
                         Text(stringResource(R.string.compose_history_link))

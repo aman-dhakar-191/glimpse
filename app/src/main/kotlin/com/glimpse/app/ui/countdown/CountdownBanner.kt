@@ -8,9 +8,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.theme.BlobShapeSoftA
 
 // Ambient status, not a one-time surprise like OnThisDayBanner — shown
 // plainly whenever a special date is set and within its lead-up window,
@@ -32,7 +34,8 @@ fun CountdownBanner(uiState: CountdownUiState, modifier: Modifier = Modifier) {
     }
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().rotate(-0.4f),
+        shape = BlobShapeSoftA,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
     ) {
         Text(
