@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.glimpse.app.ui.auth.LoginScreen
 import com.glimpse.app.ui.auth.LoginViewModel
+import com.glimpse.app.ui.countdown.CountdownBanner
+import com.glimpse.app.ui.countdown.CountdownViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
 import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
@@ -65,6 +67,7 @@ class MainActivity : ComponentActivity() {
     private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
     private val onThisDayViewModel: OnThisDayViewModel by viewModels()
     private val moodViewModel: MoodViewModel by viewModels()
+    private val countdownViewModel: CountdownViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -197,6 +200,7 @@ class MainActivity : ComponentActivity() {
                     val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
                     val moodUiState by moodViewModel.uiState.collectAsState()
+                    val countdownUiState by countdownViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -209,7 +213,10 @@ class MainActivity : ComponentActivity() {
                         )
 
                         AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
-                            LaunchedEffect(Unit) { onThisDayViewModel.check() }
+                            LaunchedEffect(Unit) {
+                                onThisDayViewModel.check()
+                                countdownViewModel.load()
+                            }
                             if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
                                 UpdateBanner(
                                     uiState = updateUiState,
@@ -221,6 +228,10 @@ class MainActivity : ComponentActivity() {
                             OnThisDayBanner(
                                 uiState = onThisDayUiState,
                                 onDismiss = { onThisDayViewModel.dismiss() },
+                                modifier = Modifier.padding(16.dp)
+                            )
+                            CountdownBanner(
+                                uiState = countdownUiState,
                                 modifier = Modifier.padding(16.dp)
                             )
                             Box(modifier = Modifier.weight(1f)) {
@@ -253,7 +264,11 @@ class MainActivity : ComponentActivity() {
                             onClearBackground = { widgetBackgroundViewModel.clearPhoto() },
                             moodUiState = moodUiState,
                             onLoadMood = { moodViewModel.load() },
-                            onSetMood = { emoji -> moodViewModel.setMood(emoji) }
+                            onSetMood = { emoji -> moodViewModel.setMood(emoji) },
+                            countdownUiState = countdownUiState,
+                            onLoadCountdown = { countdownViewModel.load() },
+                            onSetCountdown = { label, month, day -> countdownViewModel.setDate(label, month, day) },
+                            onClearCountdown = { countdownViewModel.clearDate() }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(

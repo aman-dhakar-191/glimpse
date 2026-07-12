@@ -26,15 +26,20 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.ui.countdown.CountdownUiState
 import com.glimpse.app.ui.mood.MoodUiState
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
@@ -57,6 +63,8 @@ import com.glimpse.app.ui.theme.BlobShapeSoftA
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
 import com.glimpse.app.ui.widgetbackground.WidgetBackgroundUiState
+import java.time.Instant
+import java.time.ZoneOffset
 
 // Generous, matching the same reasoning as the login/compose blob buttons —
 // these shapes pinch inward at the edges more than a plain pill would.
@@ -77,12 +85,17 @@ fun WidgetGuideScreen(
     onClearBackground: () -> Unit,
     moodUiState: MoodUiState,
     onLoadMood: () -> Unit,
-    onSetMood: (String) -> Unit
+    onSetMood: (String) -> Unit,
+    countdownUiState: CountdownUiState,
+    onLoadCountdown: () -> Unit,
+    onSetCountdown: (label: String, month: Int, day: Int) -> Unit,
+    onClearCountdown: () -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
         onLoadBackground()
         onLoadMood()
+        onLoadCountdown()
     }
 
     Column(
@@ -111,6 +124,8 @@ fun WidgetGuideScreen(
         BackgroundPhotoCard(backgroundUiState, onPickBackground, onClearBackground)
 
         MoodCard(moodUiState, onSetMood)
+
+        CountdownCard(countdownUiState, onSetCountdown, onClearCountdown)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -479,6 +494,137 @@ private fun MoodCard(uiState: MoodUiState, onSetMood: (String) -> Unit) {
             } else {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             }
+        }
+    }
+}
+
+// Shared, single countdown for the pair — see FirebaseSync.setSpecialDate/
+// CountdownViewModel for why either of you setting this changes it for both.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CountdownCard(
+    uiState: CountdownUiState,
+    onSetDate: (label: String, month: Int, day: Int) -> Unit,
+    onClearDate: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    var labelInput by rememberSaveable { mutableStateOf("") }
+    val datePickerState = rememberDatePickerState()
+    val defaultLabel = stringResource(R.string.guide_countdown_title)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(-0.5f),
+        shape = BlobShapeSoftB,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.guide_countdown_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.guide_countdown_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            if (uiState is CountdownUiState.Loaded) {
+                if (uiState.error != null) {
+                    Text(
+                        uiState.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                uiState.specialDate?.let { date ->
+                    Text(
+                        stringResource(R.string.guide_countdown_current, date.label, date.month, date.day),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = labelInput,
+                    onValueChange = { labelInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.guide_countdown_label_placeholder)) },
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isSaving,
+                        shape = BlobButtonShape,
+                        contentPadding = BlobButtonPadding
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(stringResource(R.string.guide_countdown_pick_date))
+                        }
+                    }
+
+                    if (uiState.specialDate != null) {
+                        OutlinedButton(
+                            onClick = onClearDate,
+                            enabled = !uiState.isSaving,
+                            shape = BlobButtonShape,
+                            contentPadding = BlobButtonPadding
+                        ) {
+                            Text(stringResource(R.string.guide_countdown_remove))
+                        }
+                    }
+                }
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = datePickerState.selectedDateMillis
+                    if (millis != null) {
+                        // DatePicker's selectedDateMillis is UTC midnight for the
+                        // picked calendar day — reading it back with UTC (not the
+                        // device's own zone) is what keeps the day that was
+                        // visually tapped from shifting by one in a timezone west
+                        // of UTC.
+                        val picked = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        val label = labelInput.ifBlank { defaultLabel }
+                        onSetDate(label, picked.monthValue, picked.dayOfMonth)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(R.string.guide_countdown_pick_date))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.guide_dismiss))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
