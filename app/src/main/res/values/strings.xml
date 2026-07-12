@@ -76,6 +76,7 @@
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
     <string name="compose_nudge_button">👋 Nudge</string>
+    <string name="compose_my_mood">Your mood: %1$s</string>
     <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
     <string name="compose_uploading_photo">Sending your glimpse…</string>
     <string name="compose_lock_button">🔒 Time capsule</string>

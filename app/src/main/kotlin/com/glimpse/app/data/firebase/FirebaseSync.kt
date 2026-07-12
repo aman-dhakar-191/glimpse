@@ -56,22 +56,16 @@ object FirebaseSync {
         null
     }
 
-    fun listenToLatestMessage(onMessage: (Message?) -> Unit): ValueEventListener {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                onMessage(snapshot.toMessages().lastOrNull())
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Log.e(TAG, "listenToLatestMessage cancelled", error.toException())
-            }
-        }
-        latestMessageQuery().addValueEventListener(listener)
-        return listener
-    }
-
-    fun removeLatestMessageListener(listener: ValueEventListener) {
-        latestMessageQuery().removeEventListener(listener)
+    // Bounded one-shot fetch for the widget's message carousel — see
+    // WidgetRenderer.carouselWindow for how this list gets sliced down to
+    // "oldest unseen through newest". The live-update path reuses
+    // listenToHistory/removeHistoryListener below instead of a dedicated
+    // listener, same query shape either way.
+    suspend fun fetchRecentMessagesOnce(limit: Int): List<Message> = try {
+        historyQuery(limit).get().await().toMessages()
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchRecentMessagesOnce failed", e)
+        emptyList()
     }
 
     fun listenToHistory(limit: Int, onMessages: (List<Message>) -> Unit): ValueEventListener {
@@ -160,6 +154,14 @@ object FirebaseSync {
         } catch (e: Exception) {
             Log.e(TAG, "markSeenIfNeeded: last_seen_at write failed", e)
         }
+    }
+
+    // For the widget carousel, which can render several messages in one
+    // update — see WidgetRenderer.markSeenForRender. Each call reuses
+    // markSeenIfNeeded's own dedupe check, so passing the same messages
+    // again on the next render is harmless.
+    suspend fun markMessagesSeenIfNeeded(messages: List<Message>) {
+        messages.forEach { markSeenIfNeeded(it) }
     }
 
     // Whole map (not a single uid) so the caller can work out "did anyone

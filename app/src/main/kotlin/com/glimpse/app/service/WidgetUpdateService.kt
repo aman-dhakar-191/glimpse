@@ -42,13 +42,13 @@ class WidgetUpdateService : Service() {
         // be a non-null reference to a dead listener, so a null-check guard
         // would permanently skip re-attaching even after the underlying
         // problem (like a missing allowedUsers entry) is fixed.
-        listener?.let { FirebaseSync.removeLatestMessageListener(it) }
-        listener = FirebaseSync.listenToLatestMessage(::updateWidgets)
+        listener?.let { FirebaseSync.removeHistoryListener(WidgetRenderer.CAROUSEL_LIMIT, it) }
+        listener = FirebaseSync.listenToHistory(WidgetRenderer.CAROUSEL_LIMIT, ::updateWidgets)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        listener?.let { FirebaseSync.removeLatestMessageListener(it) }
+        listener?.let { FirebaseSync.removeHistoryListener(WidgetRenderer.CAROUSEL_LIMIT, it) }
         listener = null
         serviceJob.cancel()
         super.onDestroy()
@@ -56,19 +56,19 @@ class WidgetUpdateService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun updateWidgets(message: Message?) {
+    private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
             updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, message)
+                WidgetRenderer.render(this@WidgetUpdateService, id, messages)
             }
             updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
-                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, message)
+                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, messages)
             }
             updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, message)
+                WidgetRenderer.render(this@WidgetUpdateService, id, messages)
             }
-            FirebaseSync.markSeenIfNeeded(message)
+            WidgetRenderer.markSeenForRender(messages)
         }
     }
 

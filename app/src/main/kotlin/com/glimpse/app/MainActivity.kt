@@ -37,6 +37,7 @@ import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
+import com.glimpse.app.ui.mood.MoodUiState
 import com.glimpse.app.ui.mood.MoodViewModel
 import com.glimpse.app.ui.mood.PartnerMoodUiState
 import com.glimpse.app.ui.nickname.NicknameViewModel
@@ -263,7 +264,9 @@ class MainActivity : ComponentActivity() {
                                     onLoadDailyPrompt = { dailyPromptViewModel.check() },
                                     onDismissDailyPrompt = { dailyPromptViewModel.dismiss() },
                                     partnerMoodEmoji = (partnerMoodUiState as? PartnerMoodUiState.Loaded)?.emoji.orEmpty(),
-                                    onLoadPartnerMood = { moodViewModel.loadPartnerMood() }
+                                    onLoadPartnerMood = { moodViewModel.loadPartnerMood() },
+                                    myMoodEmoji = (moodUiState as? MoodUiState.Loaded)?.currentEmoji.orEmpty(),
+                                    onLoadMyMood = { moodViewModel.load() }
                                 )
                             }
                             // Ambient/low-urgency status, not something that needs
