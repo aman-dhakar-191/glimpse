@@ -100,6 +100,13 @@
                 android:resource="@xml/widget_latest_message_info" />
         </receiver>
 
+        <!-- Handles a tap on one of the carousel's page dots — jumps that
+             one appWidgetId to the tapped page. Not exported: only ever
+             invoked via a PendingIntent this app itself created. -->
+        <receiver
+            android:name=".widgets.WidgetCarouselJumpReceiver"
+            android:exported="false" />
+
         <!-- EXPERIMENTAL: Shaped Message Widget — validates faking a non-
              rectangular widget silhouette via a transparent root + custom
              blob ImageView (real per-pixel touch/clip isn't possible in

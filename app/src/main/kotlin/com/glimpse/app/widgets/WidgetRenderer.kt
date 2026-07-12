@@ -10,6 +10,7 @@ import android.widget.RemoteViews
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
+import com.glimpse.app.data.WidgetCarouselIndexStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
@@ -116,6 +117,7 @@ internal object WidgetRenderer {
 
         if (window.isEmpty()) {
             remoteViews.addView(R.id.widget_carousel, buildEmptyPage(context, pageLayoutRes, appWidgetId, partnerMood))
+            applyCarouselIndicator(context, remoteViews, appWidgetId, pageCount = 0, currentIndex = 0)
         } else {
             window.forEach { message ->
                 remoteViews.addView(
@@ -123,29 +125,42 @@ internal object WidgetRenderer {
                     buildPage(context, pageLayoutRes, appWidgetId, message, myUid, partnerNickname, partnerMood)
                 )
             }
+            // The app now owns "which page is showing" entirely — there's
+            // no more autoStart/flipInterval on the ViewFlipper (see
+            // widget_current_message.xml), so nothing advances the page on
+            // its own. Resets to 0 whenever the window's actual content
+            // changes (see WidgetCarouselIndexStore), otherwise persists
+            // across renders so a tap-selected page survives the next
+            // Firebase-triggered refresh.
+            val windowKey = window.joinToString(",") { it.id }
+            val currentIndex = WidgetCarouselIndexStore.indexForWindow(context, appWidgetId, windowKey, window.size)
+            remoteViews.setDisplayedChild(R.id.widget_carousel, currentIndex)
+            applyCarouselIndicator(context, remoteViews, appWidgetId, window.size, currentIndex)
         }
-        applyCarouselIndicator(context, remoteViews, window.size)
         return remoteViews
     }
 
-    // One dot per message actually in the window — a simple "there are N
-    // things to catch up on" count, not a "currently on page X" indicator
-    // (ViewFlipper's auto-advance happens entirely inside the launcher
-    // process, with no callback telling the app which page is showing at
-    // any given moment). Hidden entirely at 0-1 messages, i.e. the widget
-    // isn't actually going to auto-scroll through anything — that's also
-    // how someone can tell apart a carousel-capable widget sitting at its
-    // steady state from LatestMessageWidget, which always renders through
-    // this same layout/indicator view but with a window capped at size 1.
-    private fun applyCarouselIndicator(context: Context, remoteViews: RemoteViews, pageCount: Int) {
+    // One dot per message actually in the window, the current one drawn
+    // larger/filled — each dot is independently tappable and jumps
+    // straight to that page (see ReactionActionBinder.bindCarouselJumpAction/
+    // WidgetCarouselJumpReceiver). Hidden entirely at 0-1 messages, i.e.
+    // the widget doesn't actually have anything to page through — that's
+    // also how someone can tell apart a carousel-capable widget sitting at
+    // its steady state from LatestMessageWidget, which always renders
+    // through this same layout/indicator view but with a window capped at
+    // size 1.
+    private fun applyCarouselIndicator(context: Context, remoteViews: RemoteViews, appWidgetId: Int, pageCount: Int, currentIndex: Int) {
         remoteViews.removeAllViews(R.id.carousel_indicator)
         if (pageCount <= 1) {
             remoteViews.setViewVisibility(R.id.carousel_indicator, View.GONE)
             return
         }
         remoteViews.setViewVisibility(R.id.carousel_indicator, View.VISIBLE)
-        repeat(pageCount) {
-            remoteViews.addView(R.id.carousel_indicator, RemoteViews(context.packageName, R.layout.widget_carousel_dot))
+        for (i in 0 until pageCount) {
+            val dotLayoutRes = if (i == currentIndex) R.layout.widget_carousel_dot_active else R.layout.widget_carousel_dot_inactive
+            val dot = RemoteViews(context.packageName, dotLayoutRes)
+            ReactionActionBinder.bindCarouselJumpAction(context, dot, R.id.dot_root, appWidgetId, i)
+            remoteViews.addView(R.id.carousel_indicator, dot)
         }
     }
 
