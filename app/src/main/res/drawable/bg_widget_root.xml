@@ -13,16 +13,28 @@
      it turns out to be the real cause. Corner radii are kept at or under
      the root LinearLayout's own padding (16dp rectangular / 10dp square)
      so no content can ever land in the curve's cut zone regardless of
-     what's on screen. -->
+     what's on screen.
+
+     The first attempt (14dp/6dp radius, 1.5dp widget_border stroke) didn't
+     crash but wasn't visible on a real device either — the outer card
+     silhouette in the screenshot was perfectly sharp-cornered. Two
+     candidate explanations: the radius/stroke were just too subtle to read
+     against a similarly-toned fill, or this launcher paints its own opaque
+     card chrome around the widget and nothing app-side can change that
+     outer silhouette (a real, well-known platform limitation on some
+     launchers — not fixable from here if so). Pushing radius and stroke
+     contrast up hard is the only way to tell those two apart: if this is
+     STILL invisible, it's the launcher's own chrome and no further shape
+     tuning will help. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/widget_bg" />
     <stroke
-        android:width="1.5dp"
-        android:color="@color/widget_border" />
+        android:width="3dp"
+        android:color="@color/primary" />
     <corners
-        android:topLeftRadius="14dp"
-        android:bottomRightRadius="14dp"
+        android:topLeftRadius="16dp"
+        android:bottomRightRadius="16dp"
         android:topRightRadius="6dp"
         android:bottomLeftRadius="6dp" />
 </shape>
