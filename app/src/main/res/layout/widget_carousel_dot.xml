@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A single dot, addView()'d into carousel_indicator once per message in
+     the catch-up window — same dynamic-children pattern as reaction chips
+     and the carousel pages themselves. -->
+<View
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="6dp"
+    android:layout_height="6dp"
+    android:layout_marginHorizontal="2dp"
+    android:background="@drawable/widget_carousel_dot" />

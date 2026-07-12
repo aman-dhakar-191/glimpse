@@ -29,7 +29,21 @@
     <ViewFlipper
         android:id="@+id/widget_carousel"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:autoStart="true"
         android:flipInterval="6000" />
+
+    <!-- One dot per message in the catch-up window — count only, not a
+         "current page" indicator, since ViewFlipper auto-advances entirely
+         inside the launcher process with no callback telling the app which
+         page is currently showing. GONE (WidgetRenderer) when there's 0-1
+         messages, i.e. nothing to actually scroll through. -->
+    <LinearLayout
+        android:id="@+id/carousel_indicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center" />
 </LinearLayout>

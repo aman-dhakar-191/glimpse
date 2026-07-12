@@ -124,7 +124,29 @@ internal object WidgetRenderer {
                 )
             }
         }
+        applyCarouselIndicator(context, remoteViews, window.size)
         return remoteViews
+    }
+
+    // One dot per message actually in the window — a simple "there are N
+    // things to catch up on" count, not a "currently on page X" indicator
+    // (ViewFlipper's auto-advance happens entirely inside the launcher
+    // process, with no callback telling the app which page is showing at
+    // any given moment). Hidden entirely at 0-1 messages, i.e. the widget
+    // isn't actually going to auto-scroll through anything — that's also
+    // how someone can tell apart a carousel-capable widget sitting at its
+    // steady state from LatestMessageWidget, which always renders through
+    // this same layout/indicator view but with a window capped at size 1.
+    private fun applyCarouselIndicator(context: Context, remoteViews: RemoteViews, pageCount: Int) {
+        remoteViews.removeAllViews(R.id.carousel_indicator)
+        if (pageCount <= 1) {
+            remoteViews.setViewVisibility(R.id.carousel_indicator, View.GONE)
+            return
+        }
+        remoteViews.setViewVisibility(R.id.carousel_indicator, View.VISIBLE)
+        repeat(pageCount) {
+            remoteViews.addView(R.id.carousel_indicator, RemoteViews(context.packageName, R.layout.widget_carousel_dot))
+        }
     }
 
     // The message's stored authorName is whatever the sender's Google
