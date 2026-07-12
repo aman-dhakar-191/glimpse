@@ -27,6 +27,7 @@ import com.glimpse.app.ui.auth.LoginScreen
 import com.glimpse.app.ui.auth.LoginViewModel
 import com.glimpse.app.ui.countdown.CountdownBanner
 import com.glimpse.app.ui.countdown.CountdownViewModel
+import com.glimpse.app.ui.dailyprompt.DailyPromptViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
 import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
@@ -68,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private val onThisDayViewModel: OnThisDayViewModel by viewModels()
     private val moodViewModel: MoodViewModel by viewModels()
     private val countdownViewModel: CountdownViewModel by viewModels()
+    private val dailyPromptViewModel: DailyPromptViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -201,6 +203,7 @@ class MainActivity : ComponentActivity() {
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
                     val moodUiState by moodViewModel.uiState.collectAsState()
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
+                    val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -245,7 +248,10 @@ class MainActivity : ComponentActivity() {
                                     onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
                                     onLogout = { onLogout() },
-                                    onSendNudge = { composeMessageViewModel.sendNudge() }
+                                    onSendNudge = { composeMessageViewModel.sendNudge() },
+                                    dailyPromptUiState = dailyPromptUiState,
+                                    onLoadDailyPrompt = { dailyPromptViewModel.check() },
+                                    onDismissDailyPrompt = { dailyPromptViewModel.dismiss() }
                                 )
                             }
                         }

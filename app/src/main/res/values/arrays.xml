@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Indexed by day-of-year modulo list size (see DailyPromptViewModel) —
+         order doesn't matter, but the list shouldn't shrink often since that
+         shifts which prompt lands on which day for everyone mid-year. -->
+    <string-array name="daily_prompts">
+        <item>What made you smile today?</item>
+        <item>What\'s one thing you\'re looking forward to this week?</item>
+        <item>What\'s a small thing I did recently that you appreciated?</item>
+        <item>If we could teleport anywhere right now, where would you pick?</item>
+        <item>What\'s a song that reminds you of us?</item>
+        <item>What\'s your favorite memory from this year so far?</item>
+        <item>What\'s something you\'re proud of yourself for lately?</item>
+        <item>What\'s a meal you\'d love for us to cook together?</item>
+        <item>What\'s something new you want to try together?</item>
+        <item>What\'s a place you\'d love to revisit with me?</item>
+        <item>What\'s something silly that made you laugh recently?</item>
+        <item>What\'s one thing on your mind right now?</item>
+        <item>What\'s a compliment you\'d give me today?</item>
+        <item>What\'s something you\'re grateful for today?</item>
+        <item>If today had a theme song, what would it be?</item>
+        <item>What\'s a goal you\'re working toward right now?</item>
+        <item>What\'s the best part of your day so far?</item>
+        <item>What\'s a childhood memory you haven\'t told me about?</item>
+        <item>What\'s something you\'d like us to do more of together?</item>
+        <item>What\'s a random thought you had today?</item>
+        <item>What\'s something you\'re curious about lately?</item>
+        <item>What\'s a photo you\'d love to take together this month?</item>
+        <item>What\'s one thing that would make tomorrow better?</item>
+        <item>What\'s a habit you\'re trying to build or break?</item>
+        <item>What\'s something about me that made you fall for me?</item>
+        <item>What\'s a show or book you think I\'d like?</item>
+        <item>What\'s the weather like where you are, and how does it feel?</item>
+        <item>What\'s something you\'ve been putting off that you should just do?</item>
+        <item>What\'s your favorite way to spend a lazy Sunday?</item>
+        <item>What\'s something you want to remember about today?</item>
+    </string-array>
+</resources>

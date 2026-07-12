@@ -78,6 +78,8 @@
     <string name="compose_lock_button">🔒 Time capsule</string>
     <string name="compose_locked_until">🔒 Locked until %1$s</string>
     <string name="compose_locked_remove">Remove</string>
+    <string name="daily_prompt_title">💬 Today\'s question</string>
+    <string name="daily_prompt_use">Use this</string>
     <string name="history_locked_message">🔒 A locked message — check back later</string>
     <string name="widget_locked_message">🔒 A locked message for you — check back later</string>
 
