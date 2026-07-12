@@ -19,9 +19,9 @@
     <string name="guide_step_2_title">Select \'Widgets\'</string>
     <string name="guide_step_2_desc">Tap the widgets option</string>
     <string name="guide_step_3_title">Find \'Glimpse\'</string>
-    <string name="guide_step_3_desc">Search for our app — you\'ll see three widgets: \"Glimpse\", \"Glimpse (Square)\", and \"Glimpse (Large)\"</string>
+    <string name="guide_step_3_desc">Search for our app — you\'ll see four widgets: \"Glimpse\", \"Glimpse (Square)\", \"Glimpse (Large)\", and \"Glimpse (Latest Only)\"</string>
     <string name="guide_step_4_title">Pick the size you want</string>
-    <string name="guide_step_4_desc">\"Glimpse\" is the default 4x4 widget, \"Glimpse (Square)\" is compact, and \"Glimpse (Large)\" is a taller 4x6 with more room for photos. All resize afterward too.</string>
+    <string name="guide_step_4_desc">\"Glimpse\" is the default 4x4 widget and auto-scrolls through any unseen messages; \"Glimpse (Square)\" is compact; \"Glimpse (Large)\" is a taller 4x6 with more room for photos; \"Glimpse (Latest Only)\" always shows just the newest message with no auto-scrolling. Add as many as you like — all resize afterward too.</string>
     <string name="guide_step_5_title">Tap React on the widget to reply with any emoji</string>
     <string name="guide_step_5_desc">Opens a quick picker right in the app</string>
     <string name="guide_dismiss">Got it, dismiss this guide</string>
@@ -59,12 +59,14 @@
     <string name="countdown_banner_days">💫 %2$d days until %1$s</string>
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
-    <string name="widget_description">Shows your partner\'s latest message and lets you react instantly.</string>
+    <string name="widget_description">Cycles through any unseen messages (starting with the oldest), then settles on your partner\'s latest — react right from the widget.</string>
     <string name="widget_square_description">A compact square version of the Glimpse widget.</string>
     <string name="widget_large_description">A taller version of the Glimpse widget with more room for photos.</string>
+    <string name="widget_latest_description">Always shows just your partner\'s latest message, no auto-scrolling through older ones — pick this instead of (or alongside) \"Glimpse\" if you\'d rather it stayed still.</string>
     <string name="widget_label_rectangular">Glimpse</string>
     <string name="widget_label_square">Glimpse (Square)</string>
     <string name="widget_label_large">Glimpse (Large)</string>
+    <string name="widget_label_latest">Glimpse (Latest Only)</string>
     <string name="qs_tile_label">Send a Glimpse</string>
     <string name="widget_react_button">😊 React</string>
 

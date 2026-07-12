@@ -16,6 +16,7 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.widgets.CurrentMessageWidget
 import com.glimpse.app.widgets.LargeMessageWidget
+import com.glimpse.app.widgets.LatestMessageWidget
 import com.glimpse.app.widgets.SquareMessageWidget
 import com.glimpse.app.widgets.WidgetRenderer
 import com.google.firebase.database.ValueEventListener
@@ -59,30 +60,45 @@ class WidgetUpdateService : Service() {
     private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
-            updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
+            val hasCarouselWidget = updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
                 WidgetRenderer.render(this@WidgetUpdateService, id, messages)
-            }
-            updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
+            } or updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
                 WidgetRenderer.renderSquare(this@WidgetUpdateService, id, messages)
-            }
-            updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
+            } or updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
                 WidgetRenderer.render(this@WidgetUpdateService, id, messages)
             }
-            WidgetRenderer.markSeenForRender(messages)
+            val hasLatestOnlyWidget = updateProvider(appWidgetManager, LatestMessageWidget::class.java) { id ->
+                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
+            }
+
+            // Mark seen based on whatever's actually on screen: if any
+            // carousel-capable widget is present, the whole catch-up window
+            // is visible to the user (there), so it's fair to mark all of
+            // it seen; only if the sole widget present is a "latest only"
+            // one do we fall back to marking just the newest message, since
+            // that's genuinely all it ever shows.
+            if (hasCarouselWidget) {
+                WidgetRenderer.markSeenForRender(messages)
+            } else if (hasLatestOnlyWidget) {
+                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
+            }
         }
     }
 
+    // Returns whether this provider actually has any widget instances —
+    // callers use that to decide how "seen" should be interpreted overall.
     private suspend fun updateProvider(
         appWidgetManager: AppWidgetManager,
         providerClass: Class<*>,
         render: suspend (appWidgetId: Int) -> RemoteViews
-    ) {
+    ): Boolean {
         val appWidgetIds = appWidgetManager.getAppWidgetIds(
             ComponentName(this@WidgetUpdateService, providerClass)
         )
         appWidgetIds.forEach { appWidgetId ->
             appWidgetManager.updateAppWidget(appWidgetId, render(appWidgetId))
         }
+        return appWidgetIds.isNotEmpty()
     }
 
     private fun buildNotification(): Notification {

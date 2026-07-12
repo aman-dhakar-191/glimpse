@@ -34,14 +34,16 @@ internal object WidgetRenderer {
     private val SQUARE_SIZE = SizeF(110f, 110f)
     private val RECTANGULAR_SIZE = SizeF(250f, 110f)
 
-    // For CurrentMessageWidget. Also opts into the responsive multi-size
+    // For CurrentMessageWidget (and LatestMessageWidget, with latestOnly =
+    // true — see that provider for why it exists alongside the carousel
+    // instead of replacing it). Also opts into the responsive multi-size
     // RemoteViews on API 31+ as a bonus for launchers that support in-place
     // resize-to-switch-layout — SquareMessageWidget's own dedicated picker
     // entry (see renderSquare) is what makes the square shape available
     // everywhere else.
-    suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
+    suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>, latestOnly: Boolean = false): RemoteViews {
         val rectangularViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages
+            context, appWidgetId, R.layout.widget_current_message, R.layout.widget_carousel_page, messages, latestOnly
         )
 
         // The multi-size RemoteViews constructor (which lets the system pick
@@ -51,7 +53,7 @@ internal object WidgetRenderer {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return rectangularViews
 
         val squareViews = buildViews(
-            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages
+            context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly
         )
         return RemoteViews(
             mapOf(
@@ -65,15 +67,16 @@ internal object WidgetRenderer {
     // level, since this provider's own footprint (not an in-place resize) is
     // what determines its shape.
     suspend fun renderSquare(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews =
-        buildViews(context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages)
+        buildViews(context, appWidgetId, R.layout.widget_current_message_square, R.layout.widget_carousel_page_square, messages, latestOnly = false)
 
-    // Whatever a render actually put on screen (see carouselWindow below) is
-    // exactly what gets marked seen — kept here rather than in each caller
-    // so "what counts as seen" has one definition next to the rendering
-    // logic it has to match.
-    suspend fun markSeenForRender(messages: List<Message>) {
+    // Whatever a render actually put on screen (see carouselWindow/
+    // latestOnly below) is exactly what gets marked seen — kept here rather
+    // than in each caller so "what counts as seen" has one definition next
+    // to the rendering logic it has to match.
+    suspend fun markSeenForRender(messages: List<Message>, latestOnly: Boolean = false) {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        FirebaseSync.markMessagesSeenIfNeeded(carouselWindow(messages, myUid))
+        val window = if (latestOnly) listOfNotNull(messages.lastOrNull()) else carouselWindow(messages, myUid)
+        FirebaseSync.markMessagesSeenIfNeeded(window)
     }
 
     // Oldest-still-unseen through newest — a "catch up from where you left
@@ -97,10 +100,14 @@ internal object WidgetRenderer {
         appWidgetId: Int,
         layoutRes: Int,
         pageLayoutRes: Int,
-        messages: List<Message>
+        messages: List<Message>,
+        latestOnly: Boolean
     ): RemoteViews {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        val window = carouselWindow(messages, myUid)
+        // LatestMessageWidget's whole point is to always show just the
+        // newest message, no catch-up backlog — the widget's original
+        // behavior before the carousel existed.
+        val window = if (latestOnly) listOfNotNull(messages.lastOrNull()) else carouselWindow(messages, myUid)
         val partnerNickname = FirebaseSync.fetchPartnerNicknameOnce()
         val partnerMood = FirebaseSync.fetchPartnerMoodOnce()
 

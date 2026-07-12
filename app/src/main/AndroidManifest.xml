@@ -84,6 +84,22 @@
                 android:resource="@xml/widget_current_message_large_info" />
         </receiver>
 
+        <!-- Latest Message Widget — a separate provider offered alongside
+             the default carousel-enabled one, for anyone who'd rather the
+             widget just stay on the newest message instead of auto-
+             advancing through a catch-up backlog. Add either, or both. -->
+        <receiver
+            android:name=".widgets.LatestMessageWidget"
+            android:exported="true"
+            android:label="@string/widget_label_latest">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_latest_message_info" />
+        </receiver>
+
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"
