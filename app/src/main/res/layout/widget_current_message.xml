@@ -7,11 +7,19 @@
      itself), and addView()-ing dynamic children into it is the same proven
      pattern this widget already uses for reaction chips
      (widget_carousel_page.xml's reactions_container), not new/untested
-     RemoteViews territory. autoStart+flipInterval are plain View XML
-     attributes ViewFlipper honors once inflated — no reflection-based
-     RemoteViews.setInt() needed. With only one page (the common case —
-     nothing unseen) it's a no-op single view, pixel-identical to the
-     widget's original non-carousel rendering.
+     RemoteViews territory.
+
+     No autoStart/flipInterval — the app now drives which page is showing
+     itself (RemoteViews.setDisplayedChild, see WidgetRenderer), persisted
+     per appWidgetId in WidgetCarouselIndexStore and advanced by tapping a
+     dot in carousel_indicator (WidgetCarouselJumpReceiver). ViewFlipper's
+     own auto-advance timer runs entirely inside the launcher process with
+     no callback back to the app, so there was no way to keep the page
+     indicator dots in sync with a page ViewFlipper was silently flipping
+     to on its own — this trades automatic rotation for dots that are
+     always accurate. With only one page (the common case — nothing
+     unseen) it's a no-op single view, pixel-identical to the widget's
+     original non-carousel rendering.
 
      widget_root itself is otherwise completely unchanged from the known-good
      baseline (plain LinearLayout, id, padding, plain solid
@@ -29,7 +37,18 @@
     <ViewFlipper
         android:id="@+id/widget_carousel"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:autoStart="true"
-        android:flipInterval="6000" />
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- One dot per message in the catch-up window, the current one drawn
+         larger/filled — each is independently tappable and jumps straight
+         to that page. GONE (WidgetRenderer) when there's 0-1 messages,
+         i.e. nothing to actually page through. -->
+    <LinearLayout
+        android:id="@+id/carousel_indicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center" />
 </LinearLayout>

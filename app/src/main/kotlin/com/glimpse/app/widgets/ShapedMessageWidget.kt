@@ -3,7 +3,6 @@ package com.glimpse.app.widgets
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import com.glimpse.app.data.WidgetCarouselIndexStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.service.WidgetSyncTrigger
 import kotlinx.coroutines.CoroutineScope
@@ -11,12 +10,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-// A taller (4x6) counterpart to CurrentMessageWidget — its own dedicated
-// provider (same reasoning as SquareMessageWidget) so it always shows up as
-// its own entry in the widget picker rather than relying on manual resize.
-// Uses the same rectangular layout/render path as CurrentMessageWidget; only
-// the AppWidgetProviderInfo's default size differs.
-class LargeMessageWidget : AppWidgetProvider() {
+// EXPERIMENTAL — validates the "transparent root + custom silhouette
+// ImageView" technique for faking a non-rectangular widget outline (see
+// ShapedWidgetRenderer and widget_shaped_message.xml for the full
+// reasoning and limitations). Entirely self-contained: its own provider,
+// layout, drawable, and rendering code, sharing nothing with the other
+// widget providers except ReactionActionBinder's generic bind functions.
+// Safe to delete this file — plus ShapedWidgetRenderer.kt,
+// widget_shaped_message.xml, widget_blob_shape.xml, the manifest
+// receiver, and the widget_label_shaped/widget_shaped_* strings — with
+// zero impact on any other widget if this doesn't hold up on a real
+// device.
+class ShapedMessageWidget : AppWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
@@ -26,12 +31,12 @@ class LargeMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
-                val messages = FirebaseSync.fetchRecentMessagesOnce(WidgetRenderer.CAROUSEL_LIMIT)
+                val message = FirebaseSync.fetchLatestMessageOnce()
                 appWidgetIds.forEach { appWidgetId ->
-                    val remoteViews = WidgetRenderer.render(context, appWidgetId, messages)
+                    val remoteViews = ShapedWidgetRenderer.render(context, appWidgetId, message)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
-                WidgetRenderer.markSeenForRender(messages)
+                FirebaseSync.markSeenIfNeeded(message)
             } finally {
                 pendingResult.finish()
             }
@@ -42,9 +47,5 @@ class LargeMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
-    }
-
-    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { WidgetCarouselIndexStore.clear(context, it) }
     }
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- EXPERIMENTAL — the fake outline for ShapedMessageWidget. Same path as
+     the in-app BlobShapeSoftA (see ui/theme/BlobShapes.kt), ported to a
+     vector drawable's 0-100 viewport by multiplying every w/h fraction by
+     100. BlobShapeSoftA was picked specifically because it's the
+     "content-safe" variant — max ~10-12% edge inset instead of the
+     ~40-50% deep pinches the more dramatic blob shapes have — so text
+     inside has a real chance of staying clear of the curve at small
+     widget sizes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:pathData="M50,2 C68,0 87,6 94,18 C100,28 98,40 99,50 C100,62 100,74 93,84 C85,96 68,100 50,99 C33,99 15,95 7,84 C0,74 1,62 1,50 C0,38 1,24 9,15 C17,6 33,3 50,2 Z"
+        android:fillColor="@color/widget_bg"
+        android:strokeColor="@color/primary"
+        android:strokeWidth="2" />
+</vector>

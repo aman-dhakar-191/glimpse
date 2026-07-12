@@ -3,6 +3,7 @@ package com.glimpse.app.widgets
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import com.glimpse.app.data.WidgetCarouselIndexStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.service.WidgetSyncTrigger
 import kotlinx.coroutines.CoroutineScope
@@ -40,5 +41,9 @@ class SquareMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { WidgetCarouselIndexStore.clear(context, it) }
     }
 }
