@@ -15,6 +15,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.glimpse.app.MainActivity
 import com.glimpse.app.R
+import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.google.firebase.auth.FirebaseAuth
@@ -89,6 +90,12 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     private fun showQuietNotification() {
         val context = applicationContext
+        // The milestone badge on StatsScreen is a guaranteed, persistent
+        // fallback for anyone whose milestone push happens to land during
+        // their quiet hours — this "gone quiet" nudge has no such fallback,
+        // but skipping one day of it is a fine tradeoff for respecting
+        // quiet hours consistently with every other notification source.
+        if (QuietHoursStore.isQuietNow(context)) return
         ensureChannel()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -105,6 +112,9 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     private fun showMilestoneNotification(streakDays: Int) {
         val context = applicationContext
+        // See showQuietNotification's comment — the StatsScreen badge is a
+        // persistent fallback if this happens to land during quiet hours.
+        if (QuietHoursStore.isQuietNow(context)) return
         ensureChannel()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
