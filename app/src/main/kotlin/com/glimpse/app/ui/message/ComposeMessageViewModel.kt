@@ -35,7 +35,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
     // instead of a direct Firebase call — with no signal, that call would
     // otherwise just hang until reconnection instead of failing or queuing
     // visibly. See SendMessageWorker for the retry/backoff behavior.
-    fun sendMessage(content: String) {
+    fun sendMessage(content: String, unlockAt: Long = 0) {
         if (content.isBlank()) return
         val app = getApplication<Application>()
         _uiState.value = if (ConnectivityUtil.isConnected(app)) {
@@ -44,7 +44,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             ComposeUiState.Queued
         }
 
-        val request = SendMessageWorker.buildRequest(content.trim())
+        val request = SendMessageWorker.buildRequest(content.trim(), unlockAt)
         val workManager = WorkManager.getInstance(app)
         workManager.enqueue(request)
 
@@ -70,7 +70,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
     // later with no way to recover the image. Failing fast up front with a
     // clear message is more honest than promising offline delivery it can't
     // reliably provide.
-    fun sendPhotoMessage(imageUri: Uri, caption: String) {
+    fun sendPhotoMessage(imageUri: Uri, caption: String, unlockAt: Long = 0) {
         val app = getApplication<Application>()
         if (!ConnectivityUtil.isConnected(app)) {
             _uiState.value = ComposeUiState.Error(
@@ -80,7 +80,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
         _uiState.value = ComposeUiState.Sending
         viewModelScope.launch {
-            messageRepository.sendPhotoMessage(imageUri, caption)
+            messageRepository.sendPhotoMessage(imageUri, caption, unlockAt)
                 .onSuccess {
                     _uiState.value = ComposeUiState.Sent
                     WidgetSyncTrigger.requestSync(app)

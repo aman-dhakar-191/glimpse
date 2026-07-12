@@ -197,31 +197,46 @@ internal object WidgetRenderer {
         }
 
         remoteViews.setTextViewText(R.id.author_name, displayAuthorName)
-        remoteViews.setTextViewText(R.id.message_content, message.content)
-        // GONE views are skipped entirely when a LinearLayout distributes
-        // weighted space, so hiding this when there's no text (photo
-        // messages) hands its whole weighted share to message_photo instead
-        // of splitting the box with an empty label.
-        remoteViews.setViewVisibility(
-            R.id.message_content,
-            if (message.content.isNotBlank()) View.VISIBLE else View.GONE
-        )
 
-        if (message.type == "photo") {
-            if (photoBitmap != null) {
-                remoteViews.setImageViewBitmap(R.id.message_photo, photoBitmap)
-                remoteViews.setViewVisibility(R.id.message_photo, View.VISIBLE)
-            } else {
-                remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
-            }
-            remoteViews.setTextViewText(R.id.photo_caption, message.caption)
-            remoteViews.setViewVisibility(
-                R.id.photo_caption,
-                if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
-            )
-        } else {
+        // Only hidden from the recipient — same rule as MessageHistoryScreen.
+        // Widgets aren't per-account UI in the OS sense, but this device is
+        // signed into one specific account, so "am I the author" still
+        // resolves the same way it does in-app.
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        val hiddenByLock = message.isLocked && message.authorUid != myUid
+
+        if (hiddenByLock) {
+            remoteViews.setTextViewText(R.id.message_content, context.getString(R.string.widget_locked_message))
+            remoteViews.setViewVisibility(R.id.message_content, View.VISIBLE)
             remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
             remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
+        } else {
+            remoteViews.setTextViewText(R.id.message_content, message.content)
+            // GONE views are skipped entirely when a LinearLayout distributes
+            // weighted space, so hiding this when there's no text (photo
+            // messages) hands its whole weighted share to message_photo instead
+            // of splitting the box with an empty label.
+            remoteViews.setViewVisibility(
+                R.id.message_content,
+                if (message.content.isNotBlank()) View.VISIBLE else View.GONE
+            )
+
+            if (message.type == "photo") {
+                if (photoBitmap != null) {
+                    remoteViews.setImageViewBitmap(R.id.message_photo, photoBitmap)
+                    remoteViews.setViewVisibility(R.id.message_photo, View.VISIBLE)
+                } else {
+                    remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
+                }
+                remoteViews.setTextViewText(R.id.photo_caption, message.caption)
+                remoteViews.setViewVisibility(
+                    R.id.photo_caption,
+                    if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
+                )
+            } else {
+                remoteViews.setViewVisibility(R.id.message_photo, View.GONE)
+                remoteViews.setViewVisibility(R.id.photo_caption, View.GONE)
+            }
         }
 
         remoteViews.removeAllViews(R.id.reactions_container)

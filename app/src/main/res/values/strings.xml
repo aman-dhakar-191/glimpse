@@ -75,6 +75,11 @@
     <string name="compose_nudge_button">👋 Nudge</string>
     <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
     <string name="compose_uploading_photo">Sending your glimpse…</string>
+    <string name="compose_lock_button">🔒 Time capsule</string>
+    <string name="compose_locked_until">🔒 Locked until %1$s</string>
+    <string name="compose_locked_remove">Remove</string>
+    <string name="history_locked_message">🔒 A locked message — check back later</string>
+    <string name="widget_locked_message">🔒 A locked message for you — check back later</string>
 
     <string name="react_title">Pick a reaction</string>
     <string name="react_placeholder">Tap the emoji key on your keyboard…</string>

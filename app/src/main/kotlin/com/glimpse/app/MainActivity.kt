@@ -237,9 +237,9 @@ class MainActivity : ComponentActivity() {
                             Box(modifier = Modifier.weight(1f)) {
                                 ComposeMessageScreen(
                                     uiState = composeUiState,
-                                    onSend = { text -> composeMessageViewModel.sendMessage(text) },
-                                    onSendPhoto = { uri, caption ->
-                                        composeMessageViewModel.sendPhotoMessage(uri, caption)
+                                    onSend = { text, unlockAt -> composeMessageViewModel.sendMessage(text, unlockAt) },
+                                    onSendPhoto = { uri, caption, unlockAt ->
+                                        composeMessageViewModel.sendPhotoMessage(uri, caption, unlockAt)
                                     },
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
                                     onOpenGuide = { screen = AppScreen.Guide },

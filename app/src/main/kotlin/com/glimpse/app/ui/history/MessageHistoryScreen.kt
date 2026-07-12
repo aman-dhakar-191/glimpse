@@ -283,7 +283,21 @@ private fun MessageBubbleRow(
             val bubbleColor = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
             val textColor = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
-            if (message.type == "photo" && message.photoUrl.isNotBlank()) {
+            // Only hidden from the recipient — the author already knows
+            // what they wrote, so their own time capsule stays visible to
+            // them while it's locked for their partner.
+            val hiddenByLock = message.isLocked && !isMine
+
+            if (hiddenByLock) {
+                Surface(color = bubbleColor, shape = shape) {
+                    Text(
+                        stringResource(R.string.history_locked_message),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = textColor,
+                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 20.dp)
+                    )
+                }
+            } else if (message.type == "photo" && message.photoUrl.isNotBlank()) {
                 Surface(
                     color = bubbleColor,
                     shape = shape,
