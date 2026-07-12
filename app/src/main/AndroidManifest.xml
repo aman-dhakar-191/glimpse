@@ -99,6 +99,19 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings tile — a swipe-down-and-tap shortcut straight to
+             Compose, faster than finding the home-screen widget. -->
+        <service
+            android:name=".service.ComposeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_heart"
+            android:label="@string/qs_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Exposes cacheDir/camera/ so the system camera app can write
              captured photos back to us without granting it broader storage
              access (needed for ActivityResultContracts.TakePicture()). -->

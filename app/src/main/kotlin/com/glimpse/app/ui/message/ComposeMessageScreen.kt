@@ -134,7 +134,8 @@ fun ComposeMessageScreen(
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onSendNudge: () -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -372,6 +373,22 @@ fun ComposeMessageScreen(
                 } else {
                     Text(stringResource(R.string.compose_send))
                 }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // A separate, always-available action rather than folded into
+            // the text/photo Send button above — a nudge doesn't need
+            // anything composed first, it's meant to be the "no words
+            // needed" option.
+            OutlinedButton(
+                onClick = onSendNudge,
+                enabled = uiState !is ComposeUiState.Sending && uiState !is ComposeUiState.Queued,
+                modifier = Modifier.fillMaxWidth(),
+                shape = BlobButtonShape,
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
+            ) {
+                Text(stringResource(R.string.compose_nudge_button))
             }
         }
 

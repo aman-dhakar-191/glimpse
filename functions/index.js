@@ -117,6 +117,27 @@ exports.onNewReaction = functions.database
     });
   });
 
+// shared/nudge is a single overwritten node (see MessageRepository.sendNudge),
+// not a growing list — onWrite (not onCreate) so every nudge after the first
+// still triggers this. Firebase only fires onWrite when the value actually
+// changes, which is why the client always includes a fresh ServerValue.TIMESTAMP.
+exports.onNudge = functions.database
+  .ref("/shared/nudge")
+  .onWrite(async (change) => {
+    const after = change.after.val();
+    if (!after || !after.senderUid) return null;
+
+    const senderSnap = await db.ref(`users/${after.senderUid}/displayName`).get();
+    const senderName = senderSnap.val() || "Someone";
+
+    const tokens = await tokensForUsersExcept(after.senderUid);
+    return sendToTokens(tokens, {
+      type: "nudge",
+      title: "💓 Thinking of you",
+      body: `${senderName} sent you a nudge`,
+    });
+  });
+
 // shared/settings is deliberately locked to ".write": false in the database
 // rules (see database.rules.json) — allowedUsers is the authorization
 // boundary for the whole app, so no client can grant itself access there

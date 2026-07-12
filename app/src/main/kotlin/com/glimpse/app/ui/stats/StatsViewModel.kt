@@ -3,6 +3,7 @@ package com.glimpse.app.ui.stats
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
@@ -10,9 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 data class PersonCount(val name: String, val count: Int)
 
@@ -40,7 +38,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
                 firstMessageAt = messages.minByOrNull { it.createdAt }?.createdAt,
                 countsByAuthor = countsByAuthor(messages, partnerNickname),
                 topReaction = topReaction(messages),
-                streakDays = currentStreakDays(messages)
+                streakDays = StreakCalculator.currentStreakDays(messages)
             )
         }
     }
@@ -71,25 +69,5 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         return totals.maxByOrNull { it.value }?.toPair()
-    }
-
-    // Consecutive days (counting back from today) with at least one message.
-    // Today not having one yet doesn't zero the streak — same convention as
-    // Duolingo/Snapchat, since the day isn't over.
-    private fun currentStreakDays(messages: List<Message>): Int {
-        val zone = ZoneId.systemDefault()
-        val datesWithMessages = messages.map {
-            Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate()
-        }.toSet()
-        if (datesWithMessages.isEmpty()) return 0
-
-        var day = LocalDate.now(zone)
-        if (day !in datesWithMessages) day = day.minusDays(1)
-        var streak = 0
-        while (day in datesWithMessages) {
-            streak++
-            day = day.minusDays(1)
-        }
-        return streak
     }
 }
