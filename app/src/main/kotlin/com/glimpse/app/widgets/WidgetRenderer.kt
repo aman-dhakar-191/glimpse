@@ -119,21 +119,27 @@ internal object WidgetRenderer {
             remoteViews.addView(R.id.widget_carousel, buildEmptyPage(context, pageLayoutRes, appWidgetId, partnerMood))
             applyCarouselIndicator(context, remoteViews, appWidgetId, pageCount = 0, currentIndex = 0)
         } else {
-            window.forEach { message ->
-                remoteViews.addView(
-                    R.id.widget_carousel,
-                    buildPage(context, pageLayoutRes, appWidgetId, message, myUid, partnerNickname, partnerMood)
-                )
-            }
             // The app now owns "which page is showing" entirely — there's
             // no more autoStart/flipInterval on the ViewFlipper (see
             // widget_current_message.xml), so nothing advances the page on
             // its own. Resets to 0 whenever the window's actual content
             // changes (see WidgetCarouselIndexStore), otherwise persists
             // across renders so a tap-selected page survives the next
-            // Firebase-triggered refresh.
+            // Firebase-triggered refresh. Computed before building pages
+            // since buildPage needs to know which one is current (see
+            // loadPhoto below).
             val windowKey = window.joinToString(",") { it.id }
             val currentIndex = WidgetCarouselIndexStore.indexForWindow(context, appWidgetId, windowKey, window.size)
+
+            window.forEachIndexed { index, message ->
+                remoteViews.addView(
+                    R.id.widget_carousel,
+                    buildPage(
+                        context, pageLayoutRes, appWidgetId, message, myUid, partnerNickname, partnerMood,
+                        loadPhoto = index == currentIndex
+                    )
+                )
+            }
             remoteViews.setDisplayedChild(R.id.widget_carousel, currentIndex)
             applyCarouselIndicator(context, remoteViews, appWidgetId, window.size, currentIndex)
         }
@@ -176,7 +182,8 @@ internal object WidgetRenderer {
         message: Message,
         myUid: String?,
         partnerNickname: String,
-        partnerMood: String
+        partnerMood: String,
+        loadPhoto: Boolean
     ): RemoteViews {
         val page = RemoteViews(context.packageName, pageLayoutRes)
         ReactionActionBinder.bindReactAction(context, page, appWidgetId, message.id)
@@ -211,7 +218,7 @@ internal object WidgetRenderer {
                 if (message.content.isNotBlank()) View.VISIBLE else View.GONE
             )
 
-            if (message.type == "photo") {
+            if (message.type == "photo" && loadPhoto) {
                 val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
                 if (photoBitmap != null) {
                     page.setImageViewBitmap(R.id.message_photo, photoBitmap)
@@ -224,6 +231,26 @@ internal object WidgetRenderer {
                     R.id.photo_caption,
                     if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
                 )
+            } else if (message.type == "photo") {
+                // Not the page currently on screen — skip downloading and
+                // decoding its photo entirely. Several photo messages'
+                // worth of downscaled bitmaps embedded in one RemoteViews
+                // at once was enough to exceed the Binder transaction size
+                // limit, which throws TransactionTooLargeException on
+                // updateAppWidget() and (since every widget provider is
+                // updated in the same coroutine, see WidgetUpdateService)
+                // silently aborted every OTHER widget's update too, not
+                // just this one — the real cause behind widgets appearing
+                // to freeze entirely after a few photos were sent. Tapping
+                // this page's dot re-renders with just that page's real
+                // photo loaded (see WidgetCarouselJumpReceiver).
+                page.setViewVisibility(R.id.message_photo, View.GONE)
+                page.setViewVisibility(R.id.photo_caption, View.GONE)
+                page.setTextViewText(
+                    R.id.message_content,
+                    message.caption.ifBlank { context.getString(R.string.widget_photo_fallback) }
+                )
+                page.setViewVisibility(R.id.message_content, View.VISIBLE)
             } else {
                 page.setViewVisibility(R.id.message_photo, View.GONE)
                 page.setViewVisibility(R.id.photo_caption, View.GONE)
