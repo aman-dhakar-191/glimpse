@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- EXPERIMENTAL, fully isolated shape test — validates the "transparent
+     root + custom silhouette ImageView" technique for faking a non-
+     rectangular widget outline. RemoteViews can't do real pixel-level
+     clipping (no ClipPath/Outline support, and the launcher's grid cell
+     stays rectangular no matter what) — this only changes what gets
+     PAINTED inside that rectangle, and taps in the transparent corners
+     outside the drawn shape but inside the cell still register on
+     whatever view sits there. That's why the tappable content below is
+     given its own inset id="widget_root" area instead of covering the
+     full transparent RelativeLayout — keeps the click target roughly
+     matching the visible blob instead of the whole invisible rectangle.
+
+     RelativeLayout (not FrameLayout) for the overlapping-children
+     container, same reasoning as the reverted widget-background-photo
+     experiment (PR #39): FrameLayout was one of three suspects in the
+     original historical "Can't load widget" crash and was never
+     individually cleared, so a different (also RemoteViews-whitelisted)
+     container class is used here instead.
+
+     Fully self-contained: this file, ShapedMessageWidget.kt,
+     ShapedWidgetRenderer.kt, and widget_blob_shape.xml share nothing with
+     the other widget providers except ReactionActionBinder's generic bind
+     functions. Delete all four (plus the manifest receiver and the two
+     widget_label_shaped/widget_shaped_* strings) to fully remove this
+     experiment with zero impact on CurrentMessageWidget/SquareMessageWidget/
+     LargeMessageWidget/LatestMessageWidget if it doesn't pan out on a real
+     device. -->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/widget_blob_shape"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:id="@+id/widget_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="22dp"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/shaped_author_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary" />
+
+        <TextView
+            android:id="@+id/shaped_message_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginVertical="6dp"
+            android:gravity="center"
+            android:maxLines="4"
+            android:ellipsize="end"
+            android:textColor="@color/text_primary"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="22sp"
+            android:autoSizeStepGranularity="1sp" />
+
+        <Button
+            android:id="@+id/btn_react"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/bg_widget_button"
+            android:text="@string/widget_react_button"
+            android:textSize="11sp"
+            android:textColor="@color/text_primary" />
+    </LinearLayout>
+</RelativeLayout>

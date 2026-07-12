@@ -100,6 +100,26 @@
                 android:resource="@xml/widget_latest_message_info" />
         </receiver>
 
+        <!-- EXPERIMENTAL: Shaped Message Widget — validates faking a non-
+             rectangular widget silhouette via a transparent root + custom
+             blob ImageView (real per-pixel touch/clip isn't possible in
+             RemoteViews; this only changes what's painted, not the
+             underlying rectangular grid cell or touch bounds). Fully
+             isolated from the other widgets — see ShapedMessageWidget/
+             ShapedWidgetRenderer/widget_shaped_message.xml for the full
+             reasoning and revert plan. -->
+        <receiver
+            android:name=".widgets.ShapedMessageWidget"
+            android:exported="true"
+            android:label="@string/widget_label_shaped">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_shaped_message_info" />
+        </receiver>
+
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"
