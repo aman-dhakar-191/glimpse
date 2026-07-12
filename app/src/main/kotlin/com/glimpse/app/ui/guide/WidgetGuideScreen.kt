@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,9 +33,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +60,7 @@ import com.glimpse.app.ui.countdown.CountdownUiState
 import com.glimpse.app.ui.mood.MoodUiState
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
+import com.glimpse.app.ui.quiethours.QuietHoursUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
@@ -64,7 +69,9 @@ import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
 import com.glimpse.app.ui.widgetbackground.WidgetBackgroundUiState
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 // Generous, matching the same reasoning as the login/compose blob buttons —
 // these shapes pinch inward at the edges more than a plain pill would.
@@ -89,13 +96,19 @@ fun WidgetGuideScreen(
     countdownUiState: CountdownUiState,
     onLoadCountdown: () -> Unit,
     onSetCountdown: (label: String, month: Int, day: Int) -> Unit,
-    onClearCountdown: () -> Unit
+    onClearCountdown: () -> Unit,
+    quietHoursUiState: QuietHoursUiState,
+    onLoadQuietHours: () -> Unit,
+    onSetQuietHoursEnabled: (Boolean) -> Unit,
+    onSetQuietHoursStart: (Int) -> Unit,
+    onSetQuietHoursEnd: (Int) -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
         onLoadBackground()
         onLoadMood()
         onLoadCountdown()
+        onLoadQuietHours()
     }
 
     Column(
@@ -126,6 +139,8 @@ fun WidgetGuideScreen(
         MoodCard(moodUiState, onSetMood)
 
         CountdownCard(countdownUiState, onSetCountdown, onClearCountdown)
+
+        QuietHoursCard(quietHoursUiState, onSetQuietHoursEnabled, onSetQuietHoursStart, onSetQuietHoursEnd)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -628,3 +643,103 @@ private fun CountdownCard(
         }
     }
 }
+
+// Local-only, per-device — see QuietHoursStore/QuietHoursViewModel.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuietHoursCard(
+    uiState: QuietHoursUiState,
+    onSetEnabled: (Boolean) -> Unit,
+    onSetStart: (Int) -> Unit,
+    onSetEnd: (Int) -> Unit
+) {
+    // null = no dialog open; true = editing start, false = editing end.
+    var editingStart by remember { mutableStateOf<Boolean?>(null) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(0.4f),
+        shape = BlobShapeSoftC,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.guide_quiet_hours_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        stringResource(R.string.guide_quiet_hours_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                Switch(checked = uiState.enabled, onCheckedChange = onSetEnabled)
+            }
+
+            if (uiState.enabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { editingStart = true },
+                        modifier = Modifier.weight(1f),
+                        shape = BlobButtonShape,
+                        contentPadding = BlobButtonPadding
+                    ) {
+                        Text(stringResource(R.string.guide_quiet_hours_start, formatMinutes(uiState.startMinutes)))
+                    }
+                    OutlinedButton(
+                        onClick = { editingStart = false },
+                        modifier = Modifier.weight(1f),
+                        shape = BlobButtonShape,
+                        contentPadding = BlobButtonPadding
+                    ) {
+                        Text(stringResource(R.string.guide_quiet_hours_end, formatMinutes(uiState.endMinutes)))
+                    }
+                }
+            }
+        }
+    }
+
+    val editing = editingStart
+    if (editing != null) {
+        val initialMinutes = if (editing) uiState.startMinutes else uiState.endMinutes
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialMinutes / 60,
+            initialMinute = initialMinutes % 60,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { editingStart = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val minutes = timePickerState.hour * 60 + timePickerState.minute
+                    if (editing) onSetStart(minutes) else onSetEnd(minutes)
+                    editingStart = null
+                }) {
+                    Text(stringResource(R.string.guide_quiet_hours_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingStart = null }) {
+                    Text(stringResource(R.string.guide_dismiss))
+                }
+            },
+            text = { TimePicker(state = timePickerState) }
+        )
+    }
+}
+
+private fun formatMinutes(minutes: Int): String =
+    LocalTime.of(minutes / 60, minutes % 60).format(DateTimeFormatter.ofPattern("h:mm a"))

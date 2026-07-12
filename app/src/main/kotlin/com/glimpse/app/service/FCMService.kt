@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.glimpse.app.MainActivity
 import com.glimpse.app.R
+import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.repository.AuthRepository
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -37,6 +38,11 @@ class FCMService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String) {
+        // The widget already refreshed unconditionally above — this only
+        // suppresses the visible popup/sound/vibration during this device's
+        // configured quiet hours, not the underlying content update.
+        if (QuietHoursStore.isQuietNow(this)) return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,

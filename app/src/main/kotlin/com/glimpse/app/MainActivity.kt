@@ -38,6 +38,7 @@ import com.glimpse.app.ui.nickname.NicknameViewModel
 import com.glimpse.app.ui.onthisday.OnThisDayBanner
 import com.glimpse.app.ui.onthisday.OnThisDayViewModel
 import com.glimpse.app.ui.pairing.PairingViewModel
+import com.glimpse.app.ui.quiethours.QuietHoursViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
 import com.glimpse.app.ui.stats.StatsScreen
@@ -70,6 +71,7 @@ class MainActivity : ComponentActivity() {
     private val moodViewModel: MoodViewModel by viewModels()
     private val countdownViewModel: CountdownViewModel by viewModels()
     private val dailyPromptViewModel: DailyPromptViewModel by viewModels()
+    private val quietHoursViewModel: QuietHoursViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -204,6 +206,7 @@ class MainActivity : ComponentActivity() {
                     val moodUiState by moodViewModel.uiState.collectAsState()
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
+                    val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -274,7 +277,12 @@ class MainActivity : ComponentActivity() {
                             countdownUiState = countdownUiState,
                             onLoadCountdown = { countdownViewModel.load() },
                             onSetCountdown = { label, month, day -> countdownViewModel.setDate(label, month, day) },
-                            onClearCountdown = { countdownViewModel.clearDate() }
+                            onClearCountdown = { countdownViewModel.clearDate() },
+                            quietHoursUiState = quietHoursUiState,
+                            onLoadQuietHours = { quietHoursViewModel.load() },
+                            onSetQuietHoursEnabled = { enabled -> quietHoursViewModel.setEnabled(enabled) },
+                            onSetQuietHoursStart = { minutes -> quietHoursViewModel.setStartMinutes(minutes) },
+                            onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(
