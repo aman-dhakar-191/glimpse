@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.edit
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -14,6 +15,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.glimpse.app.MainActivity
 import com.glimpse.app.R
+import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.google.firebase.auth.FirebaseAuth
 import java.util.concurrent.TimeUnit
@@ -23,6 +25,13 @@ import java.util.concurrent.TimeUnit
 // so posts a local notification. Deliberately simple: no per-user tracking
 // of who sent last, no "only once" suppression — if it's still quiet
 // tomorrow, it nudges again tomorrow, same as it would today.
+//
+// Also checks once a day whether the streak (same calculation StatsScreen
+// shows) just crossed a milestone, and if so posts a separate celebratory
+// notification — this is the only place that check can live, since the
+// streak is otherwise only computed on-demand when Stats happens to be
+// open, and a milestone reached while neither of you is looking at Stats
+// would otherwise go uncelebrated.
 class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -31,48 +40,92 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         val latest = FirebaseSync.fetchLatestMessageOnce()
         val quietFor = System.currentTimeMillis() - (latest?.createdAt ?: 0L)
         if (quietFor >= QUIET_THRESHOLD_MILLIS) {
-            showNotification()
+            showQuietNotification()
         }
+
+        checkStreakMilestone()
         return Result.success()
     }
 
-    private fun showNotification() {
-        val context = applicationContext
+    private suspend fun checkStreakMilestone() {
+        val messages = FirebaseSync.fetchAllMessages()
+        val streak = StreakCalculator.currentStreakDays(messages)
+        if (!StreakCalculator.isMilestone(streak)) return
+
+        val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastNotifiedMilestone = prefs.getInt(KEY_LAST_MILESTONE, 0)
+        // > (not >=) — the streak can only grow one day at a time, but this
+        // guards against the worker somehow running twice in one day and
+        // double-notifying for the same milestone.
+        if (streak <= lastNotifiedMilestone) return
+
+        showMilestoneNotification(streak)
+        prefs.edit { putInt(KEY_LAST_MILESTONE, streak) }
+    }
+
+    private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                context.getString(R.string.app_name),
+                applicationContext.getString(R.string.app_name),
                 NotificationManager.IMPORTANCE_DEFAULT
             )
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            applicationContext.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+    }
 
+    private fun contentPendingIntent(requestCode: Int): PendingIntent {
+        val context = applicationContext
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val pendingIntent = PendingIntent.getActivity(
+        return PendingIntent.getActivity(
             context,
-            0,
+            requestCode,
             contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    private fun showQuietNotification() {
+        val context = applicationContext
+        ensureChannel()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.streak_notification_title))
             .setContentText(context.getString(R.string.streak_notification_body))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentPendingIntent(0))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
         context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     }
 
+    private fun showMilestoneNotification(streakDays: Int) {
+        val context = applicationContext
+        ensureChannel()
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.streak_milestone_notification_title, streakDays))
+            .setContentText(context.getString(R.string.streak_milestone_notification_body, streakDays))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setAutoCancel(true)
+            .setContentIntent(contentPendingIntent(1))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        context.getSystemService(NotificationManager::class.java).notify(MILESTONE_NOTIFICATION_ID, notification)
+    }
+
     companion object {
         private const val CHANNEL_ID = "streak_reminder"
         private const val NOTIFICATION_ID = 3001
+        private const val MILESTONE_NOTIFICATION_ID = 3002
         private const val UNIQUE_WORK_NAME = "streak_check"
+        private const val PREFS_NAME = "streak_milestone_prefs"
+        private const val KEY_LAST_MILESTONE = "last_notified_milestone"
         private val QUIET_THRESHOLD_MILLIS = TimeUnit.HOURS.toMillis(20)
 
         // KEEP so calling this on every launch (see MainActivity) doesn't

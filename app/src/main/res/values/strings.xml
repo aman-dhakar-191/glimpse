@@ -43,6 +43,7 @@
     <string name="widget_label_rectangular">Glimpse</string>
     <string name="widget_label_square">Glimpse (Square)</string>
     <string name="widget_label_large">Glimpse (Large)</string>
+    <string name="qs_tile_label">Send a Glimpse</string>
     <string name="widget_react_button">😊 React</string>
 
     <string name="compose_title">Send a message</string>
@@ -52,6 +53,7 @@
     <string name="compose_sent">Sent! It\'s live on the widget now.</string>
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
+    <string name="compose_nudge_button">👋 Nudge</string>
     <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
     <string name="compose_uploading_photo">Sending your glimpse…</string>
 
@@ -79,6 +81,10 @@
 
     <string name="streak_notification_title">Miss you 💌</string>
     <string name="streak_notification_body">You two haven\'t shared a glimpse in a while — say hi?</string>
+
+    <string name="streak_milestone_notification_title">🎉 %1$d-day streak!</string>
+    <string name="streak_milestone_notification_body">You two have shared a glimpse every day for %1$d days. Keep it going!</string>
+    <string name="stats_streak_milestone_badge">MILESTONE</string>
 
     <string name="update_checking">Checking for updates…</string>
     <string name="update_available">Update available: v%1$s</string>

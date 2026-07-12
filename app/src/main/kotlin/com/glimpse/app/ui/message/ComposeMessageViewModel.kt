@@ -91,6 +91,21 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    // Fire-and-forget, no WorkManager queueing — a nudge is a lightweight
+    // ping, not something worth retrying/persisting if it fails once. Reuses
+    // ComposeUiState.Sent (same "sent" snackbar + heart-burst animation as a
+    // regular send) rather than a dedicated state, since "you just sent
+    // something" is exactly what happened.
+    fun sendNudge() {
+        viewModelScope.launch {
+            messageRepository.sendNudge()
+                .onSuccess { _uiState.value = ComposeUiState.Sent }
+                .onFailure { throwable ->
+                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Couldn't send nudge.")
+                }
+        }
+    }
+
     fun consumeSentState() {
         _uiState.value = ComposeUiState.Idle
     }

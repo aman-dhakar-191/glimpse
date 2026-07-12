@@ -5,6 +5,7 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ServerValue
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -76,6 +77,25 @@ class MessageRepository {
                 expiresAt = now + THIRTY_DAYS_MILLIS
             )
             database.child("shared/messages").push().setValue(message).await()
+        }
+    }
+
+    // A single overwritten node (not a growing list like messages) — a
+    // nudge is a fire-and-forget ping, not something either of you needs a
+    // history of. createdAt is ServerValue.TIMESTAMP on every send (not a
+    // client-side value) specifically so the node's value always genuinely
+    // changes even on back-to-back nudges — Firebase's onWrite Cloud
+    // Function trigger only fires on an actual value change, so a nudge
+    // sent twice in a row with the same payload would otherwise silently
+    // no-op the second time.
+    suspend fun sendNudge(): Result<Unit> = runCatching {
+        val user = auth.currentUser ?: error("Not signed in.")
+        val nudge = mapOf(
+            "senderUid" to user.uid,
+            "createdAt" to ServerValue.TIMESTAMP
+        )
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            database.child("shared/nudge").setValue(nudge).await()
         }
     }
 

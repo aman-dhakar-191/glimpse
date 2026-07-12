@@ -217,7 +217,8 @@ class MainActivity : ComponentActivity() {
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
                                     onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
-                                    onLogout = { onLogout() }
+                                    onLogout = { onLogout() },
+                                    onSendNudge = { composeMessageViewModel.sendNudge() }
                                 )
                             }
                         }
