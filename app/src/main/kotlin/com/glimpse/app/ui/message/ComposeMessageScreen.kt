@@ -36,6 +36,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,6 +78,11 @@ import com.glimpse.app.ui.theme.BlobChipShapeB
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import kotlinx.coroutines.delay
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 private fun createCameraImageUri(context: Context): Uri {
     val imagesDir = File(context.cacheDir, "camera").apply { mkdirs() }
@@ -126,11 +135,12 @@ private fun PhotoUploadingOverlay(modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeMessageScreen(
     uiState: ComposeUiState,
-    onSend: (String) -> Unit,
-    onSendPhoto: (Uri, String) -> Unit,
+    onSend: (String, Long) -> Unit,
+    onSendPhoto: (Uri, String, Long) -> Unit,
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -141,6 +151,10 @@ fun ComposeMessageScreen(
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showSentBurst by remember { mutableStateOf(false) }
+    // 0L = not a time capsule.
+    var lockUntilMillis by rememberSaveable { mutableStateOf(0L) }
+    var showLockDatePicker by remember { mutableStateOf(false) }
+    val lockDatePickerState = rememberDatePickerState()
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.compose_sent)
     val context = LocalContext.current
@@ -180,6 +194,7 @@ fun ComposeMessageScreen(
             text = ""
             selectedImageUri = null
             pendingCameraUri = null
+            lockUntilMillis = 0L
             showSentBurst = true
             snackbarHostState.showSnackbar(sentMessage)
             onSentHandled()
@@ -328,6 +343,39 @@ fun ComposeMessageScreen(
                             }
                         }
                     }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Time capsule: a message that stays locked/hidden
+                    // (both in-app and on the widget — see Message.isLocked)
+                    // until a future date, unlike a scheduled send which is
+                    // just delayed. Separate row from the quick actions above
+                    // so it doesn't crowd an already-full row on narrow screens.
+                    if (lockUntilMillis > 0L) {
+                        val formattedDate = remember(lockUntilMillis) {
+                            Instant.ofEpochMilli(lockUntilMillis).atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.compose_locked_until, formattedDate),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { lockUntilMillis = 0L }) {
+                                Text(stringResource(R.string.compose_locked_remove))
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showLockDatePicker = true },
+                            shape = BlobChipShapeA,
+                            contentPadding = BlobChipPadding
+                        ) {
+                            Text(stringResource(R.string.compose_lock_button))
+                        }
+                    }
                 }
             }
 
@@ -355,9 +403,9 @@ fun ComposeMessageScreen(
                 onClick = {
                     val uri = selectedImageUri
                     if (uri != null) {
-                        onSendPhoto(uri, text)
+                        onSendPhoto(uri, text, lockUntilMillis)
                     } else {
-                        onSend(text)
+                        onSend(text, lockUntilMillis)
                     }
                 },
                 enabled = canSend,
@@ -408,6 +456,42 @@ fun ComposeMessageScreen(
                 modifier = Modifier.size(96.dp)
             )
         }
+        }
+    }
+
+    if (showLockDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showLockDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = lockDatePickerState.selectedDateMillis
+                    if (millis != null) {
+                        // DatePickerState's selectedDateMillis is UTC midnight
+                        // for the picked calendar day — re-anchoring to local
+                        // midnight of that same day is what "unlocks at" should
+                        // actually mean to the person reading it later.
+                        val pickedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        val unlockAt = pickedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        // A date that's already passed (or is today, since
+                        // local midnight of today is always in the past by
+                        // the time you're picking it) isn't a meaningful lock
+                        // — silently treat it as "no lock" instead.
+                        if (unlockAt > System.currentTimeMillis()) {
+                            lockUntilMillis = unlockAt
+                        }
+                    }
+                    showLockDatePicker = false
+                }) {
+                    Text(stringResource(R.string.guide_countdown_pick_date))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLockDatePicker = false }) {
+                    Text(stringResource(R.string.guide_dismiss))
+                }
+            }
+        ) {
+            DatePicker(state = lockDatePickerState)
         }
     }
 }

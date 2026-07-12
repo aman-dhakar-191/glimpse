@@ -25,7 +25,8 @@ class SendMessageWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     override suspend fun doWork(): Result {
         val content = inputData.getString(KEY_CONTENT) ?: return Result.failure()
-        val sendResult = MessageRepository().sendMessage(content)
+        val unlockAt = inputData.getLong(KEY_UNLOCK_AT, 0)
+        val sendResult = MessageRepository().sendMessage(content, unlockAt)
         return if (sendResult.isSuccess) {
             WidgetSyncTrigger.requestSync(applicationContext)
             Result.success()
@@ -38,11 +39,12 @@ class SendMessageWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     companion object {
         private const val KEY_CONTENT = "content"
+        private const val KEY_UNLOCK_AT = "unlock_at"
         private const val MAX_ATTEMPTS = 3
 
-        fun buildRequest(content: String): OneTimeWorkRequest =
+        fun buildRequest(content: String, unlockAt: Long = 0): OneTimeWorkRequest =
             OneTimeWorkRequestBuilder<SendMessageWorker>()
-                .setInputData(workDataOf(KEY_CONTENT to content))
+                .setInputData(workDataOf(KEY_CONTENT to content, KEY_UNLOCK_AT to unlockAt))
                 .setConstraints(
                     Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
                 )

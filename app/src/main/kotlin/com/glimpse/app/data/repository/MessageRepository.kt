@@ -23,7 +23,7 @@ class MessageRepository {
         if (!success) error("Failed to send reaction.")
     }
 
-    suspend fun sendMessage(content: String): Result<Unit> = runCatching {
+    suspend fun sendMessage(content: String, unlockAt: Long = 0): Result<Unit> = runCatching {
         val trimmed = content.trim()
         require(trimmed.isNotEmpty()) { "Message can't be empty." }
         val user = auth.currentUser ?: error("Not signed in.")
@@ -36,7 +36,8 @@ class MessageRepository {
             content = trimmed,
             createdAt = now,
             updatedAt = now,
-            expiresAt = now + THIRTY_DAYS_MILLIS
+            expiresAt = now + THIRTY_DAYS_MILLIS,
+            unlockAt = unlockAt
         )
         // A new push key per message (instead of overwriting one shared
         // node) is what makes a scrollable history possible — each message
@@ -54,7 +55,7 @@ class MessageRepository {
         }
     }
 
-    suspend fun sendPhotoMessage(imageUri: Uri, caption: String): Result<Unit> = runCatching {
+    suspend fun sendPhotoMessage(imageUri: Uri, caption: String, unlockAt: Long = 0): Result<Unit> = runCatching {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
 
@@ -74,7 +75,8 @@ class MessageRepository {
                 caption = caption.trim(),
                 createdAt = now,
                 updatedAt = now,
-                expiresAt = now + THIRTY_DAYS_MILLIS
+                expiresAt = now + THIRTY_DAYS_MILLIS,
+                unlockAt = unlockAt
             )
             database.child("shared/messages").push().setValue(message).await()
         }
