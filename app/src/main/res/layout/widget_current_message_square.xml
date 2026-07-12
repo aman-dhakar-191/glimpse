@@ -2,115 +2,94 @@
 <!-- Compact counterpart to widget_current_message.xml for the square size
      variant — same view IDs throughout so WidgetRenderer.applyMessage() and
      ReactionActionBinder need no branching to populate either layout, just
-     tighter padding/text sizes to fit a ~2x2-cell footprint. Same
-     EXPERIMENTAL RelativeLayout wrapper for the optional background photo
-     feature as widget_current_message.xml — see that file for the full
-     reasoning and revert plan. -->
-<RelativeLayout
+     tighter padding/text sizes to fit a ~2x2-cell footprint. widget_root is
+     the layout root directly (no wrapper) — see widget_current_message.xml
+     for why. -->
+<LinearLayout
+    android:id="@+id/widget_root"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <ImageView
-        android:id="@+id/widget_background_photo"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:visibility="gone"
-        android:contentDescription="@null" />
-
-    <View
-        android:id="@+id/widget_background_scrim"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#66000000"
-        android:visibility="gone" />
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:background="@color/widget_bg">
 
     <LinearLayout
-        android:id="@+id/widget_root"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="10dp"
-        android:background="@drawable/bg_widget_root_square">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/author_name"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textSize="10sp"
-                    android:textColor="@color/text_secondary" />
-
-                <TextView
-                    android:id="@+id/partner_mood"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:visibility="gone" />
-            </LinearLayout>
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/message_content"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:layout_marginVertical="4dp"
-                android:gravity="center"
-                android:maxLines="4"
-                android:ellipsize="end"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="11sp"
-                android:autoSizeMaxTextSize="36sp"
-                android:autoSizeStepGranularity="1sp" />
-
-            <ImageView
-                android:id="@+id/message_photo"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:scaleType="fitCenter"
-                android:contentDescription="@null"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/photo_caption"
-                android:layout_width="match_parent"
+                android:id="@+id/author_name"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:textSize="10sp"
-                android:textColor="@color/text_secondary"
-                android:textStyle="italic"
+                android:textColor="@color/text_secondary" />
+
+            <TextView
+                android:id="@+id/partner_mood"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
                 android:visibility="gone" />
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/reactions_container"
+        <TextView
+            android:id="@+id/message_content"
             android:layout_width="match_parent"
-            android:layout_height="28dp"
-            android:layout_marginTop="4dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:textColor="@color/text_primary"
+            android:layout_marginVertical="4dp"
+            android:gravity="center"
+            android:maxLines="4"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="36sp"
+            android:autoSizeStepGranularity="1sp" />
 
-        <Button
-            android:id="@+id/btn_react"
+        <ImageView
+            android:id="@+id/message_photo"
             android:layout_width="match_parent"
-            android:layout_height="32dp"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/bg_widget_button"
-            android:text="@string/widget_react_button"
-            android:textSize="12sp"
-            android:textColor="@color/text_primary" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/photo_caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="10sp"
+            android:textColor="@color/text_secondary"
+            android:textStyle="italic"
+            android:visibility="gone" />
     </LinearLayout>
-</RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/reactions_container"
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical" />
+
+    <Button
+        android:id="@+id/btn_react"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_widget_button"
+        android:text="@string/widget_react_button"
+        android:textSize="12sp"
+        android:textColor="@color/text_primary" />
+</LinearLayout>

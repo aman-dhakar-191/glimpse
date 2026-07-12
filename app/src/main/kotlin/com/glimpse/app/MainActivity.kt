@@ -6,13 +6,17 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
@@ -41,13 +45,13 @@ import com.glimpse.app.ui.pairing.PairingViewModel
 import com.glimpse.app.ui.quiethours.QuietHoursViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
+import com.glimpse.app.ui.settings.SettingsScreen
 import com.glimpse.app.ui.stats.StatsScreen
 import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateBanner
 import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
-import com.glimpse.app.ui.widgetbackground.WidgetBackgroundViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.StreakCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -55,7 +59,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, React, History, Stats }
+private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -66,7 +70,6 @@ class MainActivity : ComponentActivity() {
     private val statsViewModel: StatsViewModel by viewModels()
     private val pairingViewModel: PairingViewModel by viewModels()
     private val nicknameViewModel: NicknameViewModel by viewModels()
-    private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
     private val onThisDayViewModel: OnThisDayViewModel by viewModels()
     private val moodViewModel: MoodViewModel by viewModels()
     private val countdownViewModel: CountdownViewModel by viewModels()
@@ -201,12 +204,22 @@ class MainActivity : ComponentActivity() {
                     val statsUiState by statsViewModel.uiState.collectAsState()
                     val pairingUiState by pairingViewModel.uiState.collectAsState()
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
-                    val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
                     val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
                     val moodUiState by moodViewModel.uiState.collectAsState()
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
+
+                    // None of these screens are pushed onto a real Navigation
+                    // back stack (screen is just a flat mutableStateOf), so
+                    // without this the system back gesture/button would fall
+                    // through to the default Activity behavior and close the
+                    // app instead of stepping back within it. Login/Compose
+                    // are the two roots — system back there keeps its default
+                    // (exit-app) behavior, same as any other root screen.
+                    BackHandler(enabled = screen != AppScreen.Login && screen != AppScreen.Compose) {
+                        screen = if (screen == AppScreen.Stats) AppScreen.History else AppScreen.Compose
+                    }
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -218,26 +231,18 @@ class MainActivity : ComponentActivity() {
                             onLogout = { onLogout() }
                         )
 
-                        AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
+                        AppScreen.Compose -> Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(WindowInsets.systemBars)
+                        ) {
                             LaunchedEffect(Unit) {
                                 onThisDayViewModel.check()
                                 countdownViewModel.load()
                             }
-                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
-                                UpdateBanner(
-                                    uiState = updateUiState,
-                                    onUpdateClick = { onUpdateClick() },
-                                    onDismiss = { updateViewModel.dismiss() },
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
                             OnThisDayBanner(
                                 uiState = onThisDayUiState,
                                 onDismiss = { onThisDayViewModel.dismiss() },
-                                modifier = Modifier.padding(16.dp)
-                            )
-                            CountdownBanner(
-                                uiState = countdownUiState,
                                 modifier = Modifier.padding(16.dp)
                             )
                             Box(modifier = Modifier.weight(1f)) {
@@ -250,27 +255,43 @@ class MainActivity : ComponentActivity() {
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
                                     onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
-                                    onLogout = { onLogout() },
+                                    onOpenSettings = { screen = AppScreen.Settings },
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     dailyPromptUiState = dailyPromptUiState,
                                     onLoadDailyPrompt = { dailyPromptViewModel.check() },
                                     onDismissDailyPrompt = { dailyPromptViewModel.dismiss() }
                                 )
                             }
+                            // Ambient/low-urgency status, not something that needs
+                            // to grab attention on entry — anchored below the
+                            // compose card instead of stacked above it like the
+                            // one-time OnThisDay surprise.
+                            CountdownBanner(
+                                uiState = countdownUiState,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
+                                UpdateBanner(
+                                    uiState = updateUiState,
+                                    onUpdateClick = { onUpdateClick() },
+                                    onDismiss = { updateViewModel.dismiss() },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                )
+                            }
                         }
 
                         AppScreen.Guide -> WidgetGuideScreen(
+                            onBack = { screen = AppScreen.Compose }
+                        )
+
+                        AppScreen.Settings -> SettingsScreen(
                             pairingUiState = pairingUiState,
                             onGenerateCode = { pairingViewModel.generateCode() },
                             nicknameUiState = nicknameUiState,
                             onLoadNickname = { nicknameViewModel.load() },
                             onSaveNickname = { name -> nicknameViewModel.save(name) },
-                            onDismiss = { screen = AppScreen.Compose },
+                            onBack = { screen = AppScreen.Compose },
                             onLogout = { onLogout() },
-                            backgroundUiState = widgetBackgroundUiState,
-                            onLoadBackground = { widgetBackgroundViewModel.load() },
-                            onPickBackground = { uri -> widgetBackgroundViewModel.setPhoto(uri) },
-                            onClearBackground = { widgetBackgroundViewModel.clearPhoto() },
                             moodUiState = moodUiState,
                             onLoadMood = { moodViewModel.load() },
                             onSetMood = { emoji -> moodViewModel.setMood(emoji) },

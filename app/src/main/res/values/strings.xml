@@ -10,6 +10,9 @@
     <string name="login_pairing_code_placeholder">6-digit code</string>
     <string name="login_join">Join</string>
 
+    <string name="settings_title">Settings</string>
+    <string name="compose_settings_link">Settings</string>
+
     <string name="guide_title">Add Widgets to Your Home Screen</string>
     <string name="guide_step_1_title">Long-press on your home screen</string>
     <string name="guide_step_1_desc">Hold your finger on an empty space</string>
@@ -35,12 +38,6 @@
     <string name="guide_nickname_placeholder">e.g. Babe, Love, Sunshine…</string>
     <string name="guide_nickname_save">Save</string>
     <string name="guide_nickname_saved">Saved!</string>
-
-    <string name="guide_background_title">Widget background photo</string>
-    <string name="guide_background_desc">Only changes your own widget, on this device — your partner\'s stays as-is.</string>
-    <string name="guide_background_choose">Choose photo</string>
-    <string name="guide_background_change">Change photo</string>
-    <string name="guide_background_remove">Remove</string>
 
     <string name="guide_mood_title">Your mood</string>
     <string name="guide_mood_desc">Shows on your partner\'s widget — a quick status, separate from your messages.</string>
