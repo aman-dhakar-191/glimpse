@@ -145,7 +145,7 @@ fun ComposeMessageScreen(
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
-    onLogout: () -> Unit,
+    onOpenSettings: () -> Unit,
     onSendNudge: () -> Unit,
     dailyPromptUiState: DailyPromptUiState,
     onLoadDailyPrompt: () -> Unit,
@@ -240,8 +240,8 @@ fun ComposeMessageScreen(
                     TextButton(onClick = onOpenGuide) {
                         Text(stringResource(R.string.compose_widget_guide_link))
                     }
-                    TextButton(onClick = onLogout) {
-                        Text(stringResource(R.string.guide_logout))
+                    TextButton(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.compose_settings_link))
                     }
                 }
             }
