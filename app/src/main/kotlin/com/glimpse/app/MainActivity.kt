@@ -31,6 +31,8 @@ import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
 import com.glimpse.app.ui.nickname.NicknameViewModel
+import com.glimpse.app.ui.onthisday.OnThisDayBanner
+import com.glimpse.app.ui.onthisday.OnThisDayViewModel
 import com.glimpse.app.ui.pairing.PairingViewModel
 import com.glimpse.app.ui.reaction.ReactionPickerScreen
 import com.glimpse.app.ui.reaction.ReactionPickerViewModel
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
     private val pairingViewModel: PairingViewModel by viewModels()
     private val nicknameViewModel: NicknameViewModel by viewModels()
     private val widgetBackgroundViewModel: WidgetBackgroundViewModel by viewModels()
+    private val onThisDayViewModel: OnThisDayViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -190,6 +193,7 @@ class MainActivity : ComponentActivity() {
                     val pairingUiState by pairingViewModel.uiState.collectAsState()
                     val nicknameUiState by nicknameViewModel.uiState.collectAsState()
                     val widgetBackgroundUiState by widgetBackgroundViewModel.uiState.collectAsState()
+                    val onThisDayUiState by onThisDayViewModel.uiState.collectAsState()
 
                     when (screen) {
                         AppScreen.Login -> LoginScreen(
@@ -202,6 +206,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         AppScreen.Compose -> Column(modifier = Modifier.fillMaxSize()) {
+                            LaunchedEffect(Unit) { onThisDayViewModel.check() }
                             if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
                                 UpdateBanner(
                                     uiState = updateUiState,
@@ -210,6 +215,11 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.padding(16.dp)
                                 )
                             }
+                            OnThisDayBanner(
+                                uiState = onThisDayUiState,
+                                onDismiss = { onThisDayViewModel.dismiss() },
+                                modifier = Modifier.padding(16.dp)
+                            )
                             Box(modifier = Modifier.weight(1f)) {
                                 ComposeMessageScreen(
                                     uiState = composeUiState,
@@ -254,7 +264,8 @@ class MainActivity : ComponentActivity() {
                                 onBack = { screen = AppScreen.Compose },
                                 onDownloadImage = { url -> historyViewModel.downloadImage(this@MainActivity, url) },
                                 onDownloadResultHandled = { historyViewModel.consumeDownloadResult() },
-                                onOpenStats = { screen = AppScreen.Stats }
+                                onOpenStats = { screen = AppScreen.Stats },
+                                onSearch = { query -> historyViewModel.search(query) }
                             )
                         }
 

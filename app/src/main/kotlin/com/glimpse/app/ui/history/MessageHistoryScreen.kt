@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
@@ -96,7 +97,8 @@ fun MessageHistoryScreen(
     onBack: () -> Unit,
     onDownloadImage: (String) -> Unit,
     onDownloadResultHandled: () -> Unit,
-    onOpenStats: () -> Unit
+    onOpenStats: () -> Unit,
+    onSearch: (String) -> Unit
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -135,10 +137,25 @@ fun MessageHistoryScreen(
         onDownloadResultHandled()
     }
 
-    val items = remember(uiState.messages) { groupByDate(uiState.messages) }
+    val filteredMessages = remember(uiState.messages, uiState.searchQuery) {
+        val query = uiState.searchQuery.trim()
+        if (query.isBlank()) {
+            uiState.messages
+        } else {
+            uiState.messages.filter {
+                it.content.contains(query, ignoreCase = true) || it.caption.contains(query, ignoreCase = true)
+            }
+        }
+    }
+    val items = remember(filteredMessages) { groupByDate(filteredMessages) }
     val listState = rememberLazyListState()
-    LaunchedEffect(items.size) {
-        if (items.isNotEmpty()) listState.animateScrollToItem(items.lastIndex)
+    // Jumping to the bottom only makes sense for the live, unfiltered
+    // scrollback — while actively searching, that would yank the view away
+    // from whatever match the search just surfaced.
+    LaunchedEffect(items.size, uiState.searchQuery) {
+        if (items.isNotEmpty() && uiState.searchQuery.isBlank()) {
+            listState.animateScrollToItem(items.lastIndex)
+        }
     }
 
     Scaffold(
@@ -175,26 +192,52 @@ fun MessageHistoryScreen(
             return@Scaffold
         }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            items(items) { item ->
-                when (item) {
-                    is HistoryItem.DateDivider -> DateDividerRow(item.label)
-                    is HistoryItem.MessageRow -> MessageBubbleRow(
-                        message = item.message,
-                        isMine = item.message.authorUid == uiState.myUid,
-                        seenStatus = if (item.isLast) uiState.lastMessageSeenStatus else null,
-                        onDownloadImage = { url -> requestDownload(url) }
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearch,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                placeholder = { Text(stringResource(R.string.history_search_placeholder)) },
+                singleLine = true
+            )
+
+            if (filteredMessages.isEmpty()) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        stringResource(R.string.history_search_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                return@Scaffold
             }
-            item { Spacer(Modifier.size(8.dp)) }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                items(items) { item ->
+                    when (item) {
+                        is HistoryItem.DateDivider -> DateDividerRow(item.label)
+                        is HistoryItem.MessageRow -> MessageBubbleRow(
+                            message = item.message,
+                            isMine = item.message.authorUid == uiState.myUid,
+                            seenStatus = if (item.isLast) uiState.lastMessageSeenStatus else null,
+                            onDownloadImage = { url -> requestDownload(url) }
+                        )
+                    }
+                }
+                item { Spacer(Modifier.size(8.dp)) }
+            }
         }
     }
 }
