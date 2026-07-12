@@ -3,6 +3,7 @@ package com.glimpse.app.widgets
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.os.Bundle
 import com.glimpse.app.data.WidgetCarouselIndexStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.service.WidgetSyncTrigger
@@ -28,12 +29,14 @@ class CurrentMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
+                // Carousel temporarily disabled (latestOnly = true) — see
+                // WidgetUpdateService.updateWidgets for why.
                 val messages = FirebaseSync.fetchRecentMessagesOnce(WidgetRenderer.CAROUSEL_LIMIT)
                 appWidgetIds.forEach { appWidgetId ->
-                    val remoteViews = WidgetRenderer.render(context, appWidgetId, messages)
+                    val remoteViews = WidgetRenderer.render(context, appWidgetId, messages, latestOnly = true)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
-                WidgetRenderer.markSeenForRender(messages)
+                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
             } finally {
                 pendingResult.finish()
             }
@@ -46,6 +49,31 @@ class CurrentMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
+    }
+
+    // A resize changes which of the two responsive size variants (square vs
+    // rectangular) is actually on screen — see WidgetRenderer.render's
+    // allowPhoto split, which only loads the current page's photo into
+    // whichever variant is active to avoid doubling the RemoteViews Parcel.
+    // Re-rendering here (rather than waiting for the next Firebase-triggered
+    // update) means the newly-active size picks up its real photo right away.
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
+            try {
+                val messages = FirebaseSync.fetchRecentMessagesOnce(WidgetRenderer.CAROUSEL_LIMIT)
+                val remoteViews = WidgetRenderer.render(context, appWidgetId, messages, latestOnly = true)
+                appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
+                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {

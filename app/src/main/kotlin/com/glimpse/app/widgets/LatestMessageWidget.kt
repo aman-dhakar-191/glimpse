@@ -3,6 +3,7 @@ package com.glimpse.app.widgets
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.os.Bundle
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.service.WidgetSyncTrigger
 import kotlinx.coroutines.CoroutineScope
@@ -41,5 +42,26 @@ class LatestMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
+    }
+
+    // See CurrentMessageWidget's identical override — same responsive
+    // square/rectangular split via WidgetRenderer.render.
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
+            try {
+                val messages = FirebaseSync.fetchRecentMessagesOnce(WidgetRenderer.CAROUSEL_LIMIT)
+                val remoteViews = WidgetRenderer.render(context, appWidgetId, messages, latestOnly = true)
+                appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
+                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 }

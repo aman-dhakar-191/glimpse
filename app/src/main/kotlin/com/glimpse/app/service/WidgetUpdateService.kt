@@ -63,35 +63,27 @@ class WidgetUpdateService : Service() {
     private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
-            val hasCarouselWidget = updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, messages)
-            } or updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
-                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, messages)
-            } or updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, messages)
-            }
-            val hasLatestOnlyWidget = updateProvider(appWidgetManager, LatestMessageWidget::class.java) { id ->
+            // The carousel (catch-up scrolling through unseen messages, tap
+            // dots to jump pages) is temporarily disabled for all widgets —
+            // every provider renders latestOnly = true, i.e. just the single
+            // newest message, matching how these widgets behaved before the
+            // carousel existed. This sidesteps the whole class of
+            // TransactionTooLargeException issues the carousel's multi-page
+            // photo payloads kept running into; re-enable by reverting these
+            // latestOnly flags to false once that's solved properly.
+            val hasAnyWidget = updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
                 WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
-            }
-            // ShapedMessageWidget is entirely separate rendering code (see
-            // ShapedWidgetRenderer) and always just the single latest
-            // message, same as LatestMessageWidget — this was missing
-            // before, so this widget only ever refreshed on its own
-            // 30-minute periodic tick or when re-added, never promptly
-            // when a new message actually arrived.
-            val hasShapedWidget = updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
+            } or updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
+                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, messages, latestOnly = true)
+            } or updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
+                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
+            } or updateProvider(appWidgetManager, LatestMessageWidget::class.java) { id ->
+                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
+            } or updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
                 ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages.lastOrNull())
             }
 
-            // Mark seen based on whatever's actually on screen: if any
-            // carousel-capable widget is present, the whole catch-up window
-            // is visible to the user (there), so it's fair to mark all of
-            // it seen; only if the sole widget present is a "latest only"
-            // one do we fall back to marking just the newest message, since
-            // that's genuinely all it ever shows.
-            if (hasCarouselWidget) {
-                WidgetRenderer.markSeenForRender(messages)
-            } else if (hasLatestOnlyWidget || hasShapedWidget) {
+            if (hasAnyWidget) {
                 WidgetRenderer.markSeenForRender(messages, latestOnly = true)
             }
         }
