@@ -74,9 +74,9 @@
             android:ellipsize="end"
             android:textColor="@color/text_primary"
             android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="10sp"
-            android:autoSizeMaxTextSize="22sp"
-            android:autoSizeStepGranularity="1sp" />
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeMaxTextSize="72sp"
+            android:autoSizeStepGranularity="2sp" />
 
         <Button
             android:id="@+id/btn_react"
