@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clip mask for shaped_message_photo, paired with
+     android:clipToOutline="true" on that ImageView (a View's default
+     outline provider follows its background's shape) — softens the
+     photo's own rectangular corners so they don't visibly poke out past
+     the blob's organic silhouette. Only an approximation, since RemoteViews
+     has no real path clipping (see widget_shaped_message.xml), but a
+     rounded rect reads far closer to the blob outline than raw square
+     corners would. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <corners android:radius="18dp" />
+</shape>

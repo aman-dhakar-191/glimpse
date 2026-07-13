@@ -3,8 +3,12 @@ package com.glimpse.app.ui.history
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,11 +46,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.glimpse.app.R
@@ -105,6 +116,7 @@ fun MessageHistoryScreen(
     val downloadSuccessMessage = stringResource(R.string.history_download_success)
     val downloadFailedMessage = stringResource(R.string.history_download_failed)
 
+    var viewerPhotoUrl by remember { mutableStateOf<String?>(null) }
     var pendingDownloadUrl by remember { mutableStateOf<String?>(null) }
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -232,11 +244,89 @@ fun MessageHistoryScreen(
                             message = item.message,
                             isMine = item.message.authorUid == uiState.myUid,
                             seenStatus = if (item.isLast) uiState.lastMessageSeenStatus else null,
-                            onDownloadImage = { url -> requestDownload(url) }
+                            onDownloadImage = { url -> requestDownload(url) },
+                            onImageClick = { url -> viewerPhotoUrl = url }
                         )
                     }
                 }
                 item { Spacer(Modifier.size(8.dp)) }
+            }
+        }
+    }
+
+    val photoUrl = viewerPhotoUrl
+    if (photoUrl != null) {
+        FullScreenImageViewer(
+            photoUrl = photoUrl,
+            onDismiss = { viewerPhotoUrl = null },
+            onDownload = { requestDownload(it) }
+        )
+    }
+}
+
+// Pinch-to-zoom, drag-to-pan full-screen photo viewer — opened by tapping a
+// photo bubble in history. A plain Dialog (not a new Compose destination)
+// since it's just a transient overlay with no back-stack state of its own
+// beyond "which photo," which lives in the caller.
+@Composable
+private fun FullScreenImageViewer(
+    photoUrl: String,
+    onDismiss: () -> Unit,
+    onDownload: (String) -> Unit
+) {
+    BackHandler(onBack = onDismiss)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        var scale by remember { mutableStateOf(1f) }
+        var offset by remember { mutableStateOf(Offset.Zero) }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                // The zoom/pan gesture below moves and scales the image well
+                // past its own layout bounds — graphicsLayer doesn't clip
+                // that by default, so without this the image can draw
+                // outside the screen (or over the close/download buttons)
+                // once it's zoomed in and panned toward an edge.
+                .clipToBounds()
+        ) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offset.x,
+                        translationY = offset.y
+                    )
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            val newScale = (scale * zoom).coerceIn(1f, 5f)
+                            scale = newScale
+                            offset = if (newScale <= 1f) Offset.Zero else offset + pan
+                        }
+                    }
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+            ) {
+                Text("✕", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            }
+
+            SmallFloatingActionButton(
+                onClick = { onDownload(photoUrl) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)
+            ) {
+                Text("⬇", style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -265,7 +355,8 @@ private fun MessageBubbleRow(
     message: Message,
     isMine: Boolean,
     seenStatus: SeenStatus?,
-    onDownloadImage: (String) -> Unit
+    onDownloadImage: (String) -> Unit,
+    onImageClick: (String) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -313,6 +404,7 @@ private fun MessageBubbleRow(
                                     .fillMaxWidth()
                                     .aspectRatio(1.2f)
                                     .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onImageClick(message.photoUrl) }
                             )
                             SmallFloatingActionButton(
                                 onClick = { onDownloadImage(message.photoUrl) },

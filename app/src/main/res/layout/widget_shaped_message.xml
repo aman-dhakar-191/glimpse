@@ -61,6 +61,8 @@
             android:layout_weight="1"
             android:layout_marginVertical="4dp"
             android:scaleType="centerCrop"
+            android:background="@drawable/widget_photo_mask"
+            android:clipToOutline="true"
             android:contentDescription="@null" />
 
         <TextView
@@ -74,9 +76,9 @@
             android:ellipsize="end"
             android:textColor="@color/text_primary"
             android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="10sp"
-            android:autoSizeMaxTextSize="22sp"
-            android:autoSizeStepGranularity="1sp" />
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeMaxTextSize="72sp"
+            android:autoSizeStepGranularity="2sp" />
 
         <Button
             android:id="@+id/btn_react"
