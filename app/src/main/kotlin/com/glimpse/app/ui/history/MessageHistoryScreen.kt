@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -286,6 +287,12 @@ private fun FullScreenImageViewer(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+                // The zoom/pan gesture below moves and scales the image well
+                // past its own layout bounds — graphicsLayer doesn't clip
+                // that by default, so without this the image can draw
+                // outside the screen (or over the close/download buttons)
+                // once it's zoomed in and panned toward an edge.
+                .clipToBounds()
         ) {
             AsyncImage(
                 model = photoUrl,
