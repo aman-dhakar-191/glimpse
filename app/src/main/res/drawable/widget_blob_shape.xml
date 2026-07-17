@@ -7,7 +7,6 @@
      ~40-50% deep pinches the more dramatic blob shapes have — so text
      inside has a real chance of staying clear of the curve at small
      widget sizes. -->
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="200dp"
     android:height="200dp"
