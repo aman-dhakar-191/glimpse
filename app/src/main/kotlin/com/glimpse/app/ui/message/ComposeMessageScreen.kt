@@ -327,7 +327,11 @@ fun ComposeMessageScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .rotate(0.8f),
+                    .padding(horizontal = 6.dp)   // slack for the rotation excursion
+                    .graphicsLayer {
+                        rotationZ = 0.8f
+                        clip = false
+                    },
                 shape = BlobShapeSoftB,
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {

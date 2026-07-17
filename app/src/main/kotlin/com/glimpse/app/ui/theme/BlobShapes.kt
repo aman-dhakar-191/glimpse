@@ -129,16 +129,16 @@ val BlobShapeSoftB: Shape = GenericShape { size, _ ->
 val BlobShapeSoftC: Shape = GenericShape { size, _ ->
     val w = size.width
     val h = size.height
-    moveTo(0.12f * w, 0.16f * h)
-    cubicTo(0.18f * w, 0.04f * h, 0.32f * w, -0.01f * h, 0.46f * w, 0.02f * h)
-    cubicTo(0.58f * w, 0.04f * h, 0.68f * w, 0.02f * h, 0.8f * w, 0.08f * h)
-    cubicTo(0.93f * w, 0.14f * h, 1.01f * w, 0.26f * h, 0.98f * w, 0.4f * h)
-    cubicTo(0.96f * w, 0.5f * h, 0.9f * w, 0.46f * h, 0.92f * w, 0.58f * h)
-    cubicTo(0.95f * w, 0.74f * h, 0.9f * w, 0.9f * h, 0.76f * w, 0.97f * h)
-    cubicTo(0.64f * w, 1.02f * h, 0.5f * w, 0.98f * h, 0.38f * w, 0.98f * h)
-    cubicTo(0.24f * w, 0.98f * h, 0.1f * w, 0.94f * h, 0.04f * w, 0.82f * h)
-    cubicTo(-0.01f * w, 0.71f * h, 0.04f * w, 0.6f * h, 0.03f * w, 0.48f * h)
-    cubicTo(0.02f * w, 0.34f * h, 0.05f * w, 0.26f * h, 0.12f * w, 0.16f * h)
+    moveTo(0.14f * w, 0.22f * h)
+    cubicTo(0.22f * w, 0.08f * h, 0.40f * w, 0.04f * h, 0.56f * w, 0.07f * h)
+    cubicTo(0.68f * w, 0.09f * h, 0.78f * w, 0.06f * h, 0.87f * w, 0.14f * h)
+    cubicTo(0.96f * w, 0.22f * h, 0.94f * w, 0.34f * h, 0.91f * w, 0.44f * h)
+    cubicTo(0.88f * w, 0.54f * h, 0.94f * w, 0.60f * h, 0.92f * w, 0.70f * h)
+    cubicTo(0.89f * w, 0.84f * h, 0.76f * w, 0.94f * h, 0.60f * w, 0.94f * h)
+    cubicTo(0.48f * w, 0.94f * h, 0.40f * w, 0.90f * h, 0.28f * w, 0.91f * h)
+    cubicTo(0.14f * w, 0.92f * h, 0.06f * w, 0.82f * h, 0.06f * w, 0.70f * h)
+    cubicTo(0.06f * w, 0.60f * h, 0.12f * w, 0.54f * h, 0.10f * w, 0.44f * h)
+    cubicTo(0.08f * w, 0.34f * h, 0.08f * w, 0.30f * h, 0.14f * w, 0.22f * h)
     close()
 }
 
