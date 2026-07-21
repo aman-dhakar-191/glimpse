@@ -1,6 +1,7 @@
 package com.glimpse.app.widgets
 
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
@@ -51,5 +52,21 @@ internal object ReactionActionBinder {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         remoteViews.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+    }
+
+    // Broadcast (not an Activity launch, unlike the two actions above) —
+    // advancing a page should never bring the app to the foreground, just
+    // update this one widget instance in place.
+    fun bindAdvanceAction(context: Context, remoteViews: RemoteViews, appWidgetId: Int) {
+        val intent = Intent(context, ShapedCarouselAdvanceReceiver::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            "$appWidgetId-carousel-advance".hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        remoteViews.setOnClickPendingIntent(R.id.btn_carousel_advance, pendingIntent)
     }
 }

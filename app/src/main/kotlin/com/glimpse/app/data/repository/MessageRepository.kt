@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ServerValue
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 
@@ -55,7 +56,16 @@ class MessageRepository {
         }
     }
 
-    suspend fun sendPhotoMessage(imageUri: Uri, caption: String, unlockAt: Long = 0): Result<Unit> = runCatching {
+    // contentType defaults to image/jpeg for callers uploading from a plain
+    // file:// Uri (see PhotoSendService) — unlike a content:// Uri from the
+    // picker, ContentResolver.getType() can't resolve a MIME type for those,
+    // so Storage would otherwise default to application/octet-stream.
+    suspend fun sendPhotoMessage(
+        imageUri: Uri,
+        caption: String,
+        unlockAt: Long = 0,
+        contentType: String = "image/jpeg"
+    ): Result<Unit> = runCatching {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
 
@@ -63,7 +73,8 @@ class MessageRepository {
             // glimpse/ namespace since this Storage bucket is shared with other
             // projects on the same Firebase project.
             val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.jpg")
-            photoRef.putFile(imageUri).await()
+            val metadata = StorageMetadata.Builder().setContentType(contentType).build()
+            photoRef.putFile(imageUri, metadata).await()
             val photoUrl = photoRef.downloadUrl.await().toString()
 
             val message = Message(

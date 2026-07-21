@@ -17,9 +17,13 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 
-// Always a single message, single size, single provider instance's worth
-// of RemoteViews, so there's no risk of the same photo getting embedded
-// twice into one Binder transaction — safe to always load it.
+// Single size, single provider instance's worth of RemoteViews, and only
+// ever the CURRENTLY DISPLAYED page's photo gets loaded — never every page
+// in the catch-up window at once — so there's no risk of the same photo
+// (or several different ones) getting embedded together into one Binder
+// transaction. That rule is the actual fix for the old carousel's
+// TransactionTooLargeException history; keep it if this is ever extended
+// further.
 internal object ShapedWidgetRenderer {
 
     // Photo is masked to a fixed square so the mask math below doesn't need
@@ -29,19 +33,38 @@ internal object ShapedWidgetRenderer {
     // without ever cropping into the masked shape.
     private const val PHOTO_MASK_SIZE = 300
 
-    suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
+    // How many of the most recent messages the catch-up window is drawn
+    // from — callers (ShapedMessageWidget, WidgetUpdateService,
+    // ShapedCarouselAdvanceReceiver) all fetch/listen with this same limit.
+    const val CAROUSEL_LIMIT = 5
+
+    suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
-        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
 
-        if (message == null) {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        val window = unseenWindow(messages, myUid)
+
+        if (window.isEmpty()) {
+            ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, "")
+            hideCarouselChrome(remoteViews)
             setAuthorName(remoteViews, showPhoto = false, name = "")
             remoteViews.setTextViewText(R.id.shaped_message_content, context.getString(R.string.widget_no_message))
             remoteViews.setViewVisibility(R.id.shaped_photo_container, View.GONE)
             return remoteViews
         }
 
-        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        // Resets to 0 whenever the window's actual contents change (a new
+        // message arrived, or the seen-state shifted it) — otherwise
+        // persists across renders so a tapped-to page survives the next
+        // Firebase-triggered refresh.
+        val windowKey = window.joinToString(",") { it.id }
+        val currentIndex = ShapedCarouselIndexStore.indexForWindow(context, appWidgetId, windowKey, window.size)
+        val message = window[currentIndex]
+
+        ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message.id)
+        FirebaseSync.markSeenIfNeeded(message)
+
         val displayAuthorName = if (message.authorUid == myUid) {
             message.authorName
         } else {
@@ -80,7 +103,67 @@ internal object ShapedWidgetRenderer {
         remoteViews.setViewVisibility(R.id.shaped_photo_container, if (showPhoto) View.VISIBLE else View.GONE)
         setAuthorName(remoteViews, showPhoto, displayAuthorName)
 
+        // Carousel chrome only when there's more than one message to page
+        // through — the common steady-state (nothing unseen but the
+        // latest) looks exactly like the pre-carousel single-message view.
+        if (window.size > 1) {
+            val activeColor = ContextCompat.getColor(context, R.color.widget_border)
+            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, currentIndex, activeColor))
+            remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.VISIBLE)
+            remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.VISIBLE)
+            ReactionActionBinder.bindAdvanceAction(context, remoteViews, appWidgetId)
+        } else {
+            hideCarouselChrome(remoteViews)
+        }
+
         return remoteViews
+    }
+
+    private fun hideCarouselChrome(remoteViews: RemoteViews) {
+        remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.GONE)
+        remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.GONE)
+    }
+
+    // Oldest-still-unseen through newest — a "catch up from where you left
+    // off" order that ends on the most recent message, same as opening a
+    // chat scrolled to your last read position. Falls back to just the
+    // latest message once everything's been seen, so the common
+    // steady-state case still renders the same single page it always has.
+    // Internal (not private) so ShapedCarouselAdvanceReceiver can compute
+    // the same window size to wrap its "next" tap against.
+    internal fun unseenWindow(messages: List<Message>, myUid: String?): List<Message> {
+        if (messages.isEmpty()) return emptyList()
+        val firstUnseenIndex = messages.indexOfFirst { it.isUnseenBy(myUid) }
+        return if (firstUnseenIndex == -1) listOf(messages.last()) else messages.subList(firstUnseenIndex, messages.size)
+    }
+
+    private fun Message.isUnseenBy(uid: String?): Boolean =
+        authorUid != uid && reactions[FirebaseSync.SEEN_EMOJI]?.contains(uid) != true
+
+    // Drawn as a single bitmap rather than one real view per dot — dots are
+    // purely decorative (not individually tappable; btn_carousel_advance is
+    // the only navigation), so there's no need to pay for N inflated views
+    // plus N PendingIntents just to show N small circles.
+    private fun buildDotRowBitmap(count: Int, activeIndex: Int, activeColor: Int): Bitmap {
+        val dotSize = 40
+        val spacing = 24
+        val inactiveColor = 0x66FFFFFF
+        val width = count * dotSize + (count - 1) * spacing
+        val bitmap = Bitmap.createBitmap(width, dotSize, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        for (i in 0 until count) {
+            val cx = i * (dotSize + spacing) + dotSize / 2f
+            val cy = dotSize / 2f
+            if (i == activeIndex) {
+                paint.color = activeColor
+                canvas.drawCircle(cx, cy, dotSize / 2f, paint)
+            } else {
+                paint.color = inactiveColor
+                canvas.drawCircle(cx, cy, dotSize / 2.8f, paint)
+            }
+        }
+        return bitmap
     }
 
     // Photo messages show the author name as a small label overlaid on the

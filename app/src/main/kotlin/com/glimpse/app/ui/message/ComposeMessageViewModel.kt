@@ -1,13 +1,15 @@
 package com.glimpse.app.ui.message
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.glimpse.app.data.repository.MessageRepository
-import com.glimpse.app.notification.SendingNotifier
+import com.glimpse.app.service.PhotoSendResults
+import com.glimpse.app.service.PhotoSendService
 import com.glimpse.app.service.WidgetSyncTrigger
 import com.glimpse.app.util.ConnectivityUtil
 import com.glimpse.app.work.SendMessageWorker
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed interface ComposeUiState {
     data object Idle : ComposeUiState
@@ -31,6 +34,21 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     private val _uiState = MutableStateFlow<ComposeUiState>(ComposeUiState.Idle)
     val uiState: StateFlow<ComposeUiState> = _uiState.asStateFlow()
+
+    init {
+        // PhotoSendService posts here when it finishes — only relevant
+        // while this ViewModel is actually alive to show it; the service's
+        // own job doesn't wait on it (see PhotoSendResults).
+        viewModelScope.launch {
+            PhotoSendResults.results.collect { result ->
+                result.onSuccess {
+                    _uiState.value = ComposeUiState.Sent
+                }.onFailure { throwable ->
+                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
+                }
+            }
+        }
+    }
 
     // Text sends go through WorkManager (NetworkType.CONNECTED constraint)
     // instead of a direct Firebase call — with no signal, that call would
@@ -64,13 +82,15 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    // Photos aren't queued the same way: the picked/captured image's read
-    // permission isn't guaranteed to survive a long background wait (the
-    // modern photo picker's grant is scoped to the current session, not
-    // persistable), so a deferred WorkManager retry could silently fail
-    // later with no way to recover the image. Failing fast up front with a
-    // clear message is more honest than promising offline delivery it can't
-    // reliably provide.
+    // Photos aren't queued via WorkManager the way text is: the picked/
+    // captured image's read permission isn't guaranteed to survive a long
+    // background wait (the modern photo picker's grant is scoped to the
+    // current session, not persistable), so a deferred retry could
+    // silently fail later with no way to recover the image. Instead, copy
+    // the bytes into our own cache file right away — while that access is
+    // still guaranteed — then hand the durable local copy off to
+    // PhotoSendService, a real foreground service that survives the app
+    // closing, for the actual upload.
     fun sendPhotoMessage(imageUri: Uri, caption: String, unlockAt: Long = 0) {
         val app = getApplication<Application>()
         if (!ConnectivityUtil.isConnected(app)) {
@@ -80,19 +100,24 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             return
         }
         _uiState.value = ComposeUiState.Sending
-        SendingNotifier.showSendingPhoto(app)
         viewModelScope.launch {
-            messageRepository.sendPhotoMessage(imageUri, caption, unlockAt)
-                .onSuccess {
-                    SendingNotifier.cancel(app)
-                    _uiState.value = ComposeUiState.Sent
-                    WidgetSyncTrigger.requestSync(app)
-                }
-                .onFailure { throwable ->
-                    SendingNotifier.cancel(app)
-                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
-                }
+            val contentType = app.contentResolver.getType(imageUri) ?: "image/jpeg"
+            val file = try {
+                copyToCacheFile(app, imageUri)
+            } catch (e: Exception) {
+                _uiState.value = ComposeUiState.Error("Couldn't read that photo. Try again.")
+                return@launch
+            }
+            PhotoSendService.start(app, file, caption, unlockAt, contentType)
         }
+    }
+
+    private fun copyToCacheFile(context: Context, uri: Uri): File {
+        val dir = File(context.cacheDir, "outgoing_photos").apply { mkdirs() }
+        val file = File(dir, "photo_${System.currentTimeMillis()}.jpg")
+        val input = context.contentResolver.openInputStream(uri) ?: error("Couldn't open photo")
+        input.use { stream -> file.outputStream().use { output -> stream.copyTo(output) } }
+        return file
     }
 
     // Fire-and-forget, no WorkManager queueing — a nudge is a lightweight
