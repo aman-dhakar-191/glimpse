@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.glimpse.app.data.repository.MessageRepository
+import com.glimpse.app.notification.SendingNotifier
 import com.glimpse.app.service.WidgetSyncTrigger
 import com.glimpse.app.util.ConnectivityUtil
 import com.glimpse.app.work.SendMessageWorker
@@ -79,13 +80,16 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             return
         }
         _uiState.value = ComposeUiState.Sending
+        SendingNotifier.showSendingPhoto(app)
         viewModelScope.launch {
             messageRepository.sendPhotoMessage(imageUri, caption, unlockAt)
                 .onSuccess {
+                    SendingNotifier.cancel(app)
                     _uiState.value = ComposeUiState.Sent
                     WidgetSyncTrigger.requestSync(app)
                 }
                 .onFailure { throwable ->
+                    SendingNotifier.cancel(app)
                     _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
                 }
         }

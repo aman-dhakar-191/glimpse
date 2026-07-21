@@ -131,7 +131,14 @@
     <string name="update_downloading">Downloading update…</string>
     <string name="update_dismiss">Dismiss</string>
 
+    <string name="messages_channel_name">Messages</string>
+    <string name="streak_channel_name">Streaks &amp; reminders</string>
+    <string name="widget_sync_channel_name">Widget sync</string>
+    <string name="widget_sync_notification_body">Glimpse is running</string>
     <string name="update_channel_name">App updates</string>
+    <string name="sending_channel_name">Sending status</string>
+    <string name="sending_message_notification">Sending message…</string>
+    <string name="sending_photo_notification">Sending photo…</string>
     <string name="update_notification_title">Update available</string>
     <string name="update_notification_body">Glimpse v%1$s is ready to install</string>
 
