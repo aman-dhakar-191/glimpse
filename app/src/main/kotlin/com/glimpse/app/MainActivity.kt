@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
         updateViewModel.checkForUpdate()
         StreakCheckWorker.schedule(this)
         UpdateCheckWorker.schedule(this)
+        UpdateCheckWorker.checkNow(this)
     }
 
     private fun onUpdateClick() {

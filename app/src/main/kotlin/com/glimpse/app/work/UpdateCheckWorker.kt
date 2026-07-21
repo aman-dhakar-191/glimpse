@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -75,11 +76,22 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         private const val KEY_LAST_NOTIFIED_VERSION_CODE = "last_notified_version_code"
 
         // KEEP so calling this on every launch (see MainActivity) doesn't
-        // reset an already-scheduled periodic timer.
+        // reset an already-scheduled periodic timer. This alone covers
+        // "haven't opened the app in a while" but NOT "just opened the
+        // app" — a PeriodicWorkRequest's first run isn't immediate, it can
+        // be delayed by WorkManager for hours, so checkNow() below is what
+        // actually makes opening the app surface a notification promptly.
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(1, TimeUnit.DAYS).build()
             WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(UNIQUE_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        }
+
+        // One-off immediate run of the same check-and-notify logic, so
+        // opening the app (see MainActivity.onSignedIn) gets a prompt
+        // notification instead of waiting on the periodic schedule.
+        fun checkNow(context: Context) {
+            WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<UpdateCheckWorker>().build())
         }
     }
 }
