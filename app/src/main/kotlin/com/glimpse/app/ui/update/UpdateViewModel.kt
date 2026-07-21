@@ -25,7 +25,11 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
 
     fun checkForUpdate() {
-        if (_uiState.value !is UpdateUiState.Idle) return
+        // Only guard against re-entrancy while a check/download is already
+        // running — unlike the old dismiss-then-relaunch flow, the update
+        // screen's retry button calls this directly from Error (and Idle),
+        // so it can't require Idle specifically.
+        if (_uiState.value is UpdateUiState.Checking || _uiState.value is UpdateUiState.Downloading) return
         _uiState.value = UpdateUiState.Checking
         viewModelScope.launch {
             val info = UpdateChecker.checkForUpdate()
@@ -48,9 +52,5 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.value = UpdateUiState.Error("Couldn't download the update. Try again later.")
             }
         }
-    }
-
-    fun dismiss() {
-        _uiState.value = UpdateUiState.Idle
     }
 }

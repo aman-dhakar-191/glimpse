@@ -127,11 +127,8 @@
     <string name="stats_streak_milestone_badge">MILESTONE</string>
 
     <string name="update_checking">Checking for updates…</string>
-    <string name="update_available">Update available: v%1$s</string>
     <string name="update_button">Update</string>
     <string name="update_downloading">Downloading update…</string>
-    <string name="update_install_permission">Allow Glimpse to install updates in Settings, then tap Update again.</string>
-    <string name="update_open_settings">Open Settings</string>
     <string name="update_dismiss">Dismiss</string>
 
     <string name="update_channel_name">App updates</string>
