@@ -13,13 +13,8 @@ import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.notification.NotificationChannels
-import com.glimpse.app.widgets.CurrentMessageWidget
-import com.glimpse.app.widgets.LargeMessageWidget
-import com.glimpse.app.widgets.LatestMessageWidget
 import com.glimpse.app.widgets.ShapedMessageWidget
 import com.glimpse.app.widgets.ShapedWidgetRenderer
-import com.glimpse.app.widgets.SquareMessageWidget
-import com.glimpse.app.widgets.WidgetRenderer
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,13 +39,13 @@ class WidgetUpdateService : Service() {
         // be a non-null reference to a dead listener, so a null-check guard
         // would permanently skip re-attaching even after the underlying
         // problem (like a missing allowedUsers entry) is fixed.
-        listener?.let { FirebaseSync.removeHistoryListener(WidgetRenderer.CAROUSEL_LIMIT, it) }
-        listener = FirebaseSync.listenToHistory(WidgetRenderer.CAROUSEL_LIMIT, ::updateWidgets)
+        listener?.let { FirebaseSync.removeHistoryListener(HISTORY_LIMIT, it) }
+        listener = FirebaseSync.listenToHistory(HISTORY_LIMIT, ::updateWidgets)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        listener?.let { FirebaseSync.removeHistoryListener(WidgetRenderer.CAROUSEL_LIMIT, it) }
+        listener?.let { FirebaseSync.removeHistoryListener(HISTORY_LIMIT, it) }
         listener = null
         serviceJob.cancel()
         super.onDestroy()
@@ -61,28 +56,12 @@ class WidgetUpdateService : Service() {
     private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
-            // The carousel (catch-up scrolling through unseen messages, tap
-            // dots to jump pages) is temporarily disabled for all widgets —
-            // every provider renders latestOnly = true, i.e. just the single
-            // newest message, matching how these widgets behaved before the
-            // carousel existed. This sidesteps the whole class of
-            // TransactionTooLargeException issues the carousel's multi-page
-            // photo payloads kept running into; re-enable by reverting these
-            // latestOnly flags to false once that's solved properly.
-            val hasAnyWidget = updateProvider(appWidgetManager, CurrentMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
-            } or updateProvider(appWidgetManager, SquareMessageWidget::class.java) { id ->
-                WidgetRenderer.renderSquare(this@WidgetUpdateService, id, messages, latestOnly = true)
-            } or updateProvider(appWidgetManager, LargeMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
-            } or updateProvider(appWidgetManager, LatestMessageWidget::class.java) { id ->
-                WidgetRenderer.render(this@WidgetUpdateService, id, messages, latestOnly = true)
-            } or updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
+            val hasAnyWidget = updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
                 ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages.lastOrNull())
             }
 
             if (hasAnyWidget) {
-                WidgetRenderer.markSeenForRender(messages, latestOnly = true)
+                FirebaseSync.markSeenIfNeeded(messages.lastOrNull())
             }
         }
     }
@@ -91,13 +70,8 @@ class WidgetUpdateService : Service() {
     // callers use that to decide how "seen" should be interpreted overall.
     //
     // Each widget instance's render+push is isolated in its own try/catch:
-    // previously, one instance throwing (e.g. TransactionTooLargeException
-    // from too much photo data in a single RemoteViews Parcel) aborted this
-    // whole suspend function, which in turn aborted updateWidgets' entire
-    // coroutine — silently skipping every OTHER provider queued after it,
-    // not just the one that actually failed. That's a real bug this
-    // fixes on its own; see WidgetRenderer's loadPhoto param for the fix
-    // to the actual oversized-payload cause.
+    // one instance throwing (e.g. from an oversized RemoteViews payload)
+    // shouldn't abort every other instance's update.
     private suspend fun updateProvider(
         appWidgetManager: AppWidgetManager,
         providerClass: Class<*>,
@@ -128,5 +102,10 @@ class WidgetUpdateService : Service() {
     companion object {
         private const val TAG = "WidgetUpdateService"
         private const val NOTIFICATION_ID = 1001
+
+        // The Shaped widget only ever renders the single newest message
+        // (no carousel) — listenToHistory still needs a positive limit, so
+        // 1 is the minimum that satisfies it.
+        private const val HISTORY_LIMIT = 1
     }
 }

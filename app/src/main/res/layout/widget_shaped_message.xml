@@ -1,33 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- EXPERIMENTAL, fully isolated shape test — validates the "transparent
-     root + custom silhouette ImageView" technique for faking a non-
-     rectangular widget outline. RemoteViews can't do real pixel-level
-     clipping (no ClipPath/Outline support, and the launcher's grid cell
-     stays rectangular no matter what) — this only changes what gets
-     PAINTED inside that rectangle, and taps in the transparent corners
-     outside the drawn shape but inside the cell still register on
-     whatever view sits there. That's why the tappable content below is
-     given its own inset id="widget_root" area instead of covering the
-     full transparent RelativeLayout — keeps the click target roughly
-     matching the visible blob instead of the whole invisible rectangle.
+<!-- Non-rectangular widget outline: a transparent root + custom silhouette
+     ImageView. RemoteViews can't do real pixel-level clipping (no
+     ClipPath/Outline support, and the launcher's grid cell stays
+     rectangular no matter what) — this only changes what gets PAINTED
+     inside that rectangle, and taps in the transparent corners outside
+     the drawn shape but inside the cell still register on whatever view
+     sits there. That's why the tappable content below is given its own
+     inset id="widget_root" area instead of covering the full transparent
+     RelativeLayout — keeps the click target roughly matching the visible
+     blob instead of the whole invisible rectangle.
 
      RelativeLayout (not FrameLayout) for the overlapping-children
-     container, same reasoning as the reverted widget-background-photo
-     experiment (PR #39): FrameLayout was one of three suspects in the
-     original historical "Can't load widget" crash and was never
-     individually cleared, so a different (also RemoteViews-whitelisted)
-     container class is used here instead. btn_react and the nested photo
-     overlay below reuse that same RelativeLayout technique for their own
-     overlapping content.
-
-     Fully self-contained: this file, ShapedMessageWidget.kt,
-     ShapedWidgetRenderer.kt, and widget_blob_shape.xml share nothing with
-     the other widget providers except ReactionActionBinder's generic bind
-     functions. Delete all four (plus the manifest receiver and the two
-     widget_label_shaped/widget_shaped_* strings) to fully remove this
-     experiment with zero impact on CurrentMessageWidget/SquareMessageWidget/
-     LargeMessageWidget/LatestMessageWidget if it doesn't pan out on a real
-     device. -->
+     container — FrameLayout was implicated in an earlier "Can't load
+     widget" crash on this app and was swapped out precautionarily;
+     RelativeLayout has been solid since. btn_react and the nested photo
+     overlay below reuse the same technique for their own overlapping
+     content. -->
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -111,17 +99,20 @@
     <!-- Icon-only quick-react, overlaid in the card's bottom-right corner
          instead of living inside widget_root's vertical flow — reads as a
          chat-bubble reaction affordance rather than a full-width button
-         sitting in the blob's bottom tail notch. Margins are deliberately
-         bigger than widget_root's own 22dp inset since the blob's curve
-         pinches inward near the bottom-right corner specifically. -->
+         sitting in the blob's bottom tail notch. Aligned to widget_root's
+         own edges (not the parent's) — widget_root's 22dp inset is what
+         already keeps the photo/caption content inside the visible blob
+         curve, and a fixed margin guessed relative to the full outer
+         bounds instead landed the button outside/below the curve on a
+         real device. -->
     <Button
         android:id="@+id/btn_react"
         android:layout_width="34dp"
         android:layout_height="34dp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginBottom="28dp"
-        android:layout_marginEnd="22dp"
+        android:layout_alignBottom="@id/widget_root"
+        android:layout_alignEnd="@id/widget_root"
+        android:layout_marginBottom="4dp"
+        android:layout_marginEnd="4dp"
         android:minWidth="0dp"
         android:minHeight="0dp"
         android:padding="0dp"

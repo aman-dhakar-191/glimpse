@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <dimen name="widget_padding">16dp</dimen>
-    <dimen name="widget_corner_radius">20dp</dimen>
-    <dimen name="reaction_button_size">40dp</dimen>
-    <dimen name="reaction_chip_height">32dp</dimen>
-</resources>
