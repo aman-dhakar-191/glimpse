@@ -11,6 +11,7 @@ import androidx.work.WorkRequest
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.glimpse.app.data.repository.MessageRepository
+import com.glimpse.app.notification.SendingNotifier
 import com.glimpse.app.service.WidgetSyncTrigger
 import java.util.concurrent.TimeUnit
 
@@ -26,13 +27,21 @@ class SendMessageWorker(context: Context, params: WorkerParameters) : CoroutineW
     override suspend fun doWork(): Result {
         val content = inputData.getString(KEY_CONTENT) ?: return Result.failure()
         val unlockAt = inputData.getLong(KEY_UNLOCK_AT, 0)
+
+        // Left up across retries (each doWork() call re-shows the same
+        // content, no visible flicker) — only cancelled once this is truly
+        // done, one way or the other.
+        SendingNotifier.showSendingMessage(applicationContext)
+
         val sendResult = MessageRepository().sendMessage(content, unlockAt)
         return if (sendResult.isSuccess) {
+            SendingNotifier.cancel(applicationContext)
             WidgetSyncTrigger.requestSync(applicationContext)
             Result.success()
         } else if (runAttemptCount < MAX_ATTEMPTS) {
             Result.retry()
         } else {
+            SendingNotifier.cancel(applicationContext)
             Result.failure()
         }
     }

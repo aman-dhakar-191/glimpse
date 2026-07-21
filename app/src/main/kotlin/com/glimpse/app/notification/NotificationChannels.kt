@@ -16,6 +16,7 @@ object NotificationChannels {
     const val STREAK_REMINDER = "streak_reminder"
     const val WIDGET_SYNC = "widget_sync"
     const val UPDATE_AVAILABLE = "update_available"
+    const val SENDING = "message_sending"
 
     fun registerAll(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -41,6 +42,9 @@ object NotificationChannels {
                 context.getString(R.string.update_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT
             )
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(SENDING, context.getString(R.string.sending_channel_name), NotificationManager.IMPORTANCE_LOW)
         )
     }
 }
