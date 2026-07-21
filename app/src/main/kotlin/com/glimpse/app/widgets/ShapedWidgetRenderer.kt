@@ -17,13 +17,9 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 
-// EXPERIMENTAL, fully isolated from WidgetRenderer/the carousel logic —
-// see ShapedMessageWidget for the full reasoning behind this being a
-// separate provider. Always a single message, single size, single
-// provider instance's worth of RemoteViews — unlike CurrentMessageWidget's
-// responsive multi-size render, there's no risk here of the same photo
-// getting embedded twice into one Binder transaction, so it's safe to
-// always load it.
+// Always a single message, single size, single provider instance's worth
+// of RemoteViews, so there's no risk of the same photo getting embedded
+// twice into one Binder transaction — safe to always load it.
 internal object ShapedWidgetRenderer {
 
     // Photo is masked to a fixed square so the mask math below doesn't need
@@ -164,8 +160,8 @@ internal object ShapedWidgetRenderer {
                 .build()
             val bitmap = (imageLoader.execute(request).drawable as? BitmapDrawable)?.bitmap
                 ?: return null
-            // Same size budget as WidgetRenderer.loadBitmap — keeps this
-            // single-photo Parcel well under the Binder transaction limit.
+            // Keeps this single-photo Parcel well under the Binder
+            // transaction limit.
             val maxDimension = 480
             if (bitmap.width <= maxDimension && bitmap.height <= maxDimension) {
                 bitmap

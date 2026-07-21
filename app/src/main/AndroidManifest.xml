@@ -41,81 +41,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Current Message Widget (rectangular, default 4x4) -->
-        <!-- todo: Temp Disabled  -->
-        <!-- <receiver
-            android:name=".widgets.CurrentMessageWidget"
-            android:exported="true"
-            android:label="@string/widget_label_rectangular">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_current_message_info" />
-        </receiver> -->
-
-        <!-- Square Message Widget — a separate provider (not a resize
-             variant) so it always shows up as its own entry in the widget
-             picker, regardless of whether the launcher supports Android
-             12's in-place flexible-resize picker. -->
-        <!-- <receiver
-            android:name=".widgets.SquareMessageWidget"
-            android:exported="true"
-            android:label="@string/widget_label_square">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_current_message_square_info" />
-        </receiver> -->
-
-        <!-- Large Message Widget (4x6) — a separate provider so it's a
-             guaranteed, always-visible entry in the widget picker. -->
-        <!-- <receiver
-            android:name=".widgets.LargeMessageWidget"
-            android:exported="true"
-            android:label="@string/widget_label_large">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_current_message_large_info" />
-        </receiver> -->
-
-        <!-- Latest Message Widget — a separate provider offered alongside
-             the default carousel-enabled one, for anyone who'd rather the
-             widget just stay on the newest message instead of auto-
-             advancing through a catch-up backlog. Add either, or both. -->
-        <!-- <receiver
-            android:name=".widgets.LatestMessageWidget"
-            android:exported="true"
-            android:label="@string/widget_label_latest">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_latest_message_info" />
-        </receiver> -->
-
-        <!-- Handles a tap on one of the carousel's page dots — jumps that
-             one appWidgetId to the tapped page. Not exported: only ever
-             invoked via a PendingIntent this app itself created. -->
-        <!-- <receiver
-            android:name=".widgets.WidgetCarouselJumpReceiver"
-            android:exported="false" /> -->
-
-        <!-- EXPERIMENTAL: Shaped Message Widget — validates faking a non-
-             rectangular widget silhouette via a transparent root + custom
-             blob ImageView (real per-pixel touch/clip isn't possible in
-             RemoteViews; this only changes what's painted, not the
-             underlying rectangular grid cell or touch bounds). Fully
-             isolated from the other widgets — see ShapedMessageWidget/
-             ShapedWidgetRenderer/widget_shaped_message.xml for the full
-             reasoning and revert plan. -->
+        <!-- Glimpse widget: a non-rectangular blob silhouette faked via a
+             transparent root + custom outline ImageView (real per-pixel
+             touch/clip isn't possible in RemoteViews; this only changes
+             what's painted, not the underlying rectangular grid cell or
+             touch bounds) — see ShapedMessageWidget/ShapedWidgetRenderer/
+             widget_shaped_message.xml for the full technique. -->
         <receiver
             android:name=".widgets.ShapedMessageWidget"
             android:exported="true"

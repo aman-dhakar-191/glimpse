@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Same safe <shape> (GradientDrawable) primitive as bg_reaction_chip.xml —
-     deliberately NOT a <vector>/bezier path. This view's width is
-     match_parent and varies a lot with the user's home-screen grid, and a
-     fixed-viewport vector path would visibly distort at very different
-     widths; a corner-radius shape degrades gracefully at any size instead.
-     Two opposite corners rounded to a full pill radius and the other two
-     kept tight gives an asymmetric "blob-lite" read without introducing a
-     new drawable class into the widget's RemoteViews tree — the actual
-     "Can't load widget" crash history (see widget_current_message.xml) was
-     tied to the widget ROOT's background/structure, which this leaf-level
-     Button background does not touch. -->
+<!-- A safe <shape> (GradientDrawable) primitive, deliberately NOT a
+     <vector>/bezier path. This view's width is match_parent and varies a
+     lot with the user's home-screen grid, and a fixed-viewport vector path
+     would visibly distort at very different widths; a corner-radius shape
+     degrades gracefully at any size instead. Two opposite corners rounded
+     to a full pill radius and the other two kept tight gives an asymmetric
+     "blob-lite" read without introducing a new drawable class into the
+     widget's RemoteViews tree. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/button_bg" />

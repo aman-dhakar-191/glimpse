@@ -256,9 +256,6 @@ fun ComposeMessageScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
-                    // Same emoji WidgetRenderer.applyMoodStatus shows next to
-                    // author_name on the widget — just also surfaced here so
-                    // it isn't widget-only.
                     if (partnerMoodEmoji.isNotBlank()) {
                         Text(
                             partnerMoodEmoji,
@@ -588,8 +585,8 @@ fun ComposeMessageScreen(
 }
 
 // Right next to the title instead of buried in Settings — the emoji up
-// there is always your PARTNER's mood (see WidgetRenderer.applyMoodStatus),
-// so this is the only place your own mood is actually set and confirmed.
+// there is always your PARTNER's mood, so this is the only place your own
+// mood is actually set and confirmed.
 // Quick-pick chips cover the common cases; the free-form field underneath
 // (same pattern as ReactionPickerScreen) takes any emoji at all, not just
 // this fixed set.

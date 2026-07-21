@@ -15,7 +15,7 @@ data class Message @JvmOverloads constructor(
     val expiresAt: Long = 0,
     // 0 = not a time capsule. Otherwise, content/photoUrl/caption stay
     // hidden (both in-app and on the widget) until this moment — see
-    // isLocked below, gating display in MessageHistoryScreen/WidgetRenderer.
+    // isLocked below, gating display in MessageHistoryScreen and on the widget.
     val unlockAt: Long = 0,
     // The Firebase push key of this message under shared/messages — not
     // stored as a value field itself (Exclude keeps it out of setValue()

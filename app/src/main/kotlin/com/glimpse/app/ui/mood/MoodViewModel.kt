@@ -52,8 +52,6 @@ class MoodViewModel : ViewModel() {
         }
     }
 
-    // Same source WidgetRenderer.applyMoodStatus uses — this just also
-    // surfaces it in-app instead of only on the widget.
     fun loadPartnerMood() {
         viewModelScope.launch {
             _partnerMood.value = PartnerMoodUiState.Loaded(emoji = FirebaseSync.fetchPartnerMoodOnce())

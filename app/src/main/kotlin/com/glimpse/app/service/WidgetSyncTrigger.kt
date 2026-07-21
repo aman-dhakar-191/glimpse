@@ -18,7 +18,7 @@ object WidgetSyncTrigger {
             }
         } catch (e: IllegalStateException) {
             // Android 12+ restricts starting a foreground service from a
-            // background/receiver context — e.g. CurrentMessageWidget's
+            // background/receiver context — e.g. ShapedMessageWidget's
             // onEnabled()/onUpdate() firing right after the widget is
             // (re-)added, before the app has any foreground exemption.
             // Throws ForegroundServiceStartNotAllowedException (a subclass

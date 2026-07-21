@@ -10,17 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-// EXPERIMENTAL — validates the "transparent root + custom silhouette
+// Glimpse's home-screen widget — a "transparent root + custom silhouette
 // ImageView" technique for faking a non-rectangular widget outline (see
 // ShapedWidgetRenderer and widget_shaped_message.xml for the full
-// reasoning and limitations). Entirely self-contained: its own provider,
-// layout, drawable, and rendering code, sharing nothing with the other
-// widget providers except ReactionActionBinder's generic bind functions.
-// Safe to delete this file — plus ShapedWidgetRenderer.kt,
-// widget_shaped_message.xml, widget_blob_shape.xml, the manifest
-// receiver, and the widget_label_shaped/widget_shaped_* strings — with
-// zero impact on any other widget if this doesn't hold up on a real
-// device.
+// reasoning and limitations).
 class ShapedMessageWidget : AppWidgetProvider() {
 
     override fun onUpdate(
