@@ -74,7 +74,8 @@ fun SettingsScreen(
     onLoadQuietHours: () -> Unit,
     onSetQuietHoursEnabled: (Boolean) -> Unit,
     onSetQuietHoursStart: (Int) -> Unit,
-    onSetQuietHoursEnd: (Int) -> Unit
+    onSetQuietHoursEnd: (Int) -> Unit,
+    onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
@@ -106,6 +107,17 @@ fun SettingsScreen(
             NicknameCard(nicknameUiState, onSaveNickname)
 
             QuietHoursCard(quietHoursUiState, onSetQuietHoursEnabled, onSetQuietHoursStart, onSetQuietHoursEnd)
+
+            // The update-available notification dedupes per version and
+            // won't come back once dismissed for a release you haven't
+            // installed yet — this is the one always-available way back to
+            // the update screen regardless of notification state.
+            TextButton(
+                onClick = onOpenUpdate,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.update_check_button))
+            }
 
             TextButton(
                 onClick = onLogout,

@@ -313,7 +313,8 @@ class MainActivity : ComponentActivity() {
                             onLoadQuietHours = { quietHoursViewModel.load() },
                             onSetQuietHoursEnabled = { enabled -> quietHoursViewModel.setEnabled(enabled) },
                             onSetQuietHoursStart = { minutes -> quietHoursViewModel.setStartMinutes(minutes) },
-                            onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) }
+                            onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) },
+                            onOpenUpdate = { screen = AppScreen.Update }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(
