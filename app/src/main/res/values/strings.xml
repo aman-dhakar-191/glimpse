@@ -136,8 +136,8 @@
     <string name="update_notification_body">Glimpse v%1$s is ready to install</string>
 
     <string name="update_screen_title">Update</string>
-    <string name="update_current_version">Current version: v%1$s</string>
-    <string name="update_latest_version">Latest version: v%1$s</string>
+    <string name="update_current_version">Current version: v%1$s (build %2$d)</string>
+    <string name="update_latest_version">Latest version: v%1$s (build %2$d)</string>
     <string name="update_up_to_date">You\'re on the latest version.</string>
     <string name="update_check_button">Check for updates</string>
     <string name="update_release_notes_title">What\'s new</string>

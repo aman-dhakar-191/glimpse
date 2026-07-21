@@ -313,7 +313,8 @@ class MainActivity : ComponentActivity() {
                             onLoadQuietHours = { quietHoursViewModel.load() },
                             onSetQuietHoursEnabled = { enabled -> quietHoursViewModel.setEnabled(enabled) },
                             onSetQuietHoursStart = { minutes -> quietHoursViewModel.setStartMinutes(minutes) },
-                            onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) }
+                            onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) },
+                            onOpenUpdate = { screen = AppScreen.Update }
                         )
 
                         AppScreen.React -> ReactionPickerScreen(
@@ -344,6 +345,7 @@ class MainActivity : ComponentActivity() {
                         AppScreen.Update -> UpdateScreen(
                             uiState = updateUiState,
                             currentVersionName = BuildConfig.VERSION_NAME.substringBefore("+"),
+                            currentVersionCode = BuildConfig.VERSION_CODE,
                             onCheckForUpdate = { updateViewModel.checkForUpdate() },
                             onInstallClick = { onUpdateClick() },
                             onBack = { screen = AppScreen.Compose }
