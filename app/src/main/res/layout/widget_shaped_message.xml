@@ -31,7 +31,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/widget_blob_shape"
+        android:scaleType="fitXY"
+        android:contentDescription="@null" />
 
     <LinearLayout
         android:id="@+id/widget_root"
@@ -86,10 +91,4 @@
             android:textSize="11sp"
             android:textColor="@color/text_primary" />
     </LinearLayout>
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:src="@drawable/widget_blob_shape"
-        android:scaleType="fitXY"
-        android:contentDescription="@null" />
 </RelativeLayout>
