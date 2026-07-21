@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -71,21 +72,24 @@ fun UpdateScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
 
+            // Always available regardless of state, not just when Idle/Error
+            // — lets you manually re-check any time (e.g. after installing,
+            // or just to be sure) instead of only reacting to a notification.
+            OutlinedButton(
+                onClick = onCheckForUpdate,
+                enabled = uiState !is UpdateUiState.Checking && uiState !is UpdateUiState.Downloading,
+                shape = BlobButtonShape,
+                contentPadding = BlobButtonPadding
+            ) {
+                Text(stringResource(R.string.update_check_button))
+            }
+
             when (uiState) {
-                is UpdateUiState.Idle -> {
-                    Text(
-                        stringResource(R.string.update_up_to_date),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(
-                        onClick = onCheckForUpdate,
-                        shape = BlobButtonShape,
-                        contentPadding = BlobButtonPadding
-                    ) {
-                        Text(stringResource(R.string.update_check_button))
-                    }
-                }
+                is UpdateUiState.Idle -> Text(
+                    stringResource(R.string.update_up_to_date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 is UpdateUiState.Checking -> Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -129,16 +133,11 @@ fun UpdateScreen(
                     style = MaterialTheme.typography.bodyMedium
                 )
 
-                is UpdateUiState.Error -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(uiState.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    Button(
-                        onClick = onCheckForUpdate,
-                        shape = BlobButtonShape,
-                        contentPadding = BlobButtonPadding
-                    ) {
-                        Text(stringResource(R.string.update_check_button))
-                    }
-                }
+                is UpdateUiState.Error -> Text(
+                    uiState.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
