@@ -49,8 +49,16 @@ object FirebaseSync {
             child.getValue(Message::class.java)?.copy(id = child.key.orEmpty())
         }.sortedBy { it.createdAt }
 
+    // withTimeout here isn't optional the way it might look on a plain
+    // suspend fun — this is called from ShapedMessageWidget.onUpdate()'s
+    // goAsync()-extended coroutine, and get() with no cached value and no
+    // network otherwise waits indefinitely. That leaves pendingResult.finish()
+    // never called and the broadcast receiver's extended lifetime never
+    // released, which is exactly what surfaces as "Glimpse isn't responding".
     suspend fun fetchLatestMessageOnce(): Message? = try {
-        latestMessageQuery().get().await().toMessages().lastOrNull()
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            latestMessageQuery().get().await().toMessages().lastOrNull()
+        }
     } catch (e: Exception) {
         Log.e(TAG, "fetchLatestMessageOnce failed", e)
         null
@@ -62,7 +70,9 @@ object FirebaseSync {
     // listenToHistory/removeHistoryListener below instead of a dedicated
     // listener, same query shape either way.
     suspend fun fetchRecentMessagesOnce(limit: Int): List<Message> = try {
-        historyQuery(limit).get().await().toMessages()
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            historyQuery(limit).get().await().toMessages()
+        }
     } catch (e: Exception) {
         Log.e(TAG, "fetchRecentMessagesOnce failed", e)
         emptyList()
@@ -90,7 +100,9 @@ object FirebaseSync {
     // conversation to count totals rather than just the last N messages
     // History shows. Fine for a personal 2-person app's message volume.
     suspend fun fetchAllMessages(): List<Message> = try {
-        messagesRef().get().await().toMessages()
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            messagesRef().get().await().toMessages()
+        }
     } catch (e: Exception) {
         Log.e(TAG, "fetchAllMessages failed", e)
         emptyList()
@@ -194,10 +206,15 @@ object FirebaseSync {
     // database.rules.json, so no rules change needed) and only ever read by
     // that same person's own client. The partner's copy of the app never
     // sees or is affected by this value; each side can set their own.
+    // Also on ShapedMessageWidget's onUpdate render path (via
+    // ShapedWidgetRenderer) — see fetchLatestMessageOnce's comment for why
+    // this can't be left unbounded.
     suspend fun fetchPartnerNicknameOnce(): String {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return ""
         return try {
-            partnerNicknameRef(uid).get().await().getValue(String::class.java).orEmpty()
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                partnerNicknameRef(uid).get().await().getValue(String::class.java).orEmpty()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerNicknameOnce failed", e)
             ""
@@ -224,7 +241,9 @@ object FirebaseSync {
     private suspend fun fetchPartnerUidOnce(): String? {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: return null
         return try {
-            allowedUsersRef().get().await().children.mapNotNull { it.key }.firstOrNull { it != myUid }
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                allowedUsersRef().get().await().children.mapNotNull { it.key }.firstOrNull { it != myUid }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerUidOnce failed", e)
             null
@@ -242,7 +261,9 @@ object FirebaseSync {
     suspend fun fetchMyMoodOnce(): String {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return ""
         return try {
-            moodsRef().child(uid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                moodsRef().child(uid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "fetchMyMoodOnce failed", e)
             ""
@@ -254,7 +275,9 @@ object FirebaseSync {
     suspend fun fetchPartnerMoodOnce(): String {
         val partnerUid = fetchPartnerUidOnce() ?: return ""
         return try {
-            moodsRef().child(partnerUid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                moodsRef().child(partnerUid).child("emoji").get().await().getValue(String::class.java).orEmpty()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerMoodOnce failed", e)
             ""
@@ -272,7 +295,7 @@ object FirebaseSync {
     }
 
     suspend fun fetchSpecialDateOnce(): SpecialDate? = try {
-        val snapshot = specialDateRef().get().await()
+        val snapshot = withTimeout(NETWORK_TIMEOUT_MILLIS) { specialDateRef().get().await() }
         val label = snapshot.child("label").getValue(String::class.java)
         val month = snapshot.child("month").getValue(Int::class.java)
         val day = snapshot.child("day").getValue(Int::class.java)

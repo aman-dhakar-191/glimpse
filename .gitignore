@@ -3,6 +3,9 @@
 /local.properties
 /.idea/
 .DS_Store
+
+# Claude Code agent worktrees/session state — local tooling, not project content.
+/.claude/
 /build/
 /captures/
 .externalNativeBuild/
