@@ -1,13 +1,10 @@
 package com.glimpse.app.service
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import android.widget.RemoteViews
@@ -15,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.notification.NotificationChannels
 import com.glimpse.app.widgets.CurrentMessageWidget
 import com.glimpse.app.widgets.LargeMessageWidget
 import com.glimpse.app.widgets.LatestMessageWidget
@@ -118,26 +116,16 @@ class WidgetUpdateService : Service() {
         return appWidgetIds.isNotEmpty()
     }
 
-    private fun buildNotification(): Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_MIN
-            )
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification(): Notification =
+        NotificationCompat.Builder(this, NotificationChannels.WIDGET_SYNC)
             .setContentTitle(getString(R.string.app_name))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .build()
-    }
 
     companion object {
         private const val TAG = "WidgetUpdateService"
-        private const val CHANNEL_ID = "widget_sync"
         private const val NOTIFICATION_ID = 1001
     }
 }
