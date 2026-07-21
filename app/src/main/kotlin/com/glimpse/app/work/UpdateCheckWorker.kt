@@ -31,15 +31,46 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
     override suspend fun doWork(): Result {
         if (FirebaseAuth.getInstance().currentUser == null) return Result.success()
 
-        val info = UpdateChecker.checkForUpdate() ?: return Result.success()
+        showCheckingNotification()
+
+        val info = UpdateChecker.checkForUpdate()
+        if (info == null) {
+            cancelNotification()
+            return Result.success()
+        }
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lastNotifiedVersionCode = prefs.getInt(KEY_LAST_NOTIFIED_VERSION_CODE, 0)
-        if (info.versionCode <= lastNotifiedVersionCode) return Result.success()
+        if (info.versionCode <= lastNotifiedVersionCode) {
+            cancelNotification()
+            return Result.success()
+        }
 
         showUpdateAvailableNotification(info.versionName)
         prefs.edit { putInt(KEY_LAST_NOTIFIED_VERSION_CODE, info.versionCode) }
         return Result.success()
+    }
+
+    // Posted under the same NOTIFICATION_ID as showUpdateAvailableNotification,
+    // so finding an update simply replaces it in place — no separate
+    // cancel+repost needed. setSilent so a routine check on every app open
+    // doesn't make a sound/vibrate just to announce it's checking.
+    private fun showCheckingNotification() {
+        val context = applicationContext
+        if (QuietHoursStore.isQuietNow(context)) return
+
+        val notification = NotificationCompat.Builder(context, NotificationChannels.UPDATE_AVAILABLE)
+            .setContentTitle(context.getString(R.string.update_checking))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
+            .build()
+
+        context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun cancelNotification() {
+        applicationContext.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
     private fun showUpdateAvailableNotification(versionName: String) {
@@ -63,6 +94,10 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            // Same target as the content intent — this just gives the update
+            // screen a second, more obvious tap target on the notification
+            // itself instead of relying on "tap anywhere on the notification".
+            .addAction(R.drawable.ic_launcher_foreground, context.getString(R.string.update_button), pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 

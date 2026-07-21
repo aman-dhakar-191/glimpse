@@ -344,6 +344,7 @@ class MainActivity : ComponentActivity() {
                         AppScreen.Update -> UpdateScreen(
                             uiState = updateUiState,
                             currentVersionName = BuildConfig.VERSION_NAME.substringBefore("+"),
+                            currentVersionCode = BuildConfig.VERSION_CODE,
                             onCheckForUpdate = { updateViewModel.checkForUpdate() },
                             onInstallClick = { onUpdateClick() },
                             onBack = { screen = AppScreen.Compose }

@@ -41,6 +41,7 @@ private val BlobButtonPadding = PaddingValues(horizontal = 24.dp, vertical = 14.
 fun UpdateScreen(
     uiState: UpdateUiState,
     currentVersionName: String,
+    currentVersionCode: Int,
     onCheckForUpdate: () -> Unit,
     onInstallClick: () -> Unit,
     onBack: () -> Unit
@@ -66,7 +67,7 @@ fun UpdateScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                stringResource(R.string.update_current_version, currentVersionName),
+                stringResource(R.string.update_current_version, currentVersionName, currentVersionCode),
                 style = MaterialTheme.typography.bodyLarge
             )
 
@@ -96,7 +97,7 @@ fun UpdateScreen(
 
                 is UpdateUiState.Available -> {
                     Text(
-                        stringResource(R.string.update_latest_version, uiState.info.versionName),
+                        stringResource(R.string.update_latest_version, uiState.info.versionName, uiState.info.versionCode),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
