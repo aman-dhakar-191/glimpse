@@ -14,4 +14,9 @@
     <color name="button_bg">#FFD9EA</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <!-- Scrim behind the author-name label overlaid on the blob widget's
+         photo — deliberately the same in light/dark (no values-night
+         override) since it sits over arbitrary photo content, not app UI,
+         and needs to stay legible regardless of system theme. -->
+    <color name="widget_photo_label_bg">#80000000</color>
 </resources>
