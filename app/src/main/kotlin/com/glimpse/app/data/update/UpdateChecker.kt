@@ -73,7 +73,8 @@ object UpdateChecker {
             versionName = tagName.removePrefix("v").substringBefore("-build"),
             versionCode = releaseVersionCode,
             downloadAssetUrl = downloadUrl,
-            releaseUrl = json.optString("html_url")
+            releaseUrl = json.optString("html_url"),
+            releaseNotes = json.optString("body")
         )
     }
 
