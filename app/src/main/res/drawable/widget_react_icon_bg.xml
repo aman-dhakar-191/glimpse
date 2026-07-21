@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Circular background for btn_react's icon-only corner overlay (see
+     widget_shaped_message.xml) — same safe <shape> primitive and palette
+     as bg_widget_button.xml, just an oval instead of a rounded rect. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/button_bg" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/chip_border" />
+</shape>

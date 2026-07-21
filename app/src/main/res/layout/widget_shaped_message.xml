@@ -16,7 +16,9 @@
      experiment (PR #39): FrameLayout was one of three suspects in the
      original historical "Can't load widget" crash and was never
      individually cleared, so a different (also RemoteViews-whitelisted)
-     container class is used here instead.
+     container class is used here instead. btn_react and the nested photo
+     overlay below reuse that same RelativeLayout technique for their own
+     overlapping content.
 
      Fully self-contained: this file, ShapedMessageWidget.kt,
      ShapedWidgetRenderer.kt, and widget_blob_shape.xml share nothing with
@@ -46,22 +48,49 @@
         android:orientation="vertical"
         android:gravity="center">
 
+        <!-- Author name for text-only messages only — shown/hidden opposite
+             shaped_author_name_overlay below, see ShapedWidgetRenderer.
+             Photo messages skip this row entirely (the overlay reads
+             better directly on the photo) so it doesn't leave an empty
+             gap when there's nothing else to show up here. -->
         <TextView
-            android:id="@+id/shaped_author_name"
+            android:id="@+id/shaped_author_name_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textSize="11sp"
             android:textColor="@color/text_secondary" />
 
-        <ImageView
-            android:id="@+id/shaped_message_photo"
+        <!-- Photo carries ~3x the weight of the caption below — captions
+             are usually a few words, so they don't need equal billing with
+             the photo itself. -->
+        <RelativeLayout
+            android:id="@+id/shaped_photo_container"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginVertical="4dp"
-            android:scaleType="fitCenter"
-            android:contentDescription="@null" />
+            android:layout_weight="3"
+            android:layout_marginVertical="4dp">
+
+            <ImageView
+                android:id="@+id/shaped_message_photo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/shaped_author_name_overlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentStart="true"
+                android:layout_margin="6dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/widget_photo_label_bg"
+                android:textSize="10sp"
+                android:textColor="@color/white" />
+        </RelativeLayout>
 
         <TextView
             android:id="@+id/shaped_message_content"
@@ -77,16 +106,26 @@
             android:autoSizeMinTextSize="14sp"
             android:autoSizeMaxTextSize="72sp"
             android:autoSizeStepGranularity="2sp" />
-
-        <Button
-            android:id="@+id/btn_react"
-            android:layout_width="wrap_content"
-            android:layout_height="32dp"
-            android:minWidth="0dp"
-            android:paddingHorizontal="14dp"
-            android:background="@drawable/bg_widget_button"
-            android:text="@string/widget_react_button"
-            android:textSize="11sp"
-            android:textColor="@color/text_primary" />
     </LinearLayout>
+
+    <!-- Icon-only quick-react, overlaid in the card's bottom-right corner
+         instead of living inside widget_root's vertical flow — reads as a
+         chat-bubble reaction affordance rather than a full-width button
+         sitting in the blob's bottom tail notch. Margins are deliberately
+         bigger than widget_root's own 22dp inset since the blob's curve
+         pinches inward near the bottom-right corner specifically. -->
+    <Button
+        android:id="@+id/btn_react"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginBottom="28dp"
+        android:layout_marginEnd="22dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:background="@drawable/widget_react_icon_bg"
+        android:text="😊"
+        android:textSize="14sp" />
 </RelativeLayout>

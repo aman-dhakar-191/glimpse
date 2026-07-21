@@ -39,9 +39,9 @@ internal object ShapedWidgetRenderer {
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message?.id.orEmpty())
 
         if (message == null) {
-            remoteViews.setTextViewText(R.id.shaped_author_name, "")
+            setAuthorName(remoteViews, showPhoto = false, name = "")
             remoteViews.setTextViewText(R.id.shaped_message_content, context.getString(R.string.widget_no_message))
-            remoteViews.setViewVisibility(R.id.shaped_message_photo, View.GONE)
+            remoteViews.setViewVisibility(R.id.shaped_photo_container, View.GONE)
             return remoteViews
         }
 
@@ -51,7 +51,6 @@ internal object ShapedWidgetRenderer {
         } else {
             FirebaseSync.fetchPartnerNicknameOnce().ifBlank { message.authorName }
         }
-        remoteViews.setTextViewText(R.id.shaped_author_name, displayAuthorName)
 
         val hiddenByLock = message.isLocked && message.authorUid != myUid
         val content = when {
@@ -64,23 +63,39 @@ internal object ShapedWidgetRenderer {
         remoteViews.setTextViewText(R.id.shaped_message_content, content)
         remoteViews.setViewVisibility(R.id.shaped_message_content, if (content.isNotBlank()) View.VISIBLE else View.GONE)
 
+        var showPhoto = false
         if (message.type == "photo" && !hiddenByLock) {
             val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
             if (photoBitmap != null) {
                 val borderColor = ContextCompat.getColor(context, R.color.widget_border)
                 val masked = maskToBlobShape(photoBitmap, PHOTO_MASK_SIZE, borderColor)
                 remoteViews.setImageViewBitmap(R.id.shaped_message_photo, masked)
-                remoteViews.setViewVisibility(R.id.shaped_message_photo, View.VISIBLE)
+                showPhoto = true
             } else {
-                remoteViews.setViewVisibility(R.id.shaped_message_photo, View.GONE)
                 remoteViews.setTextViewText(R.id.shaped_message_content, content.ifBlank { context.getString(R.string.widget_photo_fallback) })
                 remoteViews.setViewVisibility(R.id.shaped_message_content, View.VISIBLE)
             }
-        } else {
-            remoteViews.setViewVisibility(R.id.shaped_message_photo, View.GONE)
         }
 
+        // The whole photo container (not just the photo ImageView) is
+        // hidden for text-only messages — it carries layout_weight="3", so
+        // leaving it visible-but-empty would still reserve most of the
+        // card for nothing and squeeze the caption into a sliver.
+        remoteViews.setViewVisibility(R.id.shaped_photo_container, if (showPhoto) View.VISIBLE else View.GONE)
+        setAuthorName(remoteViews, showPhoto, displayAuthorName)
+
         return remoteViews
+    }
+
+    // Photo messages show the author name as a small label overlaid on the
+    // photo itself; text-only messages (and the photo-load-failure
+    // fallback, where showPhoto is also false) show it in its own row
+    // above the caption instead — there's no photo to overlay it on there.
+    private fun setAuthorName(remoteViews: RemoteViews, showPhoto: Boolean, name: String) {
+        remoteViews.setTextViewText(R.id.shaped_author_name_overlay, name)
+        remoteViews.setTextViewText(R.id.shaped_author_name_row, name)
+        remoteViews.setViewVisibility(R.id.shaped_author_name_overlay, if (showPhoto) View.VISIBLE else View.GONE)
+        remoteViews.setViewVisibility(R.id.shaped_author_name_row, if (showPhoto) View.GONE else View.VISIBLE)
     }
 
     // Same normalized path as BlobShapeSoftC (ui/theme/BlobShapes.kt) and
