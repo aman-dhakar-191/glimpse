@@ -24,12 +24,11 @@ class ShapedMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
-                val message = FirebaseSync.fetchLatestMessageOnce()
+                val messages = FirebaseSync.fetchRecentMessagesOnce(ShapedWidgetRenderer.CAROUSEL_LIMIT)
                 appWidgetIds.forEach { appWidgetId ->
-                    val remoteViews = ShapedWidgetRenderer.render(context, appWidgetId, message)
+                    val remoteViews = ShapedWidgetRenderer.render(context, appWidgetId, messages)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
-                FirebaseSync.markSeenIfNeeded(message)
             } finally {
                 pendingResult.finish()
             }
@@ -40,5 +39,9 @@ class ShapedMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { ShapedCarouselIndexStore.clear(context, it) }
     }
 }

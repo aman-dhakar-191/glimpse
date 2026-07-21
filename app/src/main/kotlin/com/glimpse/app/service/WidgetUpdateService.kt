@@ -56,19 +56,12 @@ class WidgetUpdateService : Service() {
     private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
-            val hasAnyWidget = updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
-                ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages.lastOrNull())
-            }
-
-            if (hasAnyWidget) {
-                FirebaseSync.markSeenIfNeeded(messages.lastOrNull())
+            updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
+                ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages)
             }
         }
     }
 
-    // Returns whether this provider actually has any widget instances —
-    // callers use that to decide how "seen" should be interpreted overall.
-    //
     // Each widget instance's render+push is isolated in its own try/catch:
     // one instance throwing (e.g. from an oversized RemoteViews payload)
     // shouldn't abort every other instance's update.
@@ -76,7 +69,7 @@ class WidgetUpdateService : Service() {
         appWidgetManager: AppWidgetManager,
         providerClass: Class<*>,
         render: suspend (appWidgetId: Int) -> RemoteViews
-    ): Boolean {
+    ) {
         val appWidgetIds = appWidgetManager.getAppWidgetIds(
             ComponentName(this@WidgetUpdateService, providerClass)
         )
@@ -87,7 +80,6 @@ class WidgetUpdateService : Service() {
                 Log.e(TAG, "Failed to update $providerClass widget $appWidgetId", e)
             }
         }
-        return appWidgetIds.isNotEmpty()
     }
 
     private fun buildNotification(): Notification =
@@ -103,9 +95,9 @@ class WidgetUpdateService : Service() {
         private const val TAG = "WidgetUpdateService"
         private const val NOTIFICATION_ID = 1001
 
-        // The Shaped widget only ever renders the single newest message
-        // (no carousel) — listenToHistory still needs a positive limit, so
-        // 1 is the minimum that satisfies it.
-        private const val HISTORY_LIMIT = 1
+        // Matches ShapedWidgetRenderer's catch-up carousel window size —
+        // listenToHistory needs to keep at least this many recent messages
+        // around for the carousel to have a full window to page through.
+        private const val HISTORY_LIMIT = ShapedWidgetRenderer.CAROUSEL_LIMIT
     }
 }

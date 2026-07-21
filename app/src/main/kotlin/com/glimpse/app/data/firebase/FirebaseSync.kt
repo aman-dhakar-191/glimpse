@@ -64,6 +64,19 @@ object FirebaseSync {
         null
     }
 
+    // One-shot counterpart to listenToHistory below — used by
+    // ShapedMessageWidget.onUpdate() so a freshly (re-)added widget instance
+    // has the same carousel window available immediately, without waiting
+    // for the live listener's first firing.
+    suspend fun fetchRecentMessagesOnce(limit: Int): List<Message> = try {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            historyQuery(limit).get().await().toMessages()
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchRecentMessagesOnce failed", e)
+        emptyList()
+    }
+
     fun listenToHistory(limit: Int, onMessages: (List<Message>) -> Unit): ValueEventListener {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

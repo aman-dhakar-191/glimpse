@@ -59,9 +59,22 @@
                 android:resource="@xml/widget_shaped_message_info" />
         </receiver>
 
+        <!-- Handles the "next page" tap on the shaped widget's catch-up
+             carousel — see ShapedCarouselAdvanceReceiver. -->
+        <receiver
+            android:name=".widgets.ShapedCarouselAdvanceReceiver"
+            android:exported="false" />
+
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Uploads a photo message so it survives the app closing
+             mid-upload — see PhotoSendService. -->
+        <service
+            android:name=".service.PhotoSendService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
