@@ -73,10 +73,27 @@ object UpdateChecker {
             versionName = tagName.removePrefix("v").substringBefore("-build"),
             versionCode = releaseVersionCode,
             downloadAssetUrl = downloadUrl,
-            releaseUrl = json.optString("html_url"),
-            releaseNotes = json.optString("body")
+            releaseNotes = sanitizeReleaseNotes(json.optString("body"))
         )
     }
+
+    // GitHub's auto-generated body (generate_release_notes in build.yml) is
+    // meant for the GitHub UI — "* ... by @user in <PR url>" bullet lines and
+    // a trailing "**Full Changelog**: <compare url>" line. This is shown
+    // in-app only, so strip that GitHub-specific link boilerplate rather than
+    // dumping raw github.com URLs into the update screen.
+    private fun sanitizeReleaseNotes(rawBody: String): String =
+        rawBody.lineSequence()
+            .filterNot { it.trimStart().startsWith("**Full Changelog**", ignoreCase = true) }
+            .map { line ->
+                line
+                    .replace(Regex("""\[([^]]+)]\([^)]+\)"""), "$1")
+                    .replace(Regex(""" in https?://\S+"""), "")
+                    .replace(Regex("""https?://\S+"""), "")
+                    .trimEnd()
+            }
+            .joinToString("\n")
+            .trim()
 
     suspend fun downloadApk(
         context: Context,

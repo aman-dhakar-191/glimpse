@@ -51,9 +51,7 @@ import com.glimpse.app.ui.settings.SettingsScreen
 import com.glimpse.app.ui.stats.StatsScreen
 import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
-import com.glimpse.app.ui.update.UpdateBanner
 import com.glimpse.app.ui.update.UpdateScreen
-import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.StreakCheckWorker
@@ -115,15 +113,16 @@ class MainActivity : ComponentActivity() {
 
     // checkPairingStatus's Firebase callback is always asynchronous (posted
     // via a Handler even when "cached"), so it reliably fires *after*
-    // handleOpenComposeIntent/handleOpenReactIntent already ran synchronously
-    // in onCreate below — except when it doesn't beat them to the punch, in
-    // which case unconditionally jumping to Compose here would clobber a
-    // React deep link that already landed. Only defaulting to Compose when
-    // we're not already sitting on the screen a widget tap explicitly
-    // requested keeps a cold-started React-button tap from bouncing back to
-    // the compose screen a moment after it opens.
+    // handleOpenComposeIntent/handleOpenReactIntent/handleOpenUpdateIntent
+    // already ran synchronously in onCreate below — except when it doesn't
+    // beat them to the punch, in which case unconditionally jumping to
+    // Compose here would clobber a deep link that already landed. Only
+    // defaulting to Compose when we're not already sitting on the screen a
+    // widget tap or notification tap explicitly requested keeps a
+    // cold-started React/Update deep link from bouncing back to the
+    // compose screen a moment after it opens.
     private fun onSignedIn() {
-        if (screen != AppScreen.React) {
+        if (screen != AppScreen.React && screen != AppScreen.Update) {
             screen = AppScreen.Compose
         }
         requestNotificationPermissionIfNeeded()
@@ -295,14 +294,6 @@ class MainActivity : ComponentActivity() {
                                 uiState = countdownUiState,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
-                            if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
-                                UpdateBanner(
-                                    uiState = updateUiState,
-                                    onUpdateClick = { screen = AppScreen.Update },
-                                    onDismiss = { updateViewModel.dismiss() },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                )
-                            }
                         }
 
                         AppScreen.Guide -> WidgetGuideScreen(
