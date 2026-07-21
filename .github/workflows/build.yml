@@ -44,8 +44,30 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Check release signing secrets
+        # secrets.* can't be referenced directly in a step's `if:` — it must
+        # be resolved to a step output (or env var) first, so downstream
+        # steps gate on `steps.release_secrets.outputs.present` instead.
+        # Moved ahead of the debug build (see below) so that build can skip
+        # itself when this run is about to produce a signed release anyway.
+        id: release_secrets
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build debug APK
-        # Runs on every PR and push as the merge-gate validation.
+        # Merge-gate validation for PRs, and a fallback installable artifact
+        # on pushes to main when release signing isn't configured. Skipped
+        # when this run is about to build+sign a release APK anyway —
+        # assembleRelease compiles the exact same source, so assembleDebug
+        # first would just be paying for the same compile twice.
+        if: steps.release_secrets.outputs.present != 'true'
         env:
           GLIMPSE_RELEASES_TOKEN: ${{ secrets.GLIMPSE_RELEASES_TOKEN }}
         run: ./gradlew assembleDebug --stacktrace
@@ -62,24 +84,10 @@ jobs:
         # version_name alone is static (bumped by hand for real product
         # releases), so every CI build produced an identically-named file —
         # the run number is what actually changes build-to-build.
+        if: steps.release_secrets.outputs.present != 'true'
         run: |
           mv app/build/outputs/apk/debug/app-debug.apk \
              "app/build/outputs/apk/debug/Glimpse-v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}-debug.apk"
-
-      - name: Check release signing secrets
-        # secrets.* can't be referenced directly in a step's `if:` — it must
-        # be resolved to a step output (or env var) first, so downstream
-        # steps gate on `steps.release_secrets.outputs.present` instead.
-        id: release_secrets
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-        env:
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Decode release keystore
         # See README for how to generate/add RELEASE_KEYSTORE_BASE64 and
@@ -107,8 +115,10 @@ jobs:
 
       - name: Upload debug APK artifact
         # Only publish once changes land on main — PRs just need to prove
-        # the build is green, not produce a downloadable artifact.
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        # the build is green, not produce a downloadable artifact. Also
+        # skipped whenever the debug build itself was skipped (a signed
+        # release was built instead) — nothing to upload in that case.
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.release_secrets.outputs.present != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
