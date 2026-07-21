@@ -119,6 +119,7 @@ class WidgetUpdateService : Service() {
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, NotificationChannels.WIDGET_SYNC)
             .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.widget_sync_notification_body))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)

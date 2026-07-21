@@ -20,16 +20,20 @@ object NotificationChannels {
     fun registerAll(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        val appName = context.getString(R.string.app_name)
 
+        // Distinct names so Android Settings → Apps → Glimpse → Notifications
+        // shows 4 identifiable rows instead of three indistinguishable
+        // "Glimpse" entries (all had literally used the app name) plus
+        // "App updates" — re-registering with the same channel ID just
+        // updates the existing channel's name, no migration needed.
         manager.createNotificationChannel(
-            NotificationChannel(MESSAGES, appName, NotificationManager.IMPORTANCE_HIGH)
+            NotificationChannel(MESSAGES, context.getString(R.string.messages_channel_name), NotificationManager.IMPORTANCE_HIGH)
         )
         manager.createNotificationChannel(
-            NotificationChannel(STREAK_REMINDER, appName, NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(STREAK_REMINDER, context.getString(R.string.streak_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
         )
         manager.createNotificationChannel(
-            NotificationChannel(WIDGET_SYNC, appName, NotificationManager.IMPORTANCE_MIN)
+            NotificationChannel(WIDGET_SYNC, context.getString(R.string.widget_sync_channel_name), NotificationManager.IMPORTANCE_MIN)
         )
         manager.createNotificationChannel(
             NotificationChannel(
