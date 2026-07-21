@@ -125,7 +125,11 @@ internal object ShapedWidgetRenderer {
         )
 
         canvas.clipPath(path)
-        val scale = maxOf(targetSize.toFloat() / source.width, targetSize.toFloat() / source.height)
+        // minOf (contain), not maxOf (cover/centerCrop) — the whole photo
+        // stays visible, letterboxed within the blob if its aspect ratio
+        // doesn't match, rather than cropping into the top/bottom of a
+        // portrait photo to fill every corner of the shape.
+        val scale = minOf(targetSize.toFloat() / source.width, targetSize.toFloat() / source.height)
         val dx = (targetSize - source.width * scale) / 2f
         val dy = (targetSize - source.height * scale) / 2f
         val matrix = Matrix().apply {
