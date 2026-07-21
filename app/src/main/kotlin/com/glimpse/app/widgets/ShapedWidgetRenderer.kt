@@ -2,9 +2,14 @@ package com.glimpse.app.widgets
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.drawable.BitmapDrawable
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
@@ -20,6 +25,13 @@ import com.google.firebase.auth.FirebaseAuth
 // getting embedded twice into one Binder transaction, so it's safe to
 // always load it.
 internal object ShapedWidgetRenderer {
+
+    // Photo is masked to a fixed square so the mask math below doesn't need
+    // to know the ImageView's actual runtime pixel size (RemoteViews gives
+    // no reliable way to query that) — shaped_message_photo uses
+    // scaleType="fitCenter", so this square is scaled to fit its slot
+    // without ever cropping into the masked shape.
+    private const val PHOTO_MASK_SIZE = 300
 
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
@@ -55,7 +67,9 @@ internal object ShapedWidgetRenderer {
         if (message.type == "photo" && !hiddenByLock) {
             val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
             if (photoBitmap != null) {
-                remoteViews.setImageViewBitmap(R.id.shaped_message_photo, photoBitmap)
+                val borderColor = ContextCompat.getColor(context, R.color.widget_border)
+                val masked = maskToBlobShape(photoBitmap, PHOTO_MASK_SIZE, borderColor)
+                remoteViews.setImageViewBitmap(R.id.shaped_message_photo, masked)
                 remoteViews.setViewVisibility(R.id.shaped_message_photo, View.VISIBLE)
             } else {
                 remoteViews.setViewVisibility(R.id.shaped_message_photo, View.GONE)
@@ -67,6 +81,59 @@ internal object ShapedWidgetRenderer {
         }
 
         return remoteViews
+    }
+
+    // Same normalized path as BlobShapeSoftC (ui/theme/BlobShapes.kt) and
+    // widget_blob_shape.xml's background silhouette, scaled to whatever
+    // pixel size the photo is masked at. Using the literal same curve —
+    // not an approximation like a rounded rect — is what guarantees the
+    // masked photo's edges can never poke outside the blob outline.
+    private fun blobPath(size: Float): Path = Path().apply {
+        moveTo(0.14f * size, 0.22f * size)
+        cubicTo(0.22f * size, 0.08f * size, 0.40f * size, 0.04f * size, 0.56f * size, 0.07f * size)
+        cubicTo(0.68f * size, 0.09f * size, 0.78f * size, 0.06f * size, 0.87f * size, 0.14f * size)
+        cubicTo(0.96f * size, 0.22f * size, 0.94f * size, 0.34f * size, 0.91f * size, 0.44f * size)
+        cubicTo(0.88f * size, 0.54f * size, 0.94f * size, 0.60f * size, 0.92f * size, 0.70f * size)
+        cubicTo(0.89f * size, 0.84f * size, 0.76f * size, 0.94f * size, 0.60f * size, 0.94f * size)
+        cubicTo(0.48f * size, 0.94f * size, 0.40f * size, 0.90f * size, 0.28f * size, 0.91f * size)
+        cubicTo(0.14f * size, 0.92f * size, 0.06f * size, 0.82f * size, 0.06f * size, 0.70f * size)
+        cubicTo(0.06f * size, 0.60f * size, 0.12f * size, 0.54f * size, 0.10f * size, 0.44f * size)
+        cubicTo(0.08f * size, 0.34f * size, 0.08f * size, 0.30f * size, 0.14f * size, 0.22f * size)
+        close()
+    }
+
+    // RemoteViews can't clip an ImageView to an arbitrary path —
+    // clipToOutline only derives an Outline from a rect/round-rect/oval
+    // background, never a <path> vector drawable — so masking the bitmap
+    // ourselves, in-process, before handing it to the widget is the actual
+    // way to make the photo's edges follow the blob silhouette instead of
+    // a rounded-rect approximation that can clip past the curve's concave
+    // points. Border stroke drawn first (unclipped) so its outer half stays
+    // visible once the clipped photo paints over the inner half.
+    private fun maskToBlobShape(source: Bitmap, targetSize: Int, borderColor: Int): Bitmap {
+        val output = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val path = blobPath(targetSize.toFloat())
+
+        canvas.drawPath(
+            path,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = targetSize * 0.015f
+                color = borderColor
+            }
+        )
+
+        canvas.clipPath(path)
+        val scale = maxOf(targetSize.toFloat() / source.width, targetSize.toFloat() / source.height)
+        val dx = (targetSize - source.width * scale) / 2f
+        val dy = (targetSize - source.height * scale) / 2f
+        val matrix = Matrix().apply {
+            setScale(scale, scale)
+            postTranslate(dx, dy)
+        }
+        canvas.drawBitmap(source, matrix, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        return output
     }
 
     private suspend fun loadBitmap(context: Context, url: String): Bitmap? {
