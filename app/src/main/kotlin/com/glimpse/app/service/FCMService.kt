@@ -1,15 +1,14 @@
 package com.glimpse.app.service
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.glimpse.app.MainActivity
 import com.glimpse.app.R
 import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.repository.AuthRepository
+import com.glimpse.app.notification.NotificationChannels
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -43,15 +42,6 @@ class FCMService : FirebaseMessagingService() {
         // configured quiet hours, not the underlying content update.
         if (QuietHoursStore.isQuietNow(this)) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_HIGH
-            )
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-
         val contentIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -62,7 +52,7 @@ class FCMService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, NotificationChannels.MESSAGES)
             .setContentTitle(title)
             .setContentText(body)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -76,7 +66,6 @@ class FCMService : FirebaseMessagingService() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "glimpse_messages"
         private const val NOTIFICATION_ID = 2001
     }
 }

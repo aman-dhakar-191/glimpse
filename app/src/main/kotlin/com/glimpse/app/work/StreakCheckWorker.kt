@@ -1,11 +1,9 @@
 package com.glimpse.app.work
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import androidx.work.CoroutineWorker
@@ -18,6 +16,7 @@ import com.glimpse.app.R
 import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
+import com.glimpse.app.notification.NotificationChannels
 import com.google.firebase.auth.FirebaseAuth
 import java.util.concurrent.TimeUnit
 
@@ -64,17 +63,6 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         prefs.edit { putInt(KEY_LAST_MILESTONE, streak) }
     }
 
-    private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                applicationContext.getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            applicationContext.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-    }
-
     private fun contentPendingIntent(requestCode: Int): PendingIntent {
         val context = applicationContext
         val contentIntent = Intent(context, MainActivity::class.java).apply {
@@ -96,9 +84,8 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         // but skipping one day of it is a fine tradeoff for respecting
         // quiet hours consistently with every other notification source.
         if (QuietHoursStore.isQuietNow(context)) return
-        ensureChannel()
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.STREAK_REMINDER)
             .setContentTitle(context.getString(R.string.streak_notification_title))
             .setContentText(context.getString(R.string.streak_notification_body))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -115,9 +102,8 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         // See showQuietNotification's comment — the StatsScreen badge is a
         // persistent fallback if this happens to land during quiet hours.
         if (QuietHoursStore.isQuietNow(context)) return
-        ensureChannel()
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.STREAK_REMINDER)
             .setContentTitle(context.getString(R.string.streak_milestone_notification_title, streakDays))
             .setContentText(context.getString(R.string.streak_milestone_notification_body, streakDays))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -130,7 +116,6 @@ class StreakCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     companion object {
-        private const val CHANNEL_ID = "streak_reminder"
         private const val NOTIFICATION_ID = 3001
         private const val MILESTONE_NOTIFICATION_ID = 3002
         private const val UNIQUE_WORK_NAME = "streak_check"

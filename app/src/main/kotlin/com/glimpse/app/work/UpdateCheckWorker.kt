@@ -1,11 +1,9 @@
 package com.glimpse.app.work
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import androidx.work.CoroutineWorker
@@ -17,6 +15,7 @@ import com.glimpse.app.MainActivity
 import com.glimpse.app.R
 import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.update.UpdateChecker
+import com.glimpse.app.notification.NotificationChannels
 import com.google.firebase.auth.FirebaseAuth
 import java.util.concurrent.TimeUnit
 
@@ -42,21 +41,9 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
         return Result.success()
     }
 
-    private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                applicationContext.getString(R.string.update_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            applicationContext.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-    }
-
     private fun showUpdateAvailableNotification(versionName: String) {
         val context = applicationContext
         if (QuietHoursStore.isQuietNow(context)) return
-        ensureChannel()
 
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -69,7 +56,7 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, NotificationChannels.UPDATE_AVAILABLE)
             .setContentTitle(context.getString(R.string.update_notification_title))
             .setContentText(context.getString(R.string.update_notification_body, versionName))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
@@ -82,7 +69,6 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     companion object {
-        private const val CHANNEL_ID = "update_available"
         private const val NOTIFICATION_ID = 4001
         private const val UNIQUE_WORK_NAME = "update_check"
         private const val PREFS_NAME = "update_check_prefs"
