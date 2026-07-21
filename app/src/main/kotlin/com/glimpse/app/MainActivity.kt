@@ -52,16 +52,18 @@ import com.glimpse.app.ui.stats.StatsScreen
 import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateBanner
+import com.glimpse.app.ui.update.UpdateScreen
 import com.glimpse.app.ui.update.UpdateUiState
 import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.StreakCheckWorker
+import com.glimpse.app.work.UpdateCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats }
+private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -128,6 +130,7 @@ class MainActivity : ComponentActivity() {
         loginViewModel.ensureFcmTokenRegistered()
         updateViewModel.checkForUpdate()
         StreakCheckWorker.schedule(this)
+        UpdateCheckWorker.schedule(this)
     }
 
     private fun onUpdateClick() {
@@ -165,11 +168,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Tapping the "update available" notification (see UpdateCheckWorker)
+    // should land straight on the update screen rather than wherever the
+    // app was left, same reasoning as the compose/react deep links above.
+    private fun handleOpenUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_UPDATE, false) == true && loginViewModel.isSignedIn) {
+            screen = AppScreen.Update
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
+        handleOpenUpdateIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -191,6 +204,7 @@ class MainActivity : ComponentActivity() {
         }
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
+        handleOpenUpdateIntent(intent)
 
         setContent {
             GlimpseTheme {
@@ -284,7 +298,7 @@ class MainActivity : ComponentActivity() {
                             if (updateUiState !is UpdateUiState.Idle && updateUiState !is UpdateUiState.ReadyToInstall) {
                                 UpdateBanner(
                                     uiState = updateUiState,
-                                    onUpdateClick = { onUpdateClick() },
+                                    onUpdateClick = { screen = AppScreen.Update },
                                     onDismiss = { updateViewModel.dismiss() },
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                 )
@@ -334,6 +348,14 @@ class MainActivity : ComponentActivity() {
                             onLoad = { statsViewModel.load() },
                             onBack = { screen = AppScreen.History }
                         )
+
+                        AppScreen.Update -> UpdateScreen(
+                            uiState = updateUiState,
+                            currentVersionName = BuildConfig.VERSION_NAME.substringBefore("+"),
+                            onCheckForUpdate = { updateViewModel.checkForUpdate() },
+                            onInstallClick = { onUpdateClick() },
+                            onBack = { screen = AppScreen.Compose }
+                        )
                     }
                 }
             }
@@ -344,5 +366,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_COMPOSE = "com.glimpse.app.EXTRA_OPEN_COMPOSE"
         const val EXTRA_OPEN_REACT = "com.glimpse.app.EXTRA_OPEN_REACT"
         const val EXTRA_REACT_MESSAGE_ID = "com.glimpse.app.EXTRA_REACT_MESSAGE_ID"
+        const val EXTRA_OPEN_UPDATE = "com.glimpse.app.EXTRA_OPEN_UPDATE"
     }
 }

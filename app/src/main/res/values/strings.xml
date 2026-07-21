@@ -134,6 +134,18 @@
     <string name="update_open_settings">Open Settings</string>
     <string name="update_dismiss">Dismiss</string>
 
+    <string name="update_channel_name">App updates</string>
+    <string name="update_notification_title">Update available</string>
+    <string name="update_notification_body">Glimpse v%1$s is ready to install</string>
+
+    <string name="update_screen_title">Update</string>
+    <string name="update_current_version">Current version: v%1$s</string>
+    <string name="update_latest_version">Latest version: v%1$s</string>
+    <string name="update_up_to_date">You\'re on the latest version.</string>
+    <string name="update_check_button">Check for updates</string>
+    <string name="update_release_notes_title">What\'s new</string>
+    <string name="update_installing_hint">Installer opened — finish it from your notifications if you switched away.</string>
+
     <string name="on_this_day_title">💭 On this day, %1$s</string>
     <string name="on_this_day_week">a week ago</string>
     <string name="on_this_day_month">a month ago</string>
