@@ -81,6 +81,7 @@
     <string name="compose_sent">Sent! It\'s live on the widget now.</string>
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
+    <string name="compose_draw_link">🎨 Draw</string>
     <string name="compose_nudge_button">👋 Nudge</string>
     <string name="compose_my_mood">Your mood: %1$s</string>
     <string name="compose_my_mood_unset">Set your mood</string>
@@ -140,9 +141,12 @@
     <string name="sending_channel_name">Sending status</string>
     <string name="sending_message_notification">Sending message…</string>
     <string name="sending_photo_notification">Sending photo…</string>
+    <string name="sending_drawing_notification">Sending drawing…</string>
     <string name="send_result_channel_name">Send results</string>
     <string name="photo_sent_notification">Photo sent</string>
     <string name="photo_send_failed_notification">Couldn\'t send photo — open Glimpse to try again.</string>
+    <string name="drawing_sent_notification">Drawing sent</string>
+    <string name="drawing_send_failed_notification">Couldn\'t send drawing — open Glimpse to try again.</string>
     <string name="update_notification_title">Update available</string>
     <string name="update_notification_body">Glimpse v%1$s is ready to install</string>
 
@@ -161,4 +165,14 @@
     <string name="on_this_day_six_months">six months ago</string>
     <string name="on_this_day_year">a year ago</string>
     <string name="on_this_day_photo_preview">📷 A photo you shared</string>
+    <string name="on_this_day_drawing_preview">🎨 A drawing you shared</string>
+
+    <string name="drawing_title">Draw together</string>
+    <string name="drawing_undo">Undo</string>
+    <string name="drawing_clear">Clear</string>
+    <string name="drawing_clear_confirm_title">Clear the canvas?</string>
+    <string name="drawing_clear_confirm_message">This clears it for both of you, including anything your partner\'s drawn.</string>
+    <string name="drawing_send">Send</string>
+    <string name="drawing_sent">Sent! It\'s live on the widget now.</string>
+    <string name="widget_drawing_fallback">🎨 A drawing</string>
 </resources>

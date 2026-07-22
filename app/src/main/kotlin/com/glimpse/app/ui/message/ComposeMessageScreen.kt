@@ -154,6 +154,7 @@ fun ComposeMessageScreen(
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDrawing: () -> Unit,
     onSendNudge: () -> Unit,
     dailyPromptUiState: DailyPromptUiState,
     onLoadDailyPrompt: () -> Unit,
@@ -265,6 +266,9 @@ fun ComposeMessageScreen(
                     }
                 }
                 Row {
+                    TextButton(onClick = onOpenDrawing) {
+                        Text(stringResource(R.string.compose_draw_link))
+                    }
                     TextButton(onClick = onOpenHistory) {
                         Text(stringResource(R.string.compose_history_link))
                     }

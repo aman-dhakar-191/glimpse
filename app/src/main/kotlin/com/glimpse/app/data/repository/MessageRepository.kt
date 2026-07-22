@@ -67,11 +67,19 @@ class MessageRepository {
     // file:// Uri (see PhotoSendService) — unlike a content:// Uri from the
     // picker, ContentResolver.getType() can't resolve a MIME type for those,
     // so Storage would otherwise default to application/octet-stream.
+    //
+    // messageType lets this same upload-then-create-message flow (and, via
+    // PhotoSendService, the same app-closure-survival guarantee) serve the
+    // drawing feature too — a finished drawing is rasterized to a PNG file
+    // and sent through here exactly like a photo, just tagged "drawing"
+    // instead of "photo" so the widget/history can show an appropriate
+    // fallback icon if the image fails to load.
     suspend fun sendPhotoMessage(
         imageUri: Uri,
         caption: String,
         unlockAt: Long = 0,
-        contentType: String = "image/jpeg"
+        contentType: String = "image/jpeg",
+        messageType: String = "photo"
     ): Result<Unit> = runCatching {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
@@ -79,7 +87,8 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             // glimpse/ namespace since this Storage bucket is shared with other
             // projects on the same Firebase project.
-            val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.jpg")
+            val extension = if (contentType == "image/png") "png" else "jpg"
+            val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.$extension")
             val metadata = StorageMetadata.Builder().setContentType(contentType).build()
             photoRef.putFile(imageUri, metadata).await()
             val photoUrl = photoRef.downloadUrl.await().toString()
@@ -87,7 +96,7 @@ class MessageRepository {
             val message = Message(
                 authorUid = user.uid,
                 authorName = user.displayName.orEmpty(),
-                type = "photo",
+                type = messageType,
                 content = "",
                 photoUrl = photoUrl,
                 caption = caption.trim(),

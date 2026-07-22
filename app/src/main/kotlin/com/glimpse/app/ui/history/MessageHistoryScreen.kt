@@ -398,7 +398,7 @@ private fun MessageBubbleRow(
                         modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 20.dp)
                     )
                 }
-            } else if (message.type == "photo" && message.photoUrl.isNotBlank()) {
+            } else if (message.isImage && message.photoUrl.isNotBlank()) {
                 Surface(
                     color = bubbleColor,
                     shape = shape,

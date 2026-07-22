@@ -72,6 +72,8 @@ exports.onNewMessage = functions.database
     const preview =
       after.type === "photo"
         ? "📷 Sent a photo"
+        : after.type === "drawing"
+        ? "🎨 Sent a drawing"
         : after.content && after.content.length > 0
         ? after.content
         : "Sent a new message";

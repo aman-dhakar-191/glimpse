@@ -40,7 +40,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         // while this ViewModel is actually alive to show it; the service's
         // own job doesn't wait on it (see PhotoSendResults).
         viewModelScope.launch {
-            PhotoSendResults.results.collect { result ->
+            PhotoSendResults.photoResults.collect { result ->
                 result.onSuccess {
                     _uiState.value = ComposeUiState.Sent
                 }.onFailure { throwable ->
