@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,6 +72,11 @@ import com.glimpse.app.data.model.LiveStroke
 // DrawingRasterizer's DOT_RADIUS_TO_WIDTH_RATIO so a lone tap looks the
 // same live as it does in the sent image.
 private const val DOT_RADIUS_TO_WIDTH_RATIO = 0.6f
+
+// Never below 1 — there's no reason to shrink the canvas smaller than its
+// own box, only to zoom in on it for detail work.
+private const val MIN_SCALE = 1f
+private const val MAX_SCALE = 5f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +100,13 @@ fun DrawingScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val sentMessage = stringResource(R.string.drawing_sent)
+
+    // Purely a local view transform — never synced. Zooming in to work on
+    // detail is a per-device choice; it doesn't change the underlying
+    // normalized stroke coordinates, so your partner's view (and their own
+    // zoom level) is completely unaffected by yours.
+    var scale by remember { mutableStateOf(1f) }
+    var panOffset by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(uiState.sendState) {
         when (val state = uiState.sendState) {
@@ -136,26 +152,80 @@ fun DrawingScreen(
                     .background(Color.White)
                     .onSizeChanged { canvasSize = it }
                     .pointerInput(Unit) {
-                        // Low-level awaitFirstDown/drag (not
-                        // detectDragGestures) specifically so a plain tap
-                        // with no movement still registers as a stroke —
-                        // detectDragGestures only fires once movement
-                        // crosses the touch-slop threshold, which would
-                        // silently drop single-dot taps.
+                        // A single manual gesture loop (not detectDragGestures
+                        // or detectTransformGestures alone) so one finger can
+                        // draw while a second finger joining mid-gesture
+                        // switches to pinch-zoom/pan instead — Compose has no
+                        // built-in combinator for "route by pointer count."
+                        // Touch positions here are RAW/untransformed (the
+                        // pointerInput modifier lives on this outer Box,
+                        // which never itself gets scaled — only the Canvas
+                        // content below it does, via graphicsLayer), so
+                        // toContent() below inverts scale+panOffset by hand
+                        // before normalizing to the same 0f..1f stroke space
+                        // every device shares regardless of its own zoom.
                         awaitEachGesture {
                             val down = awaitFirstDown()
-                            val start = normalize(down.position, canvasSize)
+                            var transforming = false
+                            var drawing = true
+
+                            val start = toContent(down.position, canvasSize, scale, panOffset)
                             onStrokeStart(start.first, start.second)
-                            drag(down.id) { change ->
-                                val point = normalize(change.position, canvasSize)
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.filter { it.pressed }
+
+                                if (pressed.size >= 2) {
+                                    if (drawing) {
+                                        // A second finger joined mid-stroke —
+                                        // abandon the partial draw; a pinch
+                                        // means the intent was never to draw.
+                                        onStrokeEnd()
+                                        drawing = false
+                                    }
+                                    transforming = true
+                                }
+
+                                if (transforming) {
+                                    val zoomChange = event.calculateZoom()
+                                    val panChange = event.calculatePan()
+                                    scale = (scale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                                    panOffset += panChange
+                                    event.changes.forEach { it.consume() }
+                                    if (pressed.isEmpty()) break
+                                    continue
+                                }
+
+                                if (pressed.isEmpty()) break
+
+                                val change = pressed.first()
+                                val point = toContent(change.position, canvasSize, scale, panOffset)
                                 onStrokeMove(point.first, point.second)
                                 change.consume()
                             }
-                            onStrokeEnd()
+
+                            if (drawing) onStrokeEnd()
                         }
                     }
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = panOffset.x,
+                            translationY = panOffset.y,
+                            // Anchor scaling at the top-left corner instead
+                            // of graphicsLayer's own default (center) — the
+                            // inverse transform in toContent() assumes
+                            // screenPos = contentPos * scale + panOffset,
+                            // which only holds true if scaling doesn't also
+                            // shift the origin out from under it.
+                            transformOrigin = TransformOrigin(0f, 0f)
+                        )
+                ) {
                     uiState.strokes.values.forEach { stroke -> drawLiveStroke(stroke, size) }
                 }
             }
@@ -360,9 +430,16 @@ private fun PenSizeSlider(width: Float, onWidthChange: (Float) -> Unit) {
     }
 }
 
-private fun normalize(offset: Offset, canvasSize: IntSize): Pair<Float, Float> {
-    if (canvasSize.width == 0 || canvasSize.height == 0) return 0f to 0f
-    return (offset.x / canvasSize.width).coerceIn(0f, 1f) to (offset.y / canvasSize.height).coerceIn(0f, 1f)
+// Touch positions arrive in the outer Box's raw, untransformed coordinate
+// space (see the pointerInput comment above) — this inverts the SAME
+// scale+translate the Canvas's own graphicsLayer applies for rendering
+// (contentPos = (screenPos - panOffset) / scale) before normalizing to the
+// 0f..1f stroke space every device shares regardless of its own zoom.
+private fun toContent(rawPosition: Offset, canvasSize: IntSize, scale: Float, panOffset: Offset): Pair<Float, Float> {
+    if (canvasSize.width == 0 || canvasSize.height == 0 || scale == 0f) return 0f to 0f
+    val contentX = (rawPosition.x - panOffset.x) / scale
+    val contentY = (rawPosition.y - panOffset.y) / scale
+    return (contentX / canvasSize.width).coerceIn(0f, 1f) to (contentY / canvasSize.height).coerceIn(0f, 1f)
 }
 
 private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size) {
