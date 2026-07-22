@@ -10,14 +10,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-// Glimpse's plain home-screen widget — a "transparent root + custom
-// silhouette ImageView" technique for faking a non-rectangular widget
-// outline (see ShapedWidgetRenderer and widget_shaped_message.xml for the
-// full reasoning and limitations). Always shows just the single newest
-// message — see ShapedCarouselWidget for the separate carousel variant,
-// picked independently in the launcher's "add widget" list rather than a
-// mode of this one.
-class ShapedMessageWidget : AppWidgetProvider() {
+// The "Glimpse Carousel" home-screen widget — a separate, individually
+// pickable widget from the plain single-message ShapedMessageWidget, not a
+// mode of it. See ShapedCarouselWidgetRenderer and widget_shaped_carousel.xml
+// for the full carousel implementation.
+class ShapedCarouselWidget : AppWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
@@ -27,9 +24,9 @@ class ShapedMessageWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
-                val message = FirebaseSync.fetchLatestMessageOnce()
+                val messages = FirebaseSync.fetchRecentMessagesOnce(ShapedCarouselWidgetRenderer.CAROUSEL_LIMIT)
                 appWidgetIds.forEach { appWidgetId ->
-                    val remoteViews = ShapedWidgetRenderer.render(context, appWidgetId, message)
+                    val remoteViews = ShapedCarouselWidgetRenderer.render(context, appWidgetId, messages)
                     appWidgetManager.updateAppWidget(appWidgetId, remoteViews)
                 }
             } finally {
@@ -42,5 +39,9 @@ class ShapedMessageWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { ShapedCarouselPageStore.clear(context, it) }
     }
 }
