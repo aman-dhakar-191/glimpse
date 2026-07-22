@@ -39,7 +39,10 @@ data class DrawingUiState(
     // Which strokes are currently selected in Select mode — anyone's, not
     // just your own; it's a joint canvas, so rearranging anything on it is
     // fair game the same way drawing on it already is.
-    val selectedStrokeIds: Set<String> = emptySet()
+    val selectedStrokeIds: Set<String> = emptySet(),
+    // Is your PARTNER (not you) currently on the Draw screen too — see
+    // FirebaseSync.listenToDrawingPresence.
+    val partnerPresent: Boolean = false
 )
 
 // Backs the shared, joint drawing canvas (see FirebaseSync's
@@ -55,6 +58,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     val uiState: StateFlow<DrawingUiState> = _uiState.asStateFlow()
 
     private var listener: ValueEventListener? = null
+    private var presenceListener: ValueEventListener? = null
 
     // My own in-progress stroke — tracked locally (not derived from
     // uiState.strokes) so pointer-move handling never needs a Firebase
@@ -103,6 +107,23 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         listener = FirebaseSync.listenToLiveDrawing { strokes ->
             _uiState.value = _uiState.value.copy(strokes = strokes)
         }
+        presenceListener = FirebaseSync.listenToDrawingPresence { presentUids ->
+            val partnerPresent = presentUids.any { it != _uiState.value.myUid }
+            _uiState.value = _uiState.value.copy(partnerPresent = partnerPresent)
+        }
+    }
+
+    // Called from DrawingScreen's DisposableEffect — tied to the SCREEN
+    // actually being on-screen, unlike start()'s listeners above which, once
+    // attached, just keep running for the ViewModel's whole (Activity-long)
+    // lifetime. Presence needs to flip off the moment you navigate away,
+    // not just when the Activity itself is destroyed.
+    fun markPresent() {
+        FirebaseSync.markDrawingPresence()
+    }
+
+    fun clearPresent() {
+        FirebaseSync.clearDrawingPresence()
     }
 
     fun setColor(color: String) {
@@ -330,6 +351,8 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         listener?.let { FirebaseSync.removeLiveDrawingListener(it) }
         listener = null
+        presenceListener?.let { FirebaseSync.removeDrawingPresenceListener(it) }
+        presenceListener = null
         super.onCleared()
     }
 
