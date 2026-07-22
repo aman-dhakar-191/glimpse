@@ -13,8 +13,10 @@ import com.glimpse.app.data.model.LiveStroke
 // either device's actual screen size, matching how the points themselves
 // are stored normalized.
 object DrawingRasterizer {
-    private const val STROKE_WIDTH_FRACTION = 0.012f
-    private const val DOT_RADIUS_FRACTION = 0.008f
+    // A tapped dot's radius, relative to that stroke's own width — keeps a
+    // lone tap visually consistent with whatever pen size was selected
+    // rather than always the same fixed dot regardless of pen thickness.
+    private const val DOT_RADIUS_TO_WIDTH_RATIO = 0.6f
 
     fun render(strokes: Collection<LiveStroke>, sizePx: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
@@ -23,13 +25,14 @@ object DrawingRasterizer {
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = sizePx * STROKE_WIDTH_FRACTION
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
 
         strokes.forEach { stroke ->
             paint.color = parseColor(stroke.color)
+            val strokeWidthPx = sizePx * stroke.width.toFloat()
+            paint.strokeWidth = strokeWidthPx
             val points = stroke.points
             if (points.size < 2) return@forEach
 
@@ -39,7 +42,7 @@ object DrawingRasterizer {
                 canvas.drawCircle(
                     (points[0] * sizePx).toFloat(),
                     (points[1] * sizePx).toFloat(),
-                    sizePx * DOT_RADIUS_FRACTION,
+                    strokeWidthPx * DOT_RADIUS_TO_WIDTH_RATIO,
                     paint.apply { style = Paint.Style.FILL }
                 )
                 paint.style = Paint.Style.STROKE
