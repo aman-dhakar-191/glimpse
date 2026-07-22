@@ -11,5 +11,11 @@ package com.glimpse.app.data.model
 data class LiveStroke @JvmOverloads constructor(
     val authorUid: String = "",
     val color: String = "",
-    val points: List<Double> = emptyList()
+    val points: List<Double> = emptyList(),
+    // Fraction of the canvas's min dimension — matches how PHOTO_MASK_SIZE-
+    // style widget code already scales fixed pixel values by a size-
+    // independent fraction. Defaults to the original fixed pen size so
+    // strokes drawn before this field existed still deserialize and render
+    // at the same thickness they were drawn at.
+    val width: Double = 0.012
 )

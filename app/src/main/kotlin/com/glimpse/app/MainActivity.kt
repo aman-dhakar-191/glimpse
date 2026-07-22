@@ -373,6 +373,7 @@ class MainActivity : ComponentActivity() {
                             uiState = drawingUiState,
                             onStart = { drawingViewModel.start() },
                             onSetColor = { color -> drawingViewModel.setColor(color) },
+                            onSetWidth = { width -> drawingViewModel.setWidth(width) },
                             onStrokeStart = { x, y -> drawingViewModel.onStrokeStart(x, y) },
                             onStrokeMove = { x, y -> drawingViewModel.onStrokeMove(x, y) },
                             onStrokeEnd = { drawingViewModel.onStrokeEnd() },

@@ -31,6 +31,7 @@ data class DrawingUiState(
     // so this is always the merged, up-to-date joint canvas.
     val strokes: Map<String, LiveStroke> = emptyMap(),
     val selectedColor: String = DrawingColors.DEFAULT,
+    val selectedWidth: Float = DrawingColors.DEFAULT_WIDTH_FRACTION,
     val sendState: DrawingSendState = DrawingSendState.Idle
 )
 
@@ -53,7 +54,12 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // round trip to know what "my current/last stroke" is.
     private var currentStrokeId: String? = null
     private var currentStrokePoints = mutableListOf<Double>()
-    private var myLastCommittedStrokeId: String? = null
+
+    // A real stack (not just "the last one") — Undo needs to be able to
+    // step back through everything YOU drew this session, not just undo
+    // once and then have nothing left to undo even though older strokes
+    // of yours are still on the canvas.
+    private val myStrokeStack = mutableListOf<String>()
 
     // Every point gets appended locally for instant local feedback, but
     // only every Nth one (plus stroke start/end) is actually pushed to
@@ -86,6 +92,10 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.value = _uiState.value.copy(selectedColor = color)
     }
 
+    fun setWidth(width: Float) {
+        _uiState.value = _uiState.value.copy(selectedWidth = width)
+    }
+
     fun onStrokeStart(x: Float, y: Float) {
         val id = FirebaseSync.newLiveStrokeId()
         currentStrokeId = id
@@ -108,7 +118,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     fun onStrokeEnd() {
         val id = currentStrokeId ?: return
         pushCurrentStroke() // final flush, so the last few sampled-out points aren't lost
-        myLastCommittedStrokeId = id
+        myStrokeStack.add(id)
         currentStrokeId = null
         currentStrokePoints = mutableListOf()
     }
@@ -117,23 +127,28 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         val id = currentStrokeId ?: return
         FirebaseSync.updateLiveStroke(
             id,
-            LiveStroke(authorUid = _uiState.value.myUid, color = _uiState.value.selectedColor, points = currentStrokePoints.toList())
+            LiveStroke(
+                authorUid = _uiState.value.myUid,
+                color = _uiState.value.selectedColor,
+                points = currentStrokePoints.toList(),
+                width = _uiState.value.selectedWidth.toDouble()
+            )
         )
     }
 
-    // Only ever undoes YOUR OWN last stroke — undoing a partner's stroke
-    // out from under them while they might still be drawing isn't
-    // something a single tap should risk.
+    // Only ever undoes YOUR OWN strokes, one at a time, most recent first —
+    // undoing a partner's stroke out from under them while they might still
+    // be drawing isn't something a single tap should risk.
     fun undoLastStroke() {
-        val id = myLastCommittedStrokeId ?: return
+        val id = myStrokeStack.removeLastOrNull() ?: return
         FirebaseSync.removeLiveStroke(id)
-        myLastCommittedStrokeId = null
     }
 
     // Unlike undo, this wipes the WHOLE shared canvas — both of your work,
     // not just yours — so DrawingScreen gates it behind a confirmation
     // dialog before ever calling this.
     fun clearCanvas() {
+        myStrokeStack.clear()
         viewModelScope.launch { FirebaseSync.clearLiveDrawing() }
     }
 
@@ -158,6 +173,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
             FirebaseSync.clearLiveDrawing()
+            myStrokeStack.clear()
             PhotoSendService.start(app, file, caption = "", unlockAt = 0, contentType = "image/png", messageType = "drawing")
         }
     }
