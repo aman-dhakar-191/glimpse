@@ -381,6 +381,11 @@ class MainActivity : ComponentActivity() {
                             onClear = { drawingViewModel.clearCanvas() },
                             onSend = { drawingViewModel.send() },
                             onSendStateHandled = { drawingViewModel.consumeSendState() },
+                            onSetMode = { mode -> drawingViewModel.setMode(mode) },
+                            onSelectTap = { x, y -> drawingViewModel.selectTapAt(x, y) },
+                            onBeginMove = { drawingViewModel.beginMove() },
+                            onMoveSelectionBy = { dx, dy -> drawingViewModel.moveSelectionBy(dx, dy) },
+                            onEndMove = { drawingViewModel.endMove() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }
