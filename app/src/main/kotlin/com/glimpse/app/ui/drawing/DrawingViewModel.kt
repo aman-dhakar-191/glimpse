@@ -24,6 +24,8 @@ sealed interface DrawingSendState {
     data class Error(val message: String) : DrawingSendState
 }
 
+enum class DrawingMode { Draw, Select }
+
 data class DrawingUiState(
     val myUid: String = "",
     // Keyed by stroke id — both of you can add to this map at once, each
@@ -32,7 +34,12 @@ data class DrawingUiState(
     val strokes: Map<String, LiveStroke> = emptyMap(),
     val selectedColor: String = DrawingColors.DEFAULT,
     val selectedWidth: Float = DrawingColors.DEFAULT_WIDTH_FRACTION,
-    val sendState: DrawingSendState = DrawingSendState.Idle
+    val sendState: DrawingSendState = DrawingSendState.Idle,
+    val mode: DrawingMode = DrawingMode.Draw,
+    // Which strokes are currently selected in Select mode — anyone's, not
+    // just your own; it's a joint canvas, so rearranging anything on it is
+    // fair game the same way drawing on it already is.
+    val selectedStrokeIds: Set<String> = emptySet()
 )
 
 // Backs the shared, joint drawing canvas (see FirebaseSync's
@@ -68,6 +75,16 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // preview, not data with a delivery guarantee.
     private var pointsSinceLastPush = 0
 
+    // Snapshot of the selected strokes' ORIGINAL points, taken once when a
+    // move gesture starts — every subsequent moveSelectionBy() call offsets
+    // from this fixed snapshot by the gesture's total accumulated delta,
+    // rather than compounding onto whatever's currently in uiState (which
+    // may lag behind due to push throttling below).
+    private var moveOriginalStrokes: Map<String, LiveStroke> = emptyMap()
+    private var moveCumulativeDx = 0f
+    private var moveCumulativeDy = 0f
+    private var moveEventsSinceLastPush = 0
+
     init {
         viewModelScope.launch {
             PhotoSendResults.drawingResults.collect { result ->
@@ -94,6 +111,123 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
 
     fun setWidth(width: Float) {
         _uiState.value = _uiState.value.copy(selectedWidth = width)
+    }
+
+    // Selection is scoped to whichever mode is active, so switching modes
+    // always starts from a clean slate rather than carrying stale picks
+    // (e.g. back into Select) or leaving a phantom selection highlighted
+    // while you're back to drawing.
+    fun setMode(mode: DrawingMode) {
+        moveOriginalStrokes = emptyMap()
+        _uiState.value = _uiState.value.copy(mode = mode, selectedStrokeIds = emptySet())
+    }
+
+    // A plain tap in Select mode: toggles the tapped stroke in/out of the
+    // selection, or clears the whole selection if the tap didn't land on
+    // any stroke. Anyone's strokes are fair game — see selectedStrokeIds.
+    fun selectTapAt(x: Float, y: Float) {
+        val hitId = hitTestStroke(x, y)
+        val current = _uiState.value.selectedStrokeIds
+        val updated = when {
+            hitId == null -> emptySet()
+            hitId in current -> current - hitId
+            else -> current + hitId
+        }
+        _uiState.value = _uiState.value.copy(selectedStrokeIds = updated)
+    }
+
+    // Called once when a drag starts on top of a non-empty selection.
+    fun beginMove() {
+        val selected = _uiState.value.selectedStrokeIds
+        if (selected.isEmpty()) return
+        moveOriginalStrokes = _uiState.value.strokes.filterKeys { it in selected }
+        moveCumulativeDx = 0f
+        moveCumulativeDy = 0f
+        moveEventsSinceLastPush = 0
+    }
+
+    // dxNorm/dyNorm are this drag step's delta in the same normalized
+    // 0f..1f stroke space as everything else — throttled the same way
+    // onStrokeMove() throttles drawing, so dragging a multi-stroke
+    // selection doesn't flood Firebase with an update per pointer-move.
+    fun moveSelectionBy(dxNorm: Float, dyNorm: Float) {
+        if (moveOriginalStrokes.isEmpty()) return
+        moveCumulativeDx += dxNorm
+        moveCumulativeDy += dyNorm
+        moveEventsSinceLastPush++
+        if (moveEventsSinceLastPush >= POINTS_PER_PUSH) {
+            moveEventsSinceLastPush = 0
+            pushMovedStrokes()
+        }
+    }
+
+    fun endMove() {
+        if (moveOriginalStrokes.isNotEmpty()) pushMovedStrokes() // final flush
+        moveOriginalStrokes = emptyMap()
+        moveCumulativeDx = 0f
+        moveCumulativeDy = 0f
+        moveEventsSinceLastPush = 0
+    }
+
+    private fun pushMovedStrokes() {
+        for ((id, original) in moveOriginalStrokes) {
+            val moved = original.points.mapIndexed { index, value ->
+                if (index % 2 == 0) value + moveCumulativeDx else value + moveCumulativeDy
+            }
+            FirebaseSync.updateLiveStroke(id, original.copy(points = moved))
+        }
+    }
+
+    // Nearest stroke within HIT_TEST_PADDING of (x, y), or null if nothing's
+    // close enough — checked against every stroke's actual path/dot, not
+    // just a bounding box, since strokes are often thin relative to the
+    // whole canvas.
+    private fun hitTestStroke(x: Float, y: Float): String? {
+        var bestId: String? = null
+        var bestDistance = Float.MAX_VALUE
+        for ((id, stroke) in _uiState.value.strokes) {
+            val distance = distanceToStroke(x, y, stroke)
+            val threshold = (stroke.width.toFloat() / 2f) + HIT_TEST_PADDING
+            if (distance <= threshold && distance < bestDistance) {
+                bestDistance = distance
+                bestId = id
+            }
+        }
+        return bestId
+    }
+
+    private fun distanceToStroke(x: Float, y: Float, stroke: LiveStroke): Float {
+        val points = stroke.points
+        if (points.size < 4) {
+            return if (points.size < 2) Float.MAX_VALUE else distance(x, y, points[0].toFloat(), points[1].toFloat())
+        }
+        var minDistance = Float.MAX_VALUE
+        var i = 0
+        while (i + 3 < points.size) {
+            val segmentDistance = distanceToSegment(
+                x, y,
+                points[i].toFloat(), points[i + 1].toFloat(),
+                points[i + 2].toFloat(), points[i + 3].toFloat()
+            )
+            if (segmentDistance < minDistance) minDistance = segmentDistance
+            i += 2
+        }
+        return minDistance
+    }
+
+    private fun distanceToSegment(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float): Float {
+        val abx = bx - ax
+        val aby = by - ay
+        val lengthSquared = abx * abx + aby * aby
+        if (lengthSquared == 0f) return distance(px, py, ax, ay)
+        val t = (((px - ax) * abx + (py - ay) * aby) / lengthSquared).coerceIn(0f, 1f)
+        return distance(px, py, ax + t * abx, ay + t * aby)
+    }
+
+    private fun distance(x1: Float, y1: Float, x2: Float, y2: Float): Float {
+        val dx = x2 - x1
+        val dy = y2 - y1
+        return kotlin.math.sqrt(dx * dx + dy * dy)
     }
 
     fun onStrokeStart(x: Float, y: Float) {
@@ -149,6 +283,8 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // dialog before ever calling this.
     fun clearCanvas() {
         myStrokeStack.clear()
+        moveOriginalStrokes = emptyMap()
+        _uiState.value = _uiState.value.copy(selectedStrokeIds = emptySet())
         viewModelScope.launch { FirebaseSync.clearLiveDrawing() }
     }
 
@@ -174,6 +310,8 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             }
             FirebaseSync.clearLiveDrawing()
             myStrokeStack.clear()
+            moveOriginalStrokes = emptyMap()
+            _uiState.value = _uiState.value.copy(selectedStrokeIds = emptySet())
             PhotoSendService.start(app, file, caption = "", unlockAt = 0, contentType = "image/png", messageType = "drawing")
         }
     }
@@ -198,5 +336,10 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     companion object {
         private const val POINTS_PER_PUSH = 3
         private const val RENDER_SIZE_PX = 720
+
+        // A minimum touch-target padding (normalized 0f..1f stroke space)
+        // added on top of a stroke's own half-width for hit-testing — a
+        // hairline-thin stroke would otherwise be nearly impossible to tap.
+        private const val HIT_TEST_PADDING = 0.02f
     }
 }

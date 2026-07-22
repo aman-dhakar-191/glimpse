@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +79,15 @@ private const val DOT_RADIUS_TO_WIDTH_RATIO = 0.6f
 private const val MIN_SCALE = 1f
 private const val MAX_SCALE = 5f
 
+// Raw screen-space pixels a single finger can drift before a Select-mode
+// touch stops counting as "just a tap" and starts counting as a drag —
+// independent of zoom, since it's about finger wobble, not content space.
+private const val TAP_SLOP_PX = 12f
+
+// Selection highlight halo, drawn under the stroke itself.
+private val SELECTION_HALO_COLOR = Color(0xFF2196F3).copy(alpha = 0.35f)
+private const val SELECTION_HALO_FRACTION = 0.01f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DrawingScreen(
@@ -92,6 +102,11 @@ fun DrawingScreen(
     onClear: () -> Unit,
     onSend: () -> Unit,
     onSendStateHandled: () -> Unit,
+    onSetMode: (DrawingMode) -> Unit,
+    onSelectTap: (Float, Float) -> Unit,
+    onBeginMove: () -> Unit,
+    onMoveSelectionBy: (Float, Float) -> Unit,
+    onEndMove: () -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(Unit) { onStart() }
@@ -107,6 +122,12 @@ fun DrawingScreen(
     // zoom level) is completely unaffected by yours.
     var scale by remember { mutableStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
+
+    // The gesture-handling coroutine below (pointerInput(Unit)) is launched
+    // once and never restarted — a plain captured `uiState` reference would
+    // freeze at whatever it was on that first launch. rememberUpdatedState
+    // gives it a handle that always reflects the latest value instead.
+    val currentUiState by rememberUpdatedState(uiState)
 
     LaunchedEffect(uiState.sendState) {
         when (val state = uiState.sendState) {
@@ -166,46 +187,104 @@ fun DrawingScreen(
                         // every device shares regardless of its own zoom.
                         awaitEachGesture {
                             val down = awaitFirstDown()
-                            var transforming = false
-                            var drawing = true
+                            val downContent = toContent(down.position, canvasSize, scale, panOffset)
 
-                            val start = toContent(down.position, canvasSize, scale, panOffset)
-                            onStrokeStart(start.first, start.second)
+                            if (currentUiState.mode == DrawingMode.Select) {
+                                var transforming = false
+                                var moving = false
+                                var totalRawMovement = 0f
+                                var lastContent = downContent
+                                // Fixed at gesture-start — a drag that begins
+                                // over an empty selection is a deliberate
+                                // no-op, not "select whatever's dragged over."
+                                val canMove = currentUiState.selectedStrokeIds.isNotEmpty()
 
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val pressed = event.changes.filter { it.pressed }
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
 
-                                if (pressed.size >= 2) {
-                                    if (drawing) {
-                                        // A second finger joined mid-stroke —
-                                        // abandon the partial draw; a pinch
-                                        // means the intent was never to draw.
-                                        onStrokeEnd()
-                                        drawing = false
+                                    if (pressed.size >= 2) {
+                                        if (moving) {
+                                            onEndMove()
+                                            moving = false
+                                        }
+                                        transforming = true
                                     }
-                                    transforming = true
-                                }
 
-                                if (transforming) {
-                                    val zoomChange = event.calculateZoom()
-                                    val panChange = event.calculatePan()
-                                    scale = (scale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
-                                    panOffset += panChange
-                                    event.changes.forEach { it.consume() }
+                                    if (transforming) {
+                                        val zoomChange = event.calculateZoom()
+                                        val panChange = event.calculatePan()
+                                        scale = (scale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                                        panOffset += panChange
+                                        event.changes.forEach { it.consume() }
+                                        if (pressed.isEmpty()) break
+                                        continue
+                                    }
+
                                     if (pressed.isEmpty()) break
-                                    continue
+
+                                    val change = pressed.first()
+                                    totalRawMovement += (change.position - change.previousPosition).getDistance()
+                                    val point = toContent(change.position, canvasSize, scale, panOffset)
+
+                                    if (canMove && totalRawMovement > TAP_SLOP_PX) {
+                                        if (!moving) {
+                                            onBeginMove()
+                                            moving = true
+                                        }
+                                        onMoveSelectionBy(point.first - lastContent.first, point.second - lastContent.second)
+                                    }
+                                    lastContent = point
+                                    change.consume()
                                 }
 
-                                if (pressed.isEmpty()) break
+                                if (moving) {
+                                    onEndMove()
+                                } else if (totalRawMovement <= TAP_SLOP_PX) {
+                                    // A plain tap: toggle whatever's under it,
+                                    // or clear the selection if nothing is.
+                                    onSelectTap(downContent.first, downContent.second)
+                                }
+                            } else {
+                                var transforming = false
+                                var drawing = true
+                                onStrokeStart(downContent.first, downContent.second)
 
-                                val change = pressed.first()
-                                val point = toContent(change.position, canvasSize, scale, panOffset)
-                                onStrokeMove(point.first, point.second)
-                                change.consume()
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+
+                                    if (pressed.size >= 2) {
+                                        if (drawing) {
+                                            // A second finger joined mid-stroke —
+                                            // abandon the partial draw; a pinch
+                                            // means the intent was never to draw.
+                                            onStrokeEnd()
+                                            drawing = false
+                                        }
+                                        transforming = true
+                                    }
+
+                                    if (transforming) {
+                                        val zoomChange = event.calculateZoom()
+                                        val panChange = event.calculatePan()
+                                        scale = (scale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                                        panOffset += panChange
+                                        event.changes.forEach { it.consume() }
+                                        if (pressed.isEmpty()) break
+                                        continue
+                                    }
+
+                                    if (pressed.isEmpty()) break
+
+                                    val change = pressed.first()
+                                    val point = toContent(change.position, canvasSize, scale, panOffset)
+                                    onStrokeMove(point.first, point.second)
+                                    change.consume()
+                                }
+
+                                if (drawing) onStrokeEnd()
                             }
-
-                            if (drawing) onStrokeEnd()
                         }
                     }
             ) {
@@ -226,7 +305,9 @@ fun DrawingScreen(
                             transformOrigin = TransformOrigin(0f, 0f)
                         )
                 ) {
-                    uiState.strokes.values.forEach { stroke -> drawLiveStroke(stroke, size) }
+                    uiState.strokes.forEach { (id, stroke) ->
+                        drawLiveStroke(stroke, size, isSelected = id in uiState.selectedStrokeIds)
+                    }
                 }
             }
 
@@ -309,6 +390,12 @@ fun DrawingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(10.dp)
                 ) {
+                    val isSelectMode = uiState.mode == DrawingMode.Select
+                    OutlinedButton(
+                        onClick = { onSetMode(if (isSelectMode) DrawingMode.Draw else DrawingMode.Select) }
+                    ) {
+                        Text(if (isSelectMode) "👆" else "✏️")
+                    }
                     OutlinedButton(onClick = onUndo) {
                         Text(stringResource(R.string.drawing_undo))
                     }
@@ -442,18 +529,20 @@ private fun toContent(rawPosition: Offset, canvasSize: IntSize, scale: Float, pa
     return (contentX / canvasSize.width).coerceIn(0f, 1f) to (contentY / canvasSize.height).coerceIn(0f, 1f)
 }
 
-private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size) {
+private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size, isSelected: Boolean) {
     val points = stroke.points
     if (points.size < 2) return
     val color = parseColorOrBlack(stroke.color)
     val strokeWidthPx = canvasSize.minDimension * stroke.width.toFloat()
+    val haloWidthPx = canvasSize.minDimension * SELECTION_HALO_FRACTION
 
     if (points.size == 2) {
-        drawCircle(
-            color = color,
-            radius = strokeWidthPx * DOT_RADIUS_TO_WIDTH_RATIO,
-            center = Offset((points[0] * canvasSize.width).toFloat(), (points[1] * canvasSize.height).toFloat())
-        )
+        val center = Offset((points[0] * canvasSize.width).toFloat(), (points[1] * canvasSize.height).toFloat())
+        val radius = strokeWidthPx * DOT_RADIUS_TO_WIDTH_RATIO
+        if (isSelected) {
+            drawCircle(color = SELECTION_HALO_COLOR, radius = radius + haloWidthPx, center = center)
+        }
+        drawCircle(color = color, radius = radius, center = center)
         return
     }
 
@@ -464,6 +553,13 @@ private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size) {
             lineTo((points[i] * canvasSize.width).toFloat(), (points[i + 1] * canvasSize.height).toFloat())
             i += 2
         }
+    }
+    if (isSelected) {
+        drawPath(
+            path = path,
+            color = SELECTION_HALO_COLOR,
+            style = Stroke(width = strokeWidthPx + haloWidthPx * 2, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
     }
     drawPath(
         path = path,
