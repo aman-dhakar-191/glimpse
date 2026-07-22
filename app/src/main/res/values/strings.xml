@@ -62,6 +62,7 @@
     <string name="widget_shaped_description">A custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Shows the newest message, photo included.</string>
     <string name="widget_photo_fallback">📷 A photo</string>
     <string name="widget_label_shaped">Glimpse</string>
+    <string name="widget_seen_suffix">%1$s · 👀</string>
     <string name="qs_tile_label">Send a Glimpse</string>
 
     <string name="compose_title">Send a message</string>
@@ -130,6 +131,9 @@
     <string name="sending_channel_name">Sending status</string>
     <string name="sending_message_notification">Sending message…</string>
     <string name="sending_photo_notification">Sending photo…</string>
+    <string name="send_result_channel_name">Send results</string>
+    <string name="photo_sent_notification">Photo sent</string>
+    <string name="photo_send_failed_notification">Couldn\'t send photo — open Glimpse to try again.</string>
     <string name="update_notification_title">Update available</string>
     <string name="update_notification_body">Glimpse v%1$s is ready to install</string>
 

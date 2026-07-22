@@ -43,7 +43,9 @@ internal object ShapedWidgetRenderer {
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
 
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        val window = unseenWindow(messages, myUid)
+        val lastSeenAt = FirebaseSync.fetchLastSeenAtOnce()
+        val myLastSeenAt = myUid?.let { lastSeenAt[it] } ?: 0L
+        val window = unseenWindow(messages, myUid, myLastSeenAt)
 
         if (window.isEmpty()) {
             ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, "")
@@ -54,21 +56,40 @@ internal object ShapedWidgetRenderer {
             return remoteViews
         }
 
-        // Resets to 0 whenever the window's actual contents change (a new
-        // message arrived, or the seen-state shifted it) — otherwise
-        // persists across renders so a tapped-to page survives the next
-        // Firebase-triggered refresh.
-        val windowKey = window.joinToString(",") { it.id }
-        val currentIndex = ShapedCarouselIndexStore.indexForWindow(context, appWidgetId, windowKey, window.size)
-        val message = window[currentIndex]
-
+        // Always the oldest still-unseen message — there's no separately
+        // persisted "current page" to drift out of sync with what's
+        // actually unseen. Paging forward (ShapedCarouselAdvanceReceiver)
+        // works by moving the seen marker past this message, which makes
+        // the NEXT oldest-unseen message become window.first() on the next
+        // render — not by tracking an index of its own.
+        val message = window.first()
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message.id)
-        FirebaseSync.markSeenIfNeeded(message)
 
-        val displayAuthorName = if (message.authorUid == myUid) {
+        // Only the steady state (nothing left to catch up on) marks itself
+        // seen just by rendering, same as this widget always has. Once
+        // there's a real backlog (window.size > 1), a background refresh
+        // nobody actually looked at must NOT silently clear it — only an
+        // explicit advance tap moves the seen marker past a catch-up page.
+        if (window.size == 1) {
+            FirebaseSync.markSeenIfNeeded(message)
+        }
+
+        // A small "seen" mark on your OWN message once your partner's
+        // last-seen-at has caught up to it — mirrors the Sent/Seen badge
+        // MessageHistoryScreen already shows for your latest message, now
+        // visible on the widget too.
+        val partnerSeenAt = lastSeenAt.filterKeys { it != myUid }.values.maxOrNull() ?: 0L
+        val seenByPartner = message.authorUid == myUid && partnerSeenAt >= message.createdAt
+
+        val baseAuthorName = if (message.authorUid == myUid) {
             message.authorName
         } else {
             FirebaseSync.fetchPartnerNicknameOnce().ifBlank { message.authorName }
+        }
+        val displayAuthorName = if (seenByPartner) {
+            context.getString(R.string.widget_seen_suffix, baseAuthorName)
+        } else {
+            baseAuthorName
         }
 
         val hiddenByLock = message.isLocked && message.authorUid != myUid
@@ -106,9 +127,12 @@ internal object ShapedWidgetRenderer {
         // Carousel chrome only when there's more than one message to page
         // through — the common steady-state (nothing unseen but the
         // latest) looks exactly like the pre-carousel single-message view.
+        // Dot count shrinks (not a fixed row with a moving highlight) as
+        // pages get marked seen, since the window itself shrinks — the
+        // first dot is always the current page.
         if (window.size > 1) {
             val activeColor = ContextCompat.getColor(context, R.color.widget_border)
-            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, currentIndex, activeColor))
+            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, 0, activeColor))
             remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.VISIBLE)
             remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.VISIBLE)
             ReactionActionBinder.bindAdvanceAction(context, remoteViews, appWidgetId)
@@ -129,16 +153,22 @@ internal object ShapedWidgetRenderer {
     // chat scrolled to your last read position. Falls back to just the
     // latest message once everything's been seen, so the common
     // steady-state case still renders the same single page it always has.
-    // Internal (not private) so ShapedCarouselAdvanceReceiver can compute
-    // the same window size to wrap its "next" tap against.
-    internal fun unseenWindow(messages: List<Message>, myUid: String?): List<Message> {
+    //
+    // Unseen is judged against myLastSeenAt (a timestamp), the exact same
+    // signal MessageHistoryViewModel's Sent/Seen badge already uses — NOT a
+    // per-message reaction tag, which is what the carousel used to check.
+    // That reaction only ever got added one message at a time (by whichever
+    // page happened to be on screen), so it drifted out of sync with what
+    // opening the app's History screen already considered read, and the
+    // carousel could get stuck showing a "backlog" of messages the user had
+    // long since actually seen. Internal (not private) so
+    // ShapedCarouselAdvanceReceiver can compute the same window to know
+    // which message an advance tap is moving past.
+    internal fun unseenWindow(messages: List<Message>, myUid: String?, myLastSeenAt: Long): List<Message> {
         if (messages.isEmpty()) return emptyList()
-        val firstUnseenIndex = messages.indexOfFirst { it.isUnseenBy(myUid) }
+        val firstUnseenIndex = messages.indexOfFirst { it.authorUid != myUid && it.createdAt > myLastSeenAt }
         return if (firstUnseenIndex == -1) listOf(messages.last()) else messages.subList(firstUnseenIndex, messages.size)
     }
-
-    private fun Message.isUnseenBy(uid: String?): Boolean =
-        authorUid != uid && reactions[FirebaseSync.SEEN_EMOJI]?.contains(uid) != true
 
     // Drawn as a single bitmap rather than one real view per dot — dots are
     // purely decorative (not individually tappable; btn_carousel_advance is

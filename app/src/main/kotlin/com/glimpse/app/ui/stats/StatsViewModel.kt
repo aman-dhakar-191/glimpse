@@ -63,7 +63,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         val totals = mutableMapOf<String, Int>()
         messages.forEach { message ->
             message.reactions.forEach { (emoji, userIds) ->
-                if (emoji == FirebaseSync.SEEN_EMOJI) return@forEach
                 if (userIds.isEmpty()) return@forEach
                 totals[emoji] = (totals[emoji] ?: 0) + userIds.size
             }

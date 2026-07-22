@@ -54,6 +54,13 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             database.child("shared/messages").push().setValue(message).await()
         }
+        // Sending implies you've read the conversation up to now — without
+        // this, an unrelated backlog of older partner messages you hadn't
+        // individually opened the widget's carousel far enough to catch up
+        // on would keep showing as unseen even after you'd clearly moved on
+        // and replied. Best-effort: FirebaseSync.markSeenUpTo swallows its
+        // own errors, so a hiccup here never fails the send itself.
+        FirebaseSync.markSeenUpTo(now)
     }
 
     // contentType defaults to image/jpeg for callers uploading from a plain
@@ -91,6 +98,7 @@ class MessageRepository {
             )
             database.child("shared/messages").push().setValue(message).await()
         }
+        FirebaseSync.markSeenUpTo(now)
     }
 
     // A single overwritten node (not a growing list like messages) — a

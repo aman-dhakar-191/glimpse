@@ -17,6 +17,7 @@ object NotificationChannels {
     const val WIDGET_SYNC = "widget_sync"
     const val UPDATE_AVAILABLE = "update_available"
     const val SENDING = "message_sending"
+    const val SEND_RESULT = "send_result"
 
     fun registerAll(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -45,6 +46,12 @@ object NotificationChannels {
         )
         manager.createNotificationChannel(
             NotificationChannel(SENDING, context.getString(R.string.sending_channel_name), NotificationManager.IMPORTANCE_LOW)
+        )
+        // Default (not low, like SENDING above) — this is the actual outcome
+        // the sending notification was a placeholder for, and it needs to
+        // still be noticeable if the app was closed for the whole send.
+        manager.createNotificationChannel(
+            NotificationChannel(SEND_RESULT, context.getString(R.string.send_result_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
         )
     }
 }
