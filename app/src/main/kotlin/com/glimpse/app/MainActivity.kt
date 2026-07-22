@@ -37,6 +37,7 @@ import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
 import com.glimpse.app.ui.message.ComposeMessageViewModel
+import com.glimpse.app.ui.carousel.CarouselSettingsViewModel
 import com.glimpse.app.ui.mood.MoodUiState
 import com.glimpse.app.ui.mood.MoodViewModel
 import com.glimpse.app.ui.mood.PartnerMoodUiState
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
     private val countdownViewModel: CountdownViewModel by viewModels()
     private val dailyPromptViewModel: DailyPromptViewModel by viewModels()
     private val quietHoursViewModel: QuietHoursViewModel by viewModels()
+    private val carouselSettingsViewModel: CarouselSettingsViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -226,6 +228,7 @@ class MainActivity : ComponentActivity() {
                     val countdownUiState by countdownViewModel.uiState.collectAsState()
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
+                    val carouselSettingsUiState by carouselSettingsViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
                     // back stack (screen is just a flat mutableStateOf), so
@@ -314,6 +317,9 @@ class MainActivity : ComponentActivity() {
                             onSetQuietHoursEnabled = { enabled -> quietHoursViewModel.setEnabled(enabled) },
                             onSetQuietHoursStart = { minutes -> quietHoursViewModel.setStartMinutes(minutes) },
                             onSetQuietHoursEnd = { minutes -> quietHoursViewModel.setEndMinutes(minutes) },
+                            carouselSettingsUiState = carouselSettingsUiState,
+                            onLoadCarouselSettings = { carouselSettingsViewModel.load() },
+                            onSetCarouselSize = { size -> carouselSettingsViewModel.setSize(size) },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 

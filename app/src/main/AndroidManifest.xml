@@ -59,8 +59,8 @@
                 android:resource="@xml/widget_shaped_message_info" />
         </receiver>
 
-        <!-- Handles the "next page" tap on the shaped widget's catch-up
-             carousel — see ShapedCarouselAdvanceReceiver. -->
+        <!-- Handles the "next page" tap on the shaped widget's carousel —
+             see ShapedCarouselAdvanceReceiver. -->
         <receiver
             android:name=".widgets.ShapedCarouselAdvanceReceiver"
             android:exported="false" />

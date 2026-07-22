@@ -40,4 +40,8 @@ class ShapedMessageWidget : AppWidgetProvider() {
     override fun onEnabled(context: Context) {
         WidgetSyncTrigger.requestSync(context)
     }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { ShapedCarouselPageStore.clear(context, it) }
+    }
 }

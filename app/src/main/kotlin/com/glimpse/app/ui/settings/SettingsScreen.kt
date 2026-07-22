@@ -43,6 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.data.CarouselSettingsStore
+import com.glimpse.app.ui.carousel.CarouselSettingsUiState
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
 import com.glimpse.app.ui.quiethours.QuietHoursUiState
@@ -75,11 +77,15 @@ fun SettingsScreen(
     onSetQuietHoursEnabled: (Boolean) -> Unit,
     onSetQuietHoursStart: (Int) -> Unit,
     onSetQuietHoursEnd: (Int) -> Unit,
+    carouselSettingsUiState: CarouselSettingsUiState,
+    onLoadCarouselSettings: () -> Unit,
+    onSetCarouselSize: (Int) -> Unit,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
         onLoadQuietHours()
+        onLoadCarouselSettings()
     }
 
     Scaffold(
@@ -107,6 +113,8 @@ fun SettingsScreen(
             NicknameCard(nicknameUiState, onSaveNickname)
 
             QuietHoursCard(quietHoursUiState, onSetQuietHoursEnabled, onSetQuietHoursStart, onSetQuietHoursEnd)
+
+            CarouselSizeCard(carouselSettingsUiState, onSetCarouselSize)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -390,3 +398,58 @@ private fun QuietHoursCard(
 
 private fun formatMinutes(minutes: Int): String =
     LocalTime.of(minutes / 60, minutes % 60).format(DateTimeFormatter.ofPattern("h:mm a"))
+
+// Local-only, per-device — see CarouselSettingsStore/ShapedWidgetRenderer.
+// Always "the latest N messages" (not seen/unseen-gated), so this directly
+// controls what shows up on the widget with no other state to reconcile.
+@Composable
+private fun CarouselSizeCard(uiState: CarouselSettingsUiState, onSetSize: (Int) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(-0.4f),
+        shape = BlobShapeSoftB,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.carousel_size_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.carousel_size_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CarouselSettingsStore.SIZE_OPTIONS.forEach { option ->
+                    val selected = uiState.size == option
+                    if (selected) {
+                        Button(
+                            onClick = { onSetSize(option) },
+                            modifier = Modifier.weight(1f),
+                            shape = BlobButtonShape,
+                            contentPadding = BlobButtonPadding
+                        ) {
+                            Text(stringResource(R.string.carousel_size_option, option))
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onSetSize(option) },
+                            modifier = Modifier.weight(1f),
+                            shape = BlobButtonShape,
+                            contentPadding = BlobButtonPadding
+                        ) {
+                            Text(stringResource(R.string.carousel_size_option, option))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -151,16 +151,13 @@ object FirebaseSync {
     }
 
     // Bumps my own last-seen-at marker forward to (at least) upToMillis —
-    // never backward, via a transaction, so an out-of-order caller (e.g. the
-    // widget catch-up carousel marking an older page seen after the app
-    // already marked everything seen more recently) can never undo a more
-    // recent "seen". This is the single source of truth "have I seen this"
-    // is judged against everywhere (History screen's Sent/Seen badge, and
-    // the widget's catch-up window) — earlier the widget used a separate
-    // per-message reaction tag instead, which only ever got added one
-    // message at a time and drifted out of sync with what the app's History
-    // screen (which marks the whole loaded page seen via lastSeenAt) already
-    // considered read.
+    // never backward, via a transaction, so an out-of-order caller can never
+    // undo a more recent "seen". This is the single source of truth "have I
+    // seen this" is judged against everywhere it matters — History screen's
+    // Sent/Seen badge, and the widget's own small "seen" mark on your sent
+    // message (see ShapedWidgetRenderer) — it no longer has any bearing on
+    // what the widget's carousel actually displays, which is always just
+    // the latest N messages regardless of seen state.
     suspend fun markSeenUpTo(upToMillis: Long) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         try {
@@ -191,10 +188,10 @@ object FirebaseSync {
         }
     }
 
-    // One-shot counterpart to listenToLastSeenAt below — used by the widget,
-    // which needs this alongside the message list on every render (both to
-    // compute the catch-up window and to show a "seen" mark on your own
-    // sent message) without keeping a live listener running.
+    // One-shot counterpart to listenToLastSeenAt below — used by the widget
+    // on every render to show a "seen" mark on your own sent message once
+    // your partner's marker catches up to it, without keeping a live
+    // listener running.
     suspend fun fetchLastSeenAtOnce(): Map<String, Long> = try {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             lastSeenAtRef().get().await().children.mapNotNull { child ->

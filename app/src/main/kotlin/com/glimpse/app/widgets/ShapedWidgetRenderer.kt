@@ -13,13 +13,14 @@ import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
+import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 
 // Single size, single provider instance's worth of RemoteViews, and only
 // ever the CURRENTLY DISPLAYED page's photo gets loaded — never every page
-// in the catch-up window at once — so there's no risk of the same photo
+// in the carousel window at once — so there's no risk of the same photo
 // (or several different ones) getting embedded together into one Binder
 // transaction. That rule is the actual fix for the old carousel's
 // TransactionTooLargeException history; keep it if this is ever extended
@@ -33,21 +34,20 @@ internal object ShapedWidgetRenderer {
     // without ever cropping into the masked shape.
     private const val PHOTO_MASK_SIZE = 300
 
-    // How many of the most recent messages the catch-up window is drawn
-    // from — callers (ShapedMessageWidget, WidgetUpdateService,
-    // ShapedCarouselAdvanceReceiver) all fetch/listen with this same limit.
-    const val CAROUSEL_LIMIT = 5
+    // Upper bound on how many recent messages get fetched/kept in reach for
+    // the carousel — independent of CarouselSettingsStore's user-facing
+    // "how many to display" setting (which is capped at this same value),
+    // so a Settings change never needs the underlying Firebase listener to
+    // be re-created with a new limit.
+    const val CAROUSEL_LIMIT = CarouselSettingsStore.MAX_SIZE
 
     suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
 
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        val lastSeenAt = FirebaseSync.fetchLastSeenAtOnce()
-        val myLastSeenAt = myUid?.let { lastSeenAt[it] } ?: 0L
-        val window = unseenWindow(messages, myUid, myLastSeenAt)
 
-        if (window.isEmpty()) {
+        if (messages.isEmpty()) {
             ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, "")
             hideCarouselChrome(remoteViews)
             setAuthorName(remoteViews, showPhoto = false, name = "")
@@ -56,28 +56,27 @@ internal object ShapedWidgetRenderer {
             return remoteViews
         }
 
-        // Always the oldest still-unseen message — there's no separately
-        // persisted "current page" to drift out of sync with what's
-        // actually unseen. Paging forward (ShapedCarouselAdvanceReceiver)
-        // works by moving the seen marker past this message, which makes
-        // the NEXT oldest-unseen message become window.first() on the next
-        // render — not by tracking an index of its own.
-        val message = window.first()
+        val window = displayWindow(messages, CarouselSettingsStore.load(context))
+        val windowKey = window.joinToString(",") { it.id }
+        val currentIndex = ShapedCarouselPageStore.indexForWindow(context, appWidgetId, windowKey, window.size)
+        val message = window[currentIndex]
+
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message.id)
 
-        // Only the steady state (nothing left to catch up on) marks itself
-        // seen just by rendering, same as this widget always has. Once
-        // there's a real backlog (window.size > 1), a background refresh
-        // nobody actually looked at must NOT silently clear it — only an
-        // explicit advance tap moves the seen marker past a catch-up page.
-        if (window.size == 1) {
-            FirebaseSync.markSeenIfNeeded(message)
-        }
+        // Best-effort "I looked at this" proxy for whichever message
+        // happens to be on screen right now — purely feeds the Sent/Seen
+        // mark below (and the History screen's own badge). It has no
+        // effect on what the carousel shows or which page you're on
+        // anymore, so there's no risk of a background refresh nobody
+        // actually looked at silently shifting the window out from under
+        // you — see displayWindow's comment for why that used to happen.
+        FirebaseSync.markSeenIfNeeded(message)
 
         // A small "seen" mark on your OWN message once your partner's
         // last-seen-at has caught up to it — mirrors the Sent/Seen badge
         // MessageHistoryScreen already shows for your latest message, now
         // visible on the widget too.
+        val lastSeenAt = FirebaseSync.fetchLastSeenAtOnce()
         val partnerSeenAt = lastSeenAt.filterKeys { it != myUid }.values.maxOrNull() ?: 0L
         val seenByPartner = message.authorUid == myUid && partnerSeenAt >= message.createdAt
 
@@ -124,15 +123,14 @@ internal object ShapedWidgetRenderer {
         remoteViews.setViewVisibility(R.id.shaped_photo_container, if (showPhoto) View.VISIBLE else View.GONE)
         setAuthorName(remoteViews, showPhoto, displayAuthorName)
 
-        // Carousel chrome only when there's more than one message to page
-        // through — the common steady-state (nothing unseen but the
-        // latest) looks exactly like the pre-carousel single-message view.
-        // Dot count shrinks (not a fixed row with a moving highlight) as
-        // pages get marked seen, since the window itself shrinks — the
-        // first dot is always the current page.
+        // Carousel chrome shows whenever there's more than one message
+        // available to page through, period — not gated by anyone's seen
+        // status anymore (see displayWindow below for why that used to
+        // cause real problems). The only time it's hidden is when there
+        // simply isn't a second message yet to page to.
         if (window.size > 1) {
             val activeColor = ContextCompat.getColor(context, R.color.widget_border)
-            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, 0, activeColor))
+            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, currentIndex, activeColor))
             remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.VISIBLE)
             remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.VISIBLE)
             ReactionActionBinder.bindAdvanceAction(context, remoteViews, appWidgetId)
@@ -148,27 +146,19 @@ internal object ShapedWidgetRenderer {
         remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.GONE)
     }
 
-    // Oldest-still-unseen through newest — a "catch up from where you left
-    // off" order that ends on the most recent message, same as opening a
-    // chat scrolled to your last read position. Falls back to just the
-    // latest message once everything's been seen, so the common
-    // steady-state case still renders the same single page it always has.
-    //
-    // Unseen is judged against myLastSeenAt (a timestamp), the exact same
-    // signal MessageHistoryViewModel's Sent/Seen badge already uses — NOT a
-    // per-message reaction tag, which is what the carousel used to check.
-    // That reaction only ever got added one message at a time (by whichever
-    // page happened to be on screen), so it drifted out of sync with what
-    // opening the app's History screen already considered read, and the
-    // carousel could get stuck showing a "backlog" of messages the user had
-    // long since actually seen. Internal (not private) so
-    // ShapedCarouselAdvanceReceiver can compute the same window to know
-    // which message an advance tap is moving past.
-    internal fun unseenWindow(messages: List<Message>, myUid: String?, myLastSeenAt: Long): List<Message> {
-        if (messages.isEmpty()) return emptyList()
-        val firstUnseenIndex = messages.indexOfFirst { it.authorUid != myUid && it.createdAt > myLastSeenAt }
-        return if (firstUnseenIndex == -1) listOf(messages.last()) else messages.subList(firstUnseenIndex, messages.size)
-    }
+    // Newest-first, capped at `size` — always just "the latest N messages",
+    // full stop. Earlier this was gated by per-user seen/unseen state
+    // instead: only "caught up" once you'd read everything, otherwise stuck
+    // showing a backlog. That coupling meant a passive background refresh
+    // (or a mismatch between the app's own idea of "seen" and the widget's)
+    // could leave the carousel stuck or drifting out of sync with what
+    // you'd actually read. Always showing the same fixed, predictable
+    // window removes that failure mode entirely — at the cost of no longer
+    // trying to auto-track a "read position" for you. Internal (not
+    // private) so ShapedCarouselAdvanceReceiver can compute the same
+    // window size to wrap its "next" tap against.
+    internal fun displayWindow(messages: List<Message>, size: Int): List<Message> =
+        messages.takeLast(size.coerceAtLeast(1)).asReversed()
 
     // Drawn as a single bitmap rather than one real view per dot — dots are
     // purely decorative (not individually tappable; btn_carousel_advance is

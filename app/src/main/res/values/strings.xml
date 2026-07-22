@@ -51,6 +51,10 @@
 
     <string name="guide_quiet_hours_title">Quiet hours</string>
     <string name="guide_quiet_hours_desc">Mutes notification popups on this device during these hours — the widget still updates quietly.</string>
+
+    <string name="carousel_size_title">Widget carousel</string>
+    <string name="carousel_size_desc">How many recent messages the widget lets you page through, newest first.</string>
+    <string name="carousel_size_option">%1$d</string>
     <string name="guide_quiet_hours_start">Start: %1$s</string>
     <string name="guide_quiet_hours_end">End: %1$s</string>
     <string name="guide_quiet_hours_ok">OK</string>
@@ -59,7 +63,7 @@
     <string name="countdown_banner_days">💫 %2$d days until %1$s</string>
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
-    <string name="widget_shaped_description">A custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Shows the newest message, photo included.</string>
+    <string name="widget_shaped_description">A custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Page through the latest messages, photos included.</string>
     <string name="widget_photo_fallback">📷 A photo</string>
     <string name="widget_label_shaped">Glimpse</string>
     <string name="widget_seen_suffix">%1$s · 👀</string>

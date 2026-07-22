@@ -54,12 +54,12 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             database.child("shared/messages").push().setValue(message).await()
         }
-        // Sending implies you've read the conversation up to now — without
-        // this, an unrelated backlog of older partner messages you hadn't
-        // individually opened the widget's carousel far enough to catch up
-        // on would keep showing as unseen even after you'd clearly moved on
-        // and replied. Best-effort: FirebaseSync.markSeenUpTo swallows its
-        // own errors, so a hiccup here never fails the send itself.
+        // Sending implies you've read the conversation up to now — keeps
+        // your last-seen-at marker (and so your partner's Sent/Seen badge
+        // for their own messages, plus the widget's small "seen" mark on
+        // yours) from lagging behind just because you replied without
+        // separately opening History. Best-effort: FirebaseSync.markSeenUpTo
+        // swallows its own errors, so a hiccup here never fails the send.
         FirebaseSync.markSeenUpTo(now)
     }
 
