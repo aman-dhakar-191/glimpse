@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Non-rectangular widget outline: a transparent root + custom silhouette
+<!-- Separate widget from widget_shaped_message.xml — this one is the
+     carousel variant, picked as its own distinct item in the launcher's
+     "add widget" list rather than replacing the plain single-message
+     Glimpse widget. See ShapedCarouselWidget/ShapedCarouselWidgetRenderer.
+
+     Non-rectangular widget outline: a transparent root + custom silhouette
      ImageView. RemoteViews can't do real pixel-level clipping (no
      ClipPath/Outline support, and the launcher's grid cell stays
      rectangular no matter what) — this only changes what gets PAINTED
@@ -37,7 +42,7 @@
         android:gravity="center">
 
         <!-- Author name for text-only messages only — shown/hidden opposite
-             shaped_author_name_overlay below, see ShapedWidgetRenderer.
+             shaped_author_name_overlay below, see ShapedCarouselWidgetRenderer.
              Photo messages skip this row entirely (the overlay reads
              better directly on the photo) so it doesn't leave an empty
              gap when there's nothing else to show up here. -->
@@ -94,6 +99,20 @@
             android:autoSizeMinTextSize="14sp"
             android:autoSizeMaxTextSize="72sp"
             android:autoSizeStepGranularity="2sp" />
+
+        <!-- Carousel page indicator — a single bitmap drawn in code (see
+             ShapedCarouselWidgetRenderer.buildDotRowBitmap), not one real
+             view per dot. Purely decorative: dots aren't individually
+             tappable, btn_carousel_advance below is the only way to move
+             through the window. Only shown when there's more than one
+             message to page through. -->
+        <ImageView
+            android:id="@+id/shaped_carousel_dots"
+            android:layout_width="wrap_content"
+            android:layout_height="10dp"
+            android:layout_marginTop="2dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null" />
     </LinearLayout>
 
     <!-- Icon-only quick-react, overlaid in the card's bottom-right corner
@@ -119,4 +138,24 @@
         android:background="@drawable/widget_react_icon_bg"
         android:text="😊"
         android:textSize="14sp" />
+
+    <!-- Carousel "next page" control — left edge, opposite corner from
+         btn_react. Only ever advances (see ShapedCarouselAdvanceReceiver);
+         dots above are not independently tappable. Hidden whenever there's
+         only one message to show (see ShapedCarouselWidgetRenderer). -->
+    <Button
+        android:id="@+id/btn_carousel_advance"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_alignBottom="@id/widget_root"
+        android:layout_alignStart="@id/widget_root"
+        android:layout_marginBottom="4dp"
+        android:layout_marginStart="4dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="0dp"
+        android:background="@drawable/widget_react_icon_bg"
+        android:text="›"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 </RelativeLayout>

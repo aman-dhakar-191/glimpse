@@ -63,9 +63,11 @@
     <string name="countdown_banner_days">💫 %2$d days until %1$s</string>
 
     <string name="widget_no_message">No messages yet. Open Glimpse to say hello!</string>
-    <string name="widget_shaped_description">A custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Page through the latest messages, photos included.</string>
+    <string name="widget_shaped_description">A custom blob-shaped outline instead of the usual rounded rectangle (the home screen grid slot itself is always a rectangle — this just paints a shape inside it). Shows the newest message, photo included.</string>
+    <string name="widget_shaped_carousel_description">Same blob-shaped outline as the Glimpse widget, but lets you page through your latest messages instead of only the newest one.</string>
     <string name="widget_photo_fallback">📷 A photo</string>
     <string name="widget_label_shaped">Glimpse</string>
+    <string name="widget_label_shaped_carousel">Glimpse Carousel</string>
     <string name="widget_seen_suffix">%1$s · 👀</string>
     <string name="qs_tile_label">Send a Glimpse</string>
 

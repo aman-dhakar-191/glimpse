@@ -12,10 +12,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 // Handles the carousel's "next page" tap — btn_carousel_advance in
-// widget_shaped_message.xml. Cycles through the fixed latest-N window (see
-// ShapedWidgetRenderer.displayWindow) with wraparound; there's no
-// seen/unseen state involved, so this is a pure "browse the recent history"
-// control, not a catch-up mechanism.
+// widget_shaped_carousel.xml (the separate "Glimpse Carousel" widget, not
+// the plain ShapedMessageWidget). Cycles through the fixed latest-N window
+// (see ShapedCarouselWidgetRenderer.displayWindow) with wraparound; there's
+// no seen/unseen state involved, so this is a pure "browse the recent
+// history" control, not a catch-up mechanism.
 class ShapedCarouselAdvanceReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -30,11 +31,11 @@ class ShapedCarouselAdvanceReceiver : BroadcastReceiver() {
                 // message arrived) since this button's RemoteViews were
                 // last rendered, and advance() needs the CURRENT window
                 // size to wrap correctly.
-                val messages = FirebaseSync.fetchRecentMessagesOnce(ShapedWidgetRenderer.CAROUSEL_LIMIT)
-                val windowSize = ShapedWidgetRenderer.displayWindow(messages, CarouselSettingsStore.load(context)).size
+                val messages = FirebaseSync.fetchRecentMessagesOnce(ShapedCarouselWidgetRenderer.CAROUSEL_LIMIT)
+                val windowSize = ShapedCarouselWidgetRenderer.displayWindow(messages, CarouselSettingsStore.load(context)).size
                 ShapedCarouselPageStore.advance(context, appWidgetId, windowSize)
 
-                val remoteViews = ShapedWidgetRenderer.render(context, appWidgetId, messages)
+                val remoteViews = ShapedCarouselWidgetRenderer.render(context, appWidgetId, messages)
                 AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, remoteViews)
             } finally {
                 pendingResult.finish()

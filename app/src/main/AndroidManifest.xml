@@ -59,7 +59,24 @@
                 android:resource="@xml/widget_shaped_message_info" />
         </receiver>
 
-        <!-- Handles the "next page" tap on the shaped widget's carousel —
+        <!-- Separate "Glimpse Carousel" widget — same blob shape, but a
+             distinct, individually pickable widget that pages through the
+             latest few messages instead of only the newest one. See
+             ShapedCarouselWidget/ShapedCarouselWidgetRenderer/
+             widget_shaped_carousel.xml. -->
+        <receiver
+            android:name=".widgets.ShapedCarouselWidget"
+            android:exported="true"
+            android:label="@string/widget_label_shaped_carousel">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_shaped_carousel_info" />
+        </receiver>
+
+        <!-- Handles the "next page" tap on the Glimpse Carousel widget —
              see ShapedCarouselAdvanceReceiver. -->
         <receiver
             android:name=".widgets.ShapedCarouselAdvanceReceiver"

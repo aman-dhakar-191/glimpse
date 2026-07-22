@@ -13,6 +13,8 @@ import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.notification.NotificationChannels
+import com.glimpse.app.widgets.ShapedCarouselWidget
+import com.glimpse.app.widgets.ShapedCarouselWidgetRenderer
 import com.glimpse.app.widgets.ShapedMessageWidget
 import com.glimpse.app.widgets.ShapedWidgetRenderer
 import com.google.firebase.database.ValueEventListener
@@ -53,11 +55,18 @@ class WidgetUpdateService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Same Firebase listener/message batch feeds both widgets — that's just
+    // shared fetch infrastructure, not shared rendering: each provider still
+    // has its own dedicated renderer (ShapedWidgetRenderer /
+    // ShapedCarouselWidgetRenderer) and gets its own slice of the batch.
     private fun updateWidgets(messages: List<Message>) {
         serviceScope.launch {
             val appWidgetManager = AppWidgetManager.getInstance(this@WidgetUpdateService)
             updateProvider(appWidgetManager, ShapedMessageWidget::class.java) { id ->
-                ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages)
+                ShapedWidgetRenderer.render(this@WidgetUpdateService, id, messages.lastOrNull())
+            }
+            updateProvider(appWidgetManager, ShapedCarouselWidget::class.java) { id ->
+                ShapedCarouselWidgetRenderer.render(this@WidgetUpdateService, id, messages)
             }
         }
     }
@@ -95,10 +104,12 @@ class WidgetUpdateService : Service() {
         private const val TAG = "WidgetUpdateService"
         private const val NOTIFICATION_ID = 1001
 
-        // Matches ShapedWidgetRenderer's carousel fetch cap — listenToHistory
-        // needs to keep at least this many recent messages around for the
-        // carousel to have a full window to page through, regardless of
-        // what CarouselSettingsStore's user-facing display size is set to.
-        private const val HISTORY_LIMIT = ShapedWidgetRenderer.CAROUSEL_LIMIT
+        // Sized for the carousel widget's fetch cap (the plain widget only
+        // ever needs the single latest message, via messages.lastOrNull())
+        // — listenToHistory needs to keep at least this many recent
+        // messages around for the carousel to have a full window to page
+        // through, regardless of what CarouselSettingsStore's user-facing
+        // display size is set to.
+        private const val HISTORY_LIMIT = ShapedCarouselWidgetRenderer.CAROUSEL_LIMIT
     }
 }

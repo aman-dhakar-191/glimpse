@@ -13,15 +13,29 @@ import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
+import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
 
-// Renders the plain "Glimpse" widget — always just the single newest
-// message, no carousel. See ShapedCarouselWidgetRenderer for the separate
-// carousel widget, which is a distinct, individually pickable widget rather
-// than a mode of this one.
-internal object ShapedWidgetRenderer {
+// Renders the SEPARATE "Glimpse Carousel" widget (widget_shaped_carousel.xml
+// / ShapedCarouselWidget) — a distinct, individually pickable widget from
+// the plain single-message "Glimpse" widget (ShapedWidgetRenderer /
+// widget_shaped_message.xml), not a mode of it. Deliberately its own file
+// rather than a shared/generic "WidgetRenderer" utility spanning both, even
+// though the two share a lot of presentation logic below — keeping the
+// carousel-specific concerns (window/page selection, dots, advance button)
+// isolated here means the plain widget's own code never has to know the
+// carousel exists.
+//
+// Single size, single provider instance's worth of RemoteViews, and only
+// ever the CURRENTLY DISPLAYED page's photo gets loaded — never every page
+// in the carousel window at once — so there's no risk of the same photo
+// (or several different ones) getting embedded together into one Binder
+// transaction. That rule is the actual fix for the old carousel's
+// TransactionTooLargeException history; keep it if this is ever extended
+// further.
+internal object ShapedCarouselWidgetRenderer {
 
     // Photo is masked to a fixed square so the mask math below doesn't need
     // to know the ImageView's actual runtime pixel size (RemoteViews gives
@@ -30,27 +44,42 @@ internal object ShapedWidgetRenderer {
     // without ever cropping into the masked shape.
     private const val PHOTO_MASK_SIZE = 300
 
-    suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
-        val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
+    // Upper bound on how many recent messages get fetched/kept in reach for
+    // the carousel — independent of CarouselSettingsStore's user-facing
+    // "how many to display" setting (which is capped at this same value),
+    // so a Settings change never needs the underlying Firebase listener to
+    // be re-created with a new limit.
+    const val CAROUSEL_LIMIT = CarouselSettingsStore.MAX_SIZE
+
+    suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
+        val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_carousel)
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
 
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
 
-        if (message == null) {
+        if (messages.isEmpty()) {
             ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, "")
+            hideCarouselChrome(remoteViews)
             setAuthorName(remoteViews, showPhoto = false, name = "")
             remoteViews.setTextViewText(R.id.shaped_message_content, context.getString(R.string.widget_no_message))
             remoteViews.setViewVisibility(R.id.shaped_photo_container, View.GONE)
             return remoteViews
         }
 
+        val window = displayWindow(messages, CarouselSettingsStore.load(context))
+        val windowKey = window.joinToString(",") { it.id }
+        val currentIndex = ShapedCarouselPageStore.indexForWindow(context, appWidgetId, windowKey, window.size)
+        val message = window[currentIndex]
+
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message.id)
 
         // Best-effort "I looked at this" proxy for whichever message
-        // happens to be on screen right now — Android gives no signal for
-        // "a human actually looked at the home-screen widget", so this
-        // just feeds the Sent/Seen mark below (and the History screen's
-        // own badge) rather than being a literal read receipt.
+        // happens to be on screen right now — purely feeds the Sent/Seen
+        // mark below (and the History screen's own badge). It has no
+        // effect on what the carousel shows or which page you're on
+        // anymore, so there's no risk of a background refresh nobody
+        // actually looked at silently shifting the window out from under
+        // you — see displayWindow's comment for why that used to happen.
         FirebaseSync.markSeenIfNeeded(message)
 
         // A small "seen" mark on your OWN message once your partner's
@@ -104,7 +133,59 @@ internal object ShapedWidgetRenderer {
         remoteViews.setViewVisibility(R.id.shaped_photo_container, if (showPhoto) View.VISIBLE else View.GONE)
         setAuthorName(remoteViews, showPhoto, displayAuthorName)
 
+        // Carousel chrome shows whenever there's more than one message
+        // available to page through, period — not gated by anyone's seen
+        // status (see displayWindow below). The only time it's hidden is
+        // when there simply isn't a second message yet to page to.
+        if (window.size > 1) {
+            val activeColor = ContextCompat.getColor(context, R.color.widget_border)
+            remoteViews.setImageViewBitmap(R.id.shaped_carousel_dots, buildDotRowBitmap(window.size, currentIndex, activeColor))
+            remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.VISIBLE)
+            remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.VISIBLE)
+            ReactionActionBinder.bindAdvanceAction(context, remoteViews, appWidgetId)
+        } else {
+            hideCarouselChrome(remoteViews)
+        }
+
         return remoteViews
+    }
+
+    private fun hideCarouselChrome(remoteViews: RemoteViews) {
+        remoteViews.setViewVisibility(R.id.shaped_carousel_dots, View.GONE)
+        remoteViews.setViewVisibility(R.id.btn_carousel_advance, View.GONE)
+    }
+
+    // Newest-first, capped at `size` — always just "the latest N messages",
+    // full stop, independent of anyone's seen/unseen status. Internal (not
+    // private) so ShapedCarouselAdvanceReceiver can compute the same window
+    // size to wrap its "next" tap against.
+    internal fun displayWindow(messages: List<Message>, size: Int): List<Message> =
+        messages.takeLast(size.coerceAtLeast(1)).asReversed()
+
+    // Drawn as a single bitmap rather than one real view per dot — dots are
+    // purely decorative (not individually tappable; btn_carousel_advance is
+    // the only navigation), so there's no need to pay for N inflated views
+    // plus N PendingIntents just to show N small circles.
+    private fun buildDotRowBitmap(count: Int, activeIndex: Int, activeColor: Int): Bitmap {
+        val dotSize = 40
+        val spacing = 24
+        val inactiveColor = 0x66FFFFFF
+        val width = count * dotSize + (count - 1) * spacing
+        val bitmap = Bitmap.createBitmap(width, dotSize, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        for (i in 0 until count) {
+            val cx = i * (dotSize + spacing) + dotSize / 2f
+            val cy = dotSize / 2f
+            if (i == activeIndex) {
+                paint.color = activeColor
+                canvas.drawCircle(cx, cy, dotSize / 2f, paint)
+            } else {
+                paint.color = inactiveColor
+                canvas.drawCircle(cx, cy, dotSize / 2.8f, paint)
+            }
+        }
+        return bitmap
     }
 
     // Photo messages show the author name as a small label overlaid on the
