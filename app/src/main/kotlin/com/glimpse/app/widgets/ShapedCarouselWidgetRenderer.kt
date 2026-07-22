@@ -1,5 +1,6 @@
 package com.glimpse.app.widgets
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -50,6 +51,21 @@ internal object ShapedCarouselWidgetRenderer {
     // so a Settings change never needs the underlying Firebase listener to
     // be re-created with a new limit.
     const val CAROUSEL_LIMIT = CarouselSettingsStore.MAX_SIZE
+
+    // Advances the given widget instance to its next carousel page and
+    // pushes the update — shared by the tap-triggered
+    // ShapedCarouselAdvanceReceiver and the periodic
+    // CarouselAutoAdvanceWorker, so both go through the exact same
+    // page-advance logic; auto-advance is just this on a timer instead of a
+    // touch.
+    suspend fun advanceAndPush(context: Context, appWidgetId: Int) {
+        val messages = FirebaseSync.fetchRecentMessagesOnce(CAROUSEL_LIMIT)
+        val windowSize = displayWindow(messages, CarouselSettingsStore.load(context)).size
+        ShapedCarouselPageStore.advance(context, appWidgetId, windowSize)
+
+        val remoteViews = render(context, appWidgetId, messages)
+        AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, remoteViews)
+    }
 
     suspend fun render(context: Context, appWidgetId: Int, messages: List<Message>): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_carousel)

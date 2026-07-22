@@ -55,6 +55,7 @@ import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateScreen
 import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.data.update.UpdateChecker
+import com.glimpse.app.work.CarouselAutoAdvanceWorker
 import com.glimpse.app.work.StreakCheckWorker
 import com.glimpse.app.work.UpdateCheckWorker
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -133,6 +134,11 @@ class MainActivity : ComponentActivity() {
         StreakCheckWorker.schedule(this)
         UpdateCheckWorker.schedule(this)
         UpdateCheckWorker.checkNow(this)
+        // Re-applies whatever auto-advance interval was last saved (see
+        // CarouselSettingsStore) — a no-op if it's off, and otherwise makes
+        // sure the periodic schedule survives a reboot/reinstall rather than
+        // only ever being set when the Settings screen itself is opened.
+        CarouselAutoAdvanceWorker.reschedule(this)
     }
 
     private fun onUpdateClick() {
@@ -320,6 +326,7 @@ class MainActivity : ComponentActivity() {
                             carouselSettingsUiState = carouselSettingsUiState,
                             onLoadCarouselSettings = { carouselSettingsViewModel.load() },
                             onSetCarouselSize = { size -> carouselSettingsViewModel.setSize(size) },
+                            onSetCarouselAutoAdvanceMinutes = { minutes -> carouselSettingsViewModel.setAutoAdvanceMinutes(minutes) },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 
