@@ -95,9 +95,10 @@ class WidgetUpdateService : Service() {
         private const val TAG = "WidgetUpdateService"
         private const val NOTIFICATION_ID = 1001
 
-        // Matches ShapedWidgetRenderer's catch-up carousel window size —
-        // listenToHistory needs to keep at least this many recent messages
-        // around for the carousel to have a full window to page through.
+        // Matches ShapedWidgetRenderer's carousel fetch cap — listenToHistory
+        // needs to keep at least this many recent messages around for the
+        // carousel to have a full window to page through, regardless of
+        // what CarouselSettingsStore's user-facing display size is set to.
         private const val HISTORY_LIMIT = ShapedWidgetRenderer.CAROUSEL_LIMIT
     }
 }
