@@ -46,6 +46,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -240,7 +242,39 @@ fun ComposeMessageScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Was four TextButtons crammed into the header row, which wrapped
+        // ("Settings" broke onto its own line) on narrower screens — a
+        // bottom nav has fixed-width slots for however many items there
+        // are, so it can't overflow the same way.
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenDrawing,
+                    icon = { Text("🎨", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.nav_draw)) }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenHistory,
+                    icon = { Text("📜", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.compose_history_link)) }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenGuide,
+                    icon = { Text("🧩", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.compose_widget_guide_link)) }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenSettings,
+                    icon = { Text("⚙️", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.compose_settings_link)) }
+                )
+            }
+        }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -250,34 +284,14 @@ fun ComposeMessageScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
-                    if (partnerMoodEmoji.isNotBlank()) {
-                        Text(
-                            partnerMoodEmoji,
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                }
-                Row {
-                    TextButton(onClick = onOpenDrawing) {
-                        Text(stringResource(R.string.compose_draw_link))
-                    }
-                    TextButton(onClick = onOpenHistory) {
-                        Text(stringResource(R.string.compose_history_link))
-                    }
-                    TextButton(onClick = onOpenGuide) {
-                        Text(stringResource(R.string.compose_widget_guide_link))
-                    }
-                    TextButton(onClick = onOpenSettings) {
-                        Text(stringResource(R.string.compose_settings_link))
-                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+                if (partnerMoodEmoji.isNotBlank()) {
+                    Text(
+                        partnerMoodEmoji,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
                 }
             }
 
