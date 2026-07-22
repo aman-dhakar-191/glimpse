@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,9 +108,19 @@ fun DrawingScreen(
     onBeginMove: () -> Unit,
     onMoveSelectionBy: (Float, Float) -> Unit,
     onEndMove: () -> Unit,
+    onMarkPresent: () -> Unit,
+    onClearPresent: () -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(Unit) { onStart() }
+
+    // Tied to this composable actually being on screen (not the ViewModel's
+    // Activity-long lifetime like onStart() above) — presence needs to flip
+    // off the moment you navigate away, not just when the Activity dies.
+    DisposableEffect(Unit) {
+        onMarkPresent()
+        onDispose { onClearPresent() }
+    }
 
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var showClearConfirm by remember { mutableStateOf(false) }
@@ -324,6 +335,14 @@ fun DrawingScreen(
                 shadowElevation = 4.dp
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
+                    if (uiState.partnerPresent) {
+                        Text(
+                            stringResource(R.string.drawing_partner_present),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,

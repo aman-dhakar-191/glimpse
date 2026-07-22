@@ -30,6 +30,7 @@ object FirebaseSync {
     private fun moodsRef() = database.child("shared/moods")
     private fun specialDateRef() = database.child("shared/specialDate")
     private fun liveDrawingStrokesRef() = database.child("shared/live_drawing/strokes")
+    private fun liveDrawingPresenceRef() = database.child("shared/live_drawing/presence")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -417,5 +418,43 @@ object FirebaseSync {
         } catch (e: Exception) {
             Log.e(TAG, "clearLiveDrawing failed", e)
         }
+    }
+
+    // Marks you as actively on the Draw screen — lets the OTHER person see
+    // "your partner is drawing too" in real time. onDisconnect() clears this
+    // server-side the moment the connection drops (app killed, network
+    // lost, etc.), so a crash/force-close can't leave you stuck looking
+    // "present" forever; a normal screen exit clears it immediately via
+    // clearDrawingPresence() instead of waiting on that.
+    fun markDrawingPresence() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val ref = liveDrawingPresenceRef().child(uid)
+        ref.onDisconnect().removeValue()
+        ref.setValue(true)
+    }
+
+    fun clearDrawingPresence() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        liveDrawingPresenceRef().child(uid).removeValue()
+    }
+
+    // Every uid currently marked present — callers filter out their own to
+    // get "is my PARTNER on the Draw screen right now".
+    fun listenToDrawingPresence(onPresentUids: (Set<String>) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onPresentUids(snapshot.children.mapNotNull { it.key }.toSet())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "listenToDrawingPresence cancelled", error.toException())
+            }
+        }
+        liveDrawingPresenceRef().addValueEventListener(listener)
+        return listener
+    }
+
+    fun removeDrawingPresenceListener(listener: ValueEventListener) {
+        liveDrawingPresenceRef().removeEventListener(listener)
     }
 }

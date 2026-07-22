@@ -386,6 +386,8 @@ class MainActivity : ComponentActivity() {
                             onBeginMove = { drawingViewModel.beginMove() },
                             onMoveSelectionBy = { dx, dy -> drawingViewModel.moveSelectionBy(dx, dy) },
                             onEndMove = { drawingViewModel.endMove() },
+                            onMarkPresent = { drawingViewModel.markPresent() },
+                            onClearPresent = { drawingViewModel.clearPresent() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }
