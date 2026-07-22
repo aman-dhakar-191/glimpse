@@ -32,6 +32,8 @@ import com.glimpse.app.ui.auth.LoginViewModel
 import com.glimpse.app.ui.countdown.CountdownBanner
 import com.glimpse.app.ui.countdown.CountdownViewModel
 import com.glimpse.app.ui.dailyprompt.DailyPromptViewModel
+import com.glimpse.app.ui.drawing.DrawingScreen
+import com.glimpse.app.ui.drawing.DrawingViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
 import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
@@ -63,7 +65,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update }
+private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update, Drawing }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -80,6 +82,7 @@ class MainActivity : ComponentActivity() {
     private val dailyPromptViewModel: DailyPromptViewModel by viewModels()
     private val quietHoursViewModel: QuietHoursViewModel by viewModels()
     private val carouselSettingsViewModel: CarouselSettingsViewModel by viewModels()
+    private val drawingViewModel: DrawingViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -235,6 +238,7 @@ class MainActivity : ComponentActivity() {
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
                     val carouselSettingsUiState by carouselSettingsViewModel.uiState.collectAsState()
+                    val drawingUiState by drawingViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
                     // back stack (screen is just a flat mutableStateOf), so
@@ -282,6 +286,7 @@ class MainActivity : ComponentActivity() {
                                     onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
                                     onOpenSettings = { screen = AppScreen.Settings },
+                                    onOpenDrawing = { screen = AppScreen.Drawing },
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     dailyPromptUiState = dailyPromptUiState,
                                     onLoadDailyPrompt = { dailyPromptViewModel.check() },
@@ -361,6 +366,20 @@ class MainActivity : ComponentActivity() {
                             currentVersionCode = BuildConfig.VERSION_CODE,
                             onCheckForUpdate = { updateViewModel.checkForUpdate() },
                             onInstallClick = { onUpdateClick() },
+                            onBack = { screen = AppScreen.Compose }
+                        )
+
+                        AppScreen.Drawing -> DrawingScreen(
+                            uiState = drawingUiState,
+                            onStart = { drawingViewModel.start() },
+                            onSetColor = { color -> drawingViewModel.setColor(color) },
+                            onStrokeStart = { x, y -> drawingViewModel.onStrokeStart(x, y) },
+                            onStrokeMove = { x, y -> drawingViewModel.onStrokeMove(x, y) },
+                            onStrokeEnd = { drawingViewModel.onStrokeEnd() },
+                            onUndo = { drawingViewModel.undoLastStroke() },
+                            onClear = { drawingViewModel.clearCanvas() },
+                            onSend = { drawingViewModel.send() },
+                            onSendStateHandled = { drawingViewModel.consumeSendState() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }

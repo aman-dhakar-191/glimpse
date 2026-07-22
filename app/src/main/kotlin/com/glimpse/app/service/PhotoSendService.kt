@@ -18,14 +18,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
 
-// Sending a photo can't be queued/retried later like a text message (see
-// ComposeMessageViewModel — the ORIGINAL picker/camera Uri's read access
-// isn't guaranteed to survive a long background wait), but that only
-// applies to that original Uri. ComposeMessageViewModel copies those bytes
-// into our own cache file before ever starting this service, so the
-// actual upload has nothing left to lose by running in a real foreground
-// service instead of a ViewModel-scoped coroutine — closing/swiping the
-// app mid-upload no longer interrupts the send.
+// Sending a photo (or a drawing — see messageType) can't be queued/retried
+// later like a text message (see ComposeMessageViewModel/DrawingViewModel —
+// the ORIGINAL picker/camera Uri's read access isn't guaranteed to survive
+// a long background wait), but that only applies to that original Uri.
+// Callers copy/render those bytes into our own cache file before ever
+// starting this service, so the actual upload has nothing left to lose by
+// running in a real foreground service instead of a ViewModel-scoped
+// coroutine — closing/swiping the app mid-upload no longer interrupts the
+// send.
 class PhotoSendService : Service() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
@@ -39,12 +40,13 @@ class PhotoSendService : Service() {
         val caption = intent.getStringExtra(EXTRA_CAPTION).orEmpty()
         val unlockAt = intent.getLongExtra(EXTRA_UNLOCK_AT, 0L)
         val contentType = intent.getStringExtra(EXTRA_CONTENT_TYPE) ?: "image/jpeg"
+        val messageType = intent.getStringExtra(EXTRA_MESSAGE_TYPE) ?: "photo"
 
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForeground(NOTIFICATION_ID, buildNotification(messageType))
 
         val file = File(filePath)
         serviceScope.launch {
-            val result = MessageRepository().sendPhotoMessage(Uri.fromFile(file), caption, unlockAt, contentType)
+            val result = MessageRepository().sendPhotoMessage(Uri.fromFile(file), caption, unlockAt, contentType, messageType)
             file.delete()
             // The ongoing "sending" notification above disappears on its own
             // once this foreground service stops — this is the actual
@@ -52,11 +54,23 @@ class PhotoSendService : Service() {
             // whether it went through.
             if (result.isSuccess) {
                 WidgetSyncTrigger.requestSync(applicationContext)
-                SendingNotifier.showPhotoSent(applicationContext)
+                if (messageType == "drawing") {
+                    SendingNotifier.showDrawingSent(applicationContext)
+                } else {
+                    SendingNotifier.showPhotoSent(applicationContext)
+                }
             } else {
-                SendingNotifier.showPhotoSendFailed(applicationContext)
+                if (messageType == "drawing") {
+                    SendingNotifier.showDrawingSendFailed(applicationContext)
+                } else {
+                    SendingNotifier.showPhotoSendFailed(applicationContext)
+                }
             }
-            PhotoSendResults.post(result)
+            if (messageType == "drawing") {
+                PhotoSendResults.postDrawing(result)
+            } else {
+                PhotoSendResults.postPhoto(result)
+            }
             stopSelf(startId)
         }
         return START_NOT_STICKY
@@ -69,9 +83,9 @@ class PhotoSendService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildNotification(): Notification =
+    private fun buildNotification(messageType: String): Notification =
         NotificationCompat.Builder(this, NotificationChannels.SENDING)
-            .setContentTitle(getString(R.string.sending_photo_notification))
+            .setContentTitle(getString(if (messageType == "drawing") R.string.sending_drawing_notification else R.string.sending_photo_notification))
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
@@ -84,13 +98,22 @@ class PhotoSendService : Service() {
         private const val EXTRA_CAPTION = "com.glimpse.app.EXTRA_CAPTION"
         private const val EXTRA_UNLOCK_AT = "com.glimpse.app.EXTRA_UNLOCK_AT"
         private const val EXTRA_CONTENT_TYPE = "com.glimpse.app.EXTRA_CONTENT_TYPE"
+        private const val EXTRA_MESSAGE_TYPE = "com.glimpse.app.EXTRA_MESSAGE_TYPE"
 
-        fun start(context: Context, file: File, caption: String, unlockAt: Long, contentType: String) {
+        fun start(
+            context: Context,
+            file: File,
+            caption: String,
+            unlockAt: Long,
+            contentType: String,
+            messageType: String = "photo"
+        ) {
             val intent = Intent(context, PhotoSendService::class.java).apply {
                 putExtra(EXTRA_FILE_PATH, file.absolutePath)
                 putExtra(EXTRA_CAPTION, caption)
                 putExtra(EXTRA_UNLOCK_AT, unlockAt)
                 putExtra(EXTRA_CONTENT_TYPE, contentType)
+                putExtra(EXTRA_MESSAGE_TYPE, messageType)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

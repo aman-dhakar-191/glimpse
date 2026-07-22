@@ -24,10 +24,10 @@ fun OnThisDayBanner(
 ) {
     if (uiState !is OnThisDayUiState.Found) return
 
-    val preview = if (uiState.message.type == "photo") {
-        stringResource(R.string.on_this_day_photo_preview)
-    } else {
-        uiState.message.content
+    val preview = when (uiState.message.type) {
+        "photo" -> stringResource(R.string.on_this_day_photo_preview)
+        "drawing" -> stringResource(R.string.on_this_day_drawing_preview)
+        else -> uiState.message.content
     }
     val periodLabel = stringResource(
         when (uiState.period) {

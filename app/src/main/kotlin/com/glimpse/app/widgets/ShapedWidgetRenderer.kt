@@ -75,16 +75,16 @@ internal object ShapedWidgetRenderer {
         val hiddenByLock = message.isLocked && message.authorUid != myUid
         val content = when {
             hiddenByLock -> context.getString(R.string.widget_locked_message)
-            // The photo itself goes into shaped_message_photo below — this
+            // The image itself goes into shaped_message_photo below — this
             // is just the caption line under it (or a fallback if blank).
-            message.type == "photo" -> message.caption
+            message.isImage -> message.caption
             else -> message.content
         }
         remoteViews.setTextViewText(R.id.shaped_message_content, content)
         remoteViews.setViewVisibility(R.id.shaped_message_content, if (content.isNotBlank()) View.VISIBLE else View.GONE)
 
         var showPhoto = false
-        if (message.type == "photo" && !hiddenByLock) {
+        if (message.isImage && !hiddenByLock) {
             val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
             if (photoBitmap != null) {
                 val borderColor = ContextCompat.getColor(context, R.color.widget_border)
@@ -92,7 +92,8 @@ internal object ShapedWidgetRenderer {
                 remoteViews.setImageViewBitmap(R.id.shaped_message_photo, masked)
                 showPhoto = true
             } else {
-                remoteViews.setTextViewText(R.id.shaped_message_content, content.ifBlank { context.getString(R.string.widget_photo_fallback) })
+                val fallback = if (message.type == "drawing") R.string.widget_drawing_fallback else R.string.widget_photo_fallback
+                remoteViews.setTextViewText(R.id.shaped_message_content, content.ifBlank { context.getString(fallback) })
                 remoteViews.setViewVisibility(R.id.shaped_message_content, View.VISIBLE)
             }
         }

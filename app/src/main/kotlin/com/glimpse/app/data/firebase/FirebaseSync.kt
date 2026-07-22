@@ -1,6 +1,7 @@
 package com.glimpse.app.data.firebase
 
 import android.util.Log
+import com.glimpse.app.data.model.LiveStroke
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.data.model.SpecialDate
 import com.google.firebase.auth.FirebaseAuth
@@ -28,6 +29,7 @@ object FirebaseSync {
     private fun allowedUsersRef() = database.child("shared/settings/allowedUsers")
     private fun moodsRef() = database.child("shared/moods")
     private fun specialDateRef() = database.child("shared/specialDate")
+    private fun liveDrawingStrokesRef() = database.child("shared/live_drawing/strokes")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -340,6 +342,80 @@ object FirebaseSync {
     suspend fun clearSpecialDate(): Result<Unit> = runCatching {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             specialDateRef().removeValue().await()
+        }
+    }
+
+    // The shared, joint drawing canvas — both of you can add strokes to the
+    // same one at once (see DrawingViewModel), keyed by push id so two
+    // strokes being drawn at the same time by different people never
+    // overwrite each other the way a single flat "whole canvas" value would.
+
+    // push() allocates a locally-generated unique key synchronously with no
+    // network round trip — safe to call the instant a stroke starts, before
+    // any point has actually been written yet.
+    fun newLiveStrokeId(): String = liveDrawingStrokesRef().push().key ?: java.util.UUID.randomUUID().toString()
+
+    fun listenToLiveDrawing(onStrokes: (Map<String, LiveStroke>) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onStrokes(snapshot.toLiveStrokes())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "listenToLiveDrawing cancelled", error.toException())
+            }
+        }
+        liveDrawingStrokesRef().addValueEventListener(listener)
+        return listener
+    }
+
+    fun removeLiveDrawingListener(listener: ValueEventListener) {
+        liveDrawingStrokesRef().removeEventListener(listener)
+    }
+
+    // One-shot counterpart to listenToLiveDrawing — used when finalizing a
+    // Send, so the rasterized image reflects the exact strokes at that
+    // moment even if this device's own listener callback for the very
+    // latest point hasn't fired yet.
+    suspend fun fetchLiveDrawingOnce(): Map<String, LiveStroke> = try {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            liveDrawingStrokesRef().get().await().toLiveStrokes()
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchLiveDrawingOnce failed", e)
+        emptyMap()
+    }
+
+    private fun DataSnapshot.toLiveStrokes(): Map<String, LiveStroke> =
+        children.mapNotNull { child ->
+            val stroke = child.getValue(LiveStroke::class.java) ?: return@mapNotNull null
+            (child.key ?: return@mapNotNull null) to stroke
+        }.toMap()
+
+    // Deliberately not awaited/suspend — these fire on every added point
+    // while actively dragging a finger across the canvas, so waiting on a
+    // round trip per point would add visible input lag. The SDK queues and
+    // sends writes in order on its own; a dropped one just means the
+    // partner's view catches up on the next successful write; it's a live
+    // preview, not data that needs a delivery guarantee.
+    fun updateLiveStroke(strokeId: String, stroke: LiveStroke) {
+        liveDrawingStrokesRef().child(strokeId).setValue(stroke)
+    }
+
+    fun removeLiveStroke(strokeId: String) {
+        liveDrawingStrokesRef().child(strokeId).removeValue()
+    }
+
+    // Wipes the WHOLE shared canvas, not just the caller's own strokes —
+    // both the deliberate "Clear" action and a successful Send are meant to
+    // reset it for both of you at once.
+    suspend fun clearLiveDrawing() {
+        try {
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                liveDrawingStrokesRef().removeValue().await()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "clearLiveDrawing failed", e)
         }
     }
 }

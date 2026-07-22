@@ -25,4 +25,12 @@ data class Message @JvmOverloads constructor(
     @get:Exclude
     val isLocked: Boolean
         get() = unlockAt > 0 && unlockAt > System.currentTimeMillis()
+
+    // Both "photo" and "drawing" render as an image (photoUrl + optional
+    // caption) — everywhere that distinction matters (both widgets,
+    // MessageHistoryScreen) checks this instead of the raw type string, so
+    // a future third image-like type only needs to change it here.
+    @get:Exclude
+    val isImage: Boolean
+        get() = type == "photo" || type == "drawing"
 }
