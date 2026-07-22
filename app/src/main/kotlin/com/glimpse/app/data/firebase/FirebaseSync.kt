@@ -22,14 +22,6 @@ object FirebaseSync {
     private const val NETWORK_TIMEOUT_MILLIS = 15_000L
     private val database get() = FirebaseDatabase.getInstance().reference
 
-    // Reusing the ordinary reactions mechanism for the "seen" receipt (rather
-    // than inventing a separate marker) means it shows up as a normal
-    // reaction chip on the widget for free, and merges harmlessly if the
-    // other person also happens to react with the same emoji themselves.
-    // Internal (not private) so StatsViewModel can exclude it when computing
-    // "most used reaction" — it's an automatic marker, not a deliberate one.
-    internal const val SEEN_EMOJI = "👀" // 👀
-
     private fun messagesRef() = database.child("shared/messages")
     private fun lastSeenAtRef() = database.child("shared/last_seen_at")
     private fun partnerNicknameRef(uid: String) = database.child("users/$uid/settings/partnerNickname")
@@ -114,8 +106,7 @@ object FirebaseSync {
 
         return try {
             // A dangling transaction with no network otherwise waits
-            // forever — this bounds it so a caller (the reaction retry
-            // worker, or markSeenIfNeeded firing from the widget) always
+            // forever — this bounds it so the reaction retry worker always
             // gets an answer instead of hanging indefinitely.
             withTimeout(NETWORK_TIMEOUT_MILLIS) {
                 suspendCancellableCoroutine { continuation ->
@@ -152,19 +143,68 @@ object FirebaseSync {
     // at the home-screen widget", so this is a proxy for "reached their
     // screen" rather than a literal read receipt — same gap most chat apps
     // have between delivered and read, just here we can only cheaply get
-    // the former. Guarded by the existing reactions dedupe so it's safe to
-    // call repeatedly (e.g. every live-listener firing).
+    // the former.
     suspend fun markSeenIfNeeded(message: Message?) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         if (message == null || message.id.isBlank() || message.authorUid == uid) return
-        if (message.reactions[SEEN_EMOJI]?.contains(uid) == true) return
+        markSeenUpTo(message.createdAt)
+    }
 
-        addReaction(message.id, SEEN_EMOJI)
+    // Bumps my own last-seen-at marker forward to (at least) upToMillis —
+    // never backward, via a transaction, so an out-of-order caller (e.g. the
+    // widget catch-up carousel marking an older page seen after the app
+    // already marked everything seen more recently) can never undo a more
+    // recent "seen". This is the single source of truth "have I seen this"
+    // is judged against everywhere (History screen's Sent/Seen badge, and
+    // the widget's catch-up window) — earlier the widget used a separate
+    // per-message reaction tag instead, which only ever got added one
+    // message at a time and drifted out of sync with what the app's History
+    // screen (which marks the whole loaded page seen via lastSeenAt) already
+    // considered read.
+    suspend fun markSeenUpTo(upToMillis: Long) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         try {
-            lastSeenAtRef().child(uid).setValue(ServerValue.TIMESTAMP).await()
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    lastSeenAtRef().child(uid).runTransaction(object : Transaction.Handler {
+                        override fun doTransaction(mutableData: MutableData): Transaction.Result {
+                            val current = mutableData.getValue(Long::class.java) ?: 0L
+                            if (upToMillis > current) {
+                                mutableData.value = upToMillis
+                            }
+                            return Transaction.success(mutableData)
+                        }
+
+                        override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                            if (error != null) {
+                                Log.e(TAG, "markSeenUpTo failed", error.toException())
+                            }
+                            if (continuation.isActive) {
+                                continuation.resume(Unit)
+                            }
+                        }
+                    })
+                }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "markSeenIfNeeded: last_seen_at write failed", e)
+            Log.e(TAG, "markSeenUpTo failed", e)
         }
+    }
+
+    // One-shot counterpart to listenToLastSeenAt below — used by the widget,
+    // which needs this alongside the message list on every render (both to
+    // compute the catch-up window and to show a "seen" mark on your own
+    // sent message) without keeping a live listener running.
+    suspend fun fetchLastSeenAtOnce(): Map<String, Long> = try {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            lastSeenAtRef().get().await().children.mapNotNull { child ->
+                val ts = child.getValue(Long::class.java) ?: return@mapNotNull null
+                (child.key ?: return@mapNotNull null) to ts
+            }.toMap()
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchLastSeenAtOnce failed", e)
+        emptyMap()
     }
 
     // Whole map (not a single uid) so the caller can work out "did anyone

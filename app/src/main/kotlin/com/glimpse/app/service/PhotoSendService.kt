@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import com.glimpse.app.R
 import com.glimpse.app.data.repository.MessageRepository
 import com.glimpse.app.notification.NotificationChannels
+import com.glimpse.app.notification.SendingNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,8 +46,15 @@ class PhotoSendService : Service() {
         serviceScope.launch {
             val result = MessageRepository().sendPhotoMessage(Uri.fromFile(file), caption, unlockAt, contentType)
             file.delete()
+            // The ongoing "sending" notification above disappears on its own
+            // once this foreground service stops — this is the actual
+            // outcome, so whoever wasn't watching the app still finds out
+            // whether it went through.
             if (result.isSuccess) {
                 WidgetSyncTrigger.requestSync(applicationContext)
+                SendingNotifier.showPhotoSent(applicationContext)
+            } else {
+                SendingNotifier.showPhotoSendFailed(applicationContext)
             }
             PhotoSendResults.post(result)
             stopSelf(startId)
