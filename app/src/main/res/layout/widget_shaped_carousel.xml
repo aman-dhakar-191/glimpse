@@ -139,17 +139,22 @@
         android:text="😊"
         android:textSize="14sp" />
 
-    <!-- Carousel "next page" control — left edge, opposite corner from
-         btn_react. Only ever advances (see ShapedCarouselAdvanceReceiver);
+    <!-- Carousel "next page" control — vertically centered on the left
+         edge (not a bottom corner, so it doesn't read as just another
+         corner button alongside btn_react — a slider-style side arrow
+         instead). Only ever advances (see ShapedCarouselAdvanceReceiver);
          dots above are not independently tappable. Hidden whenever there's
-         only one message to show (see ShapedCarouselWidgetRenderer). -->
+         only one message to show (see ShapedCarouselWidgetRenderer).
+         layout_centerVertical centers within the outer RelativeLayout
+         rather than widget_root itself — equivalent here since
+         widget_root's 22dp margin is symmetric on all sides, so both
+         views share the same vertical center. -->
     <Button
         android:id="@+id/btn_carousel_advance"
         android:layout_width="34dp"
         android:layout_height="34dp"
-        android:layout_alignBottom="@id/widget_root"
         android:layout_alignStart="@id/widget_root"
-        android:layout_marginBottom="4dp"
+        android:layout_centerVertical="true"
         android:layout_marginStart="4dp"
         android:minWidth="0dp"
         android:minHeight="0dp"

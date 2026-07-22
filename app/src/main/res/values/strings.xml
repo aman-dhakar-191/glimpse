@@ -55,6 +55,9 @@
     <string name="carousel_size_title">Widget carousel</string>
     <string name="carousel_size_desc">How many recent messages the widget lets you page through, newest first.</string>
     <string name="carousel_size_option">%1$d</string>
+    <string name="carousel_auto_advance_label">Auto-advance</string>
+    <string name="carousel_auto_advance_off">Off</string>
+    <string name="carousel_auto_advance_option">%1$dm</string>
     <string name="guide_quiet_hours_start">Start: %1$s</string>
     <string name="guide_quiet_hours_end">End: %1$s</string>
     <string name="guide_quiet_hours_ok">OK</string>

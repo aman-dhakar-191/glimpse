@@ -80,6 +80,7 @@ fun SettingsScreen(
     carouselSettingsUiState: CarouselSettingsUiState,
     onLoadCarouselSettings: () -> Unit,
     onSetCarouselSize: (Int) -> Unit,
+    onSetCarouselAutoAdvanceMinutes: (Int) -> Unit,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
@@ -114,7 +115,7 @@ fun SettingsScreen(
 
             QuietHoursCard(quietHoursUiState, onSetQuietHoursEnabled, onSetQuietHoursStart, onSetQuietHoursEnd)
 
-            CarouselSizeCard(carouselSettingsUiState, onSetCarouselSize)
+            CarouselSizeCard(carouselSettingsUiState, onSetCarouselSize, onSetCarouselAutoAdvanceMinutes)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -399,11 +400,18 @@ private fun QuietHoursCard(
 private fun formatMinutes(minutes: Int): String =
     LocalTime.of(minutes / 60, minutes % 60).format(DateTimeFormatter.ofPattern("h:mm a"))
 
-// Local-only, per-device — see CarouselSettingsStore/ShapedWidgetRenderer.
-// Always "the latest N messages" (not seen/unseen-gated), so this directly
-// controls what shows up on the widget with no other state to reconcile.
+// Local-only, per-device — see CarouselSettingsStore/ShapedCarouselWidgetRenderer.
+// The size row is always "the latest N messages" (not seen/unseen-gated),
+// so it directly controls what shows up on the widget with no other state
+// to reconcile. Auto-advance is a separate, independent opt-in — off by
+// default, since most people would rather tap through at their own pace
+// (see CarouselAutoAdvanceWorker).
 @Composable
-private fun CarouselSizeCard(uiState: CarouselSettingsUiState, onSetSize: (Int) -> Unit) {
+private fun CarouselSizeCard(
+    uiState: CarouselSettingsUiState,
+    onSetSize: (Int) -> Unit,
+    onSetAutoAdvanceMinutes: (Int) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -423,31 +431,59 @@ private fun CarouselSizeCard(uiState: CarouselSettingsUiState, onSetSize: (Int) 
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                CarouselSettingsStore.SIZE_OPTIONS.forEach { option ->
-                    val selected = uiState.size == option
-                    if (selected) {
-                        Button(
-                            onClick = { onSetSize(option) },
-                            modifier = Modifier.weight(1f),
-                            shape = BlobButtonShape,
-                            contentPadding = BlobButtonPadding
-                        ) {
-                            Text(stringResource(R.string.carousel_size_option, option))
-                        }
+            OptionButtonRow(
+                options = CarouselSettingsStore.SIZE_OPTIONS,
+                selected = uiState.size,
+                label = { stringResource(R.string.carousel_size_option, it) },
+                onSelect = onSetSize
+            )
+
+            Text(
+                stringResource(R.string.carousel_auto_advance_label),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 20.dp, bottom = 4.dp)
+            )
+
+            OptionButtonRow(
+                options = CarouselSettingsStore.AUTO_ADVANCE_MINUTES_OPTIONS,
+                selected = uiState.autoAdvanceMinutes,
+                label = {
+                    if (it == CarouselSettingsStore.AUTO_ADVANCE_OFF) {
+                        stringResource(R.string.carousel_auto_advance_off)
                     } else {
-                        OutlinedButton(
-                            onClick = { onSetSize(option) },
-                            modifier = Modifier.weight(1f),
-                            shape = BlobButtonShape,
-                            contentPadding = BlobButtonPadding
-                        ) {
-                            Text(stringResource(R.string.carousel_size_option, option))
-                        }
+                        stringResource(R.string.carousel_auto_advance_option, it)
                     }
+                },
+                onSelect = onSetAutoAdvanceMinutes
+            )
+        }
+    }
+}
+
+@Composable
+private fun OptionButtonRow(options: List<Int>, selected: Int, label: @Composable (Int) -> String, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        options.forEach { option ->
+            if (selected == option) {
+                Button(
+                    onClick = { onSelect(option) },
+                    modifier = Modifier.weight(1f),
+                    shape = BlobButtonShape,
+                    contentPadding = BlobButtonPadding
+                ) {
+                    Text(label(option))
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { onSelect(option) },
+                    modifier = Modifier.weight(1f),
+                    shape = BlobButtonShape,
+                    contentPadding = BlobButtonPadding
+                ) {
+                    Text(label(option))
                 }
             }
         }
