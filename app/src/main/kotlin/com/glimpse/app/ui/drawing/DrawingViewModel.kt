@@ -43,7 +43,11 @@ data class DrawingUiState(
     val selectedStrokeIds: Set<String> = emptySet(),
     // Is your PARTNER (not you) currently on the Draw screen too — see
     // FirebaseSync.listenToDrawingPresence.
-    val partnerPresent: Boolean = false
+    val partnerPresent: Boolean = false,
+    // Who most recently opened the Draw screen, and when — 0 means neither
+    // of you has yet (a brand new pairing). See FirebaseSync.listenToDrawingLastActive.
+    val lastActiveAt: Long = 0L,
+    val lastActiveByMe: Boolean = false
 )
 
 // Backs the shared, joint drawing canvas (see FirebaseSync's
@@ -60,6 +64,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
 
     private var listener: ValueEventListener? = null
     private var presenceListener: ValueEventListener? = null
+    private var lastActiveListener: ValueEventListener? = null
 
     // My own in-progress stroke — tracked locally (not derived from
     // uiState.strokes) so pointer-move handling never needs a Firebase
@@ -111,6 +116,9 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         presenceListener = FirebaseSync.listenToDrawingPresence { presentUids ->
             val partnerPresent = presentUids.any { it != _uiState.value.myUid }
             _uiState.value = _uiState.value.copy(partnerPresent = partnerPresent)
+        }
+        lastActiveListener = FirebaseSync.listenToDrawingLastActive { uid, at ->
+            _uiState.value = _uiState.value.copy(lastActiveAt = at, lastActiveByMe = uid == _uiState.value.myUid)
         }
     }
 
@@ -355,6 +363,8 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         listener = null
         presenceListener?.let { FirebaseSync.removeDrawingPresenceListener(it) }
         presenceListener = null
+        lastActiveListener?.let { FirebaseSync.removeDrawingLastActiveListener(it) }
+        lastActiveListener = null
         super.onCleared()
     }
 

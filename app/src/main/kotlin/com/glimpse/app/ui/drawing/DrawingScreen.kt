@@ -158,7 +158,32 @@ fun DrawingScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.drawing_title), style = MaterialTheme.typography.titleMedium) },
+                title = {
+                    Column {
+                        Text(stringResource(R.string.drawing_title), style = MaterialTheme.typography.titleMedium)
+                        // Always shows SOMETHING (never blank) — live presence
+                        // takes priority while your partner is actually here,
+                        // otherwise this is the only place "when did either of
+                        // you last open this" is visible at all, same idea as
+                        // a chat app's "last seen" line under a contact's name.
+                        Text(
+                            text = when {
+                                uiState.partnerPresent -> stringResource(R.string.drawing_partner_present)
+                                uiState.lastActiveAt > 0L -> stringResource(
+                                    if (uiState.lastActiveByMe) R.string.drawing_last_active_you else R.string.drawing_last_active_partner,
+                                    relativeTimeText(uiState.lastActiveAt)
+                                )
+                                else -> stringResource(R.string.drawing_no_activity_yet)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (uiState.partnerPresent) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", style = MaterialTheme.typography.titleLarge)
@@ -335,14 +360,6 @@ fun DrawingScreen(
                 shadowElevation = 4.dp
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    if (uiState.partnerPresent) {
-                        Text(
-                            stringResource(R.string.drawing_partner_present),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -505,6 +522,24 @@ private fun HueSlider(selectedColor: String, onHueSelected: (Float) -> Unit) {
                     .border(1.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
             )
         }
+    }
+}
+
+// A coarse "5m ago"/"2h ago" rendering of when the last_active timestamp
+// was written — recomputed on whatever recomposition happens to catch it,
+// not a live ticking clock (the presence line above it already covers the
+// truly real-time case, so this only needs to be roughly right).
+@Composable
+private fun relativeTimeText(epochMillis: Long): String {
+    val diffMs = (System.currentTimeMillis() - epochMillis).coerceAtLeast(0)
+    val minutes = diffMs / 60_000
+    val hours = minutes / 60
+    val days = hours / 24
+    return when {
+        minutes < 1 -> stringResource(R.string.drawing_time_just_now)
+        minutes < 60 -> stringResource(R.string.drawing_time_minutes_ago, minutes.toInt())
+        hours < 24 -> stringResource(R.string.drawing_time_hours_ago, hours.toInt())
+        else -> stringResource(R.string.drawing_time_days_ago, days.toInt())
     }
 }
 
