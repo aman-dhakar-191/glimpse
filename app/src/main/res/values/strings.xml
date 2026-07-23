@@ -204,6 +204,9 @@
     <string name="garden_watered_today">💧 Watered today</string>
     <string name="garden_firefly_count">✨ Fireflies caught: %1$d</string>
     <string name="garden_double_bloom_today">🌈 Double bloom — you both showed up today</string>
+    <string name="garden_echo_title">🌸 Tap a bloom to remember</string>
+    <string name="garden_echo_video_placeholder">🎥 A video from that day</string>
+    <string name="garden_echo_close">Close</string>
     <string name="garden_streak_days">%1$d-day streak</string>
     <string name="garden_wilting_note">Feeling a little wilted — say something today 🌱</string>
     <string name="garden_named_by_you">You named this garden</string>

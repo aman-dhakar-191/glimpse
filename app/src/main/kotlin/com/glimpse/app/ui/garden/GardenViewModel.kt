@@ -26,6 +26,18 @@ import java.time.temporal.ChronoUnit
 // looking at the exact same isLocked messages History already hides.
 data class GardenSeed(val messageId: String, val daysUntilBloom: Long, val plantedByMe: Boolean)
 
+// One "echo" per active day — the garden's own visual timeline, tapped
+// open from a small bloom in GardenScreen. Picks the day's photo/drawing
+// if there was one (more evocative to look back on than plain text),
+// otherwise its last message's text.
+data class GardenMemory(
+    val date: LocalDate,
+    val authorUid: String,
+    val isImage: Boolean,
+    val photoUrl: String,
+    val text: String
+)
+
 sealed interface GardenUiState {
     data object Loading : GardenUiState
     data class Loaded(
@@ -48,6 +60,7 @@ sealed interface GardenUiState {
         // landing on the same calendar day without either of you planning
         // it that way.
         val isDoubleBloomToday: Boolean = false,
+        val recentMemories: List<GardenMemory> = emptyList(),
         val wateredToday: Boolean = false,
         val isWatering: Boolean = false,
         val isNaming: Boolean = false,
@@ -91,6 +104,7 @@ class GardenViewModel : ViewModel() {
                 pendingSeeds = pendingSeeds(messages, myUid),
                 fireflyCount = fireflies.size,
                 isDoubleBloomToday = isDoubleBloomToday(messages),
+                recentMemories = recentMemories(messages),
                 wateredToday = daysSinceWatered == 0
             )
         }
@@ -105,6 +119,29 @@ class GardenViewModel : ViewModel() {
             Instant.ofEpochMilli(it.createdAt).atZone(ZoneId.systemDefault()).toLocalDate() == today
         }.map { it.authorUid }.toSet()
         return authorsToday.size >= 2
+    }
+
+    // Still-locked time capsules are already the seeds section above — an
+    // echo could otherwise leak a not-yet-unlocked capsule to whichever of
+    // you it's still hidden from.
+    private fun recentMemories(messages: List<Message>, limit: Int = 10): List<GardenMemory> {
+        val zone = ZoneId.systemDefault()
+        return messages
+            .filterNot { it.isLocked }
+            .groupBy { Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate() }
+            .entries
+            .sortedByDescending { it.key }
+            .take(limit)
+            .map { (date, dayMessages) ->
+                val chosen = dayMessages.firstOrNull { it.isImage && it.photoUrl.isNotBlank() } ?: dayMessages.last()
+                GardenMemory(
+                    date = date,
+                    authorUid = chosen.authorUid,
+                    isImage = chosen.isImage && chosen.photoUrl.isNotBlank(),
+                    photoUrl = chosen.photoUrl,
+                    text = chosen.caption.ifBlank { chosen.content }
+                )
+            }
     }
 
     private fun daysSince(epochMillis: Long): Int? {
