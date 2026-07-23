@@ -8,12 +8,23 @@ import com.glimpse.app.data.GardenWeather
 import com.glimpse.app.data.GardenWeatherMapper
 import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
+import com.glimpse.app.data.model.Message
 import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+
+// A still-locked time capsule, seen through the garden's "planted seed"
+// metaphor — the underlying Message is completely unchanged (still just a
+// regular message with unlockAt set); this is purely a different way of
+// looking at the exact same isLocked messages History already hides.
+data class GardenSeed(val messageId: String, val daysUntilBloom: Long, val plantedByMe: Boolean)
 
 sealed interface GardenUiState {
     data object Loading : GardenUiState
@@ -28,6 +39,7 @@ sealed interface GardenUiState {
         // read as "here's how it feels to be looking at this right now,"
         // not a second display of what's already on the mood picker.
         val weather: GardenWeather,
+        val pendingSeeds: List<GardenSeed> = emptyList(),
         val isNaming: Boolean = false,
         val nameError: String? = null
     ) : GardenUiState
@@ -57,9 +69,28 @@ class GardenViewModel : ViewModel() {
                 stage = GardenGrowth.currentStage(peakStreakDays, idleDays),
                 isWilting = GardenGrowth.isWilting(idleDays),
                 streakDays = streakDays,
-                weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji)
+                weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji),
+                pendingSeeds = pendingSeeds(messages, myUid)
             )
         }
+    }
+
+    // Reuses the SAME messages this load() already fetched for the streak
+    // — no separate query, so a seed here is always exactly what History
+    // would also show as still-locked, never a second, possibly-stale
+    // notion of "locked."
+    private fun pendingSeeds(messages: List<Message>, myUid: String): List<GardenSeed> {
+        val today = LocalDate.now()
+        return messages.filter { it.isLocked }
+            .map { message ->
+                val unlockDate = Instant.ofEpochMilli(message.unlockAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                GardenSeed(
+                    messageId = message.id,
+                    daysUntilBloom = ChronoUnit.DAYS.between(today, unlockDate).coerceAtLeast(0),
+                    plantedByMe = message.authorUid == myUid
+                )
+            }
+            .sortedBy { it.daysUntilBloom }
     }
 
     // Only ever called while the garden is still unnamed (see

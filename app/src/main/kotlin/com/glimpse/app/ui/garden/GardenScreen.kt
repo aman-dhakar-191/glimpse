@@ -151,7 +151,7 @@ private fun GardenContent(uiState: GardenUiState.Loaded) {
         }
 
         Canvas(modifier = Modifier.size(240.dp).padding(top = 12.dp)) {
-            drawGarden(stage = uiState.stage, isWilting = uiState.isWilting)
+            drawGarden(stage = uiState.stage, isWilting = uiState.isWilting, seedCount = uiState.pendingSeeds.size)
         }
 
         if (uiState.isWilting) {
@@ -168,7 +168,42 @@ private fun GardenContent(uiState: GardenUiState.Loaded) {
                 )
             }
         }
+
+        if (uiState.pendingSeeds.isNotEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                shape = MaterialTheme.shapes.large,
+                shadowElevation = 4.dp,
+                modifier = Modifier.padding(top = 12.dp)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+                    Text(
+                        stringResource(R.string.garden_seeds_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    uiState.pendingSeeds.forEach { seed ->
+                        Text(
+                            seedLabel(seed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun seedLabel(seed: GardenSeed): String = if (seed.daysUntilBloom <= 0) {
+    stringResource(if (seed.plantedByMe) R.string.garden_seed_you_today else R.string.garden_seed_partner_today)
+} else {
+    stringResource(
+        if (seed.plantedByMe) R.string.garden_seed_you else R.string.garden_seed_partner,
+        seed.daysUntilBloom
+    )
 }
 
 @Composable
@@ -372,7 +407,10 @@ private fun DrawScope.drawConfetti() {
 // Pot + soil are fixed; the stem/leaves/bloom scale up with stage and droop
 // sideways (rather than just shrinking) when wilting, since a wilted plant
 // still HAS whatever it grew — it just isn't standing up straight anymore.
-private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean) {
+// seedCount (capped at 3 dots — the text list below covers the exact
+// count) plants a few small still-buried dots off to one side of the
+// stem, standing in for time-capsule messages waiting to unlock.
+private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean, seedCount: Int = 0) {
     val w = size.width
     val h = size.height
     val potTop = h * 0.78f
@@ -391,6 +429,11 @@ private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean) {
         topLeft = Offset(soilCenter.x - potWidth * 0.42f, soilCenter.y - h * 0.03f),
         size = androidx.compose.ui.geometry.Size(potWidth * 0.84f, h * 0.06f)
     )
+
+    repeat(seedCount.coerceAtMost(3)) { i ->
+        val dotX = soilCenter.x + potWidth * (0.22f + i * 0.1f)
+        drawCircle(color = Color(0xFF3E2A1A), radius = w * 0.012f, center = Offset(dotX, soilCenter.y))
+    }
 
     if (stage == GardenStage.Seed) return
 
