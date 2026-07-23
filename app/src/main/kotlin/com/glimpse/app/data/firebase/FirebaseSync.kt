@@ -1,6 +1,7 @@
 package com.glimpse.app.data.firebase
 
 import android.util.Log
+import com.glimpse.app.data.model.Firefly
 import com.glimpse.app.data.model.GardenInfo
 import com.glimpse.app.data.model.LiveStroke
 import com.glimpse.app.data.model.Message
@@ -35,6 +36,7 @@ object FirebaseSync {
     private fun liveDrawingPresenceRef() = database.child("shared/live_drawing/presence")
     private fun liveDrawingLastActiveRef() = database.child("shared/live_drawing/last_active")
     private fun gardenRef() = database.child("shared/garden")
+    private fun gardenFirefliesRef() = database.child("shared/garden/fireflies")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -527,6 +529,30 @@ object FirebaseSync {
         Log.e(TAG, "fetchGardenInfoOnce failed", e)
         CrashLogger.recordException("FirebaseSync.fetchGardenInfoOnce failed", e)
         GardenInfo()
+    }
+
+    // Fire-and-forget, same reasoning as updateLiveStroke — a missed
+    // firefly from a rare write failure isn't worth surfacing an error
+    // for, since it's purely decorative on top of a nudge that already
+    // sent successfully by the time this is called.
+    fun addFirefly(senderUid: String) {
+        gardenFirefliesRef().push().setValue(mapOf("senderUid" to senderUid, "createdAt" to ServerValue.TIMESTAMP))
+    }
+
+    // Capped server-side via limitToLast — the jar only ever shows a
+    // handful at once, not a lifetime's worth of nudges.
+    suspend fun fetchRecentFirefliesOnce(limit: Int = 6): List<Firefly> = try {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            gardenFirefliesRef().orderByChild("createdAt").limitToLast(limit).get().await().children.mapNotNull { child ->
+                val senderUid = child.child("senderUid").getValue(String::class.java) ?: return@mapNotNull null
+                val createdAt = child.child("createdAt").getValue(Long::class.java) ?: return@mapNotNull null
+                Firefly(senderUid, createdAt)
+            }
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchRecentFirefliesOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchRecentFirefliesOnce failed", e)
+        emptyList()
     }
 
     // A one-time shared ritual — name/namedBy/namedAt are only ever set

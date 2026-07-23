@@ -11,6 +11,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
+import java.time.LocalTime
 
 class MessageRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -146,8 +147,19 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             database.child("shared/nudge").setValue(nudge).await()
         }
+        // A nudge sent late at night gets a small lasting visual in the
+        // garden (a firefly caught in a jar) instead of just vanishing
+        // into a one-shot notification the moment it's dismissed.
+        if (isNightHere()) {
+            FirebaseSync.addFirefly(user.uid)
+        }
         Unit
     }.onFailure { e -> CrashLogger.recordException("sendNudge failed", e) }
+
+    private fun isNightHere(): Boolean {
+        val hour = LocalTime.now().hour
+        return hour >= 20 || hour < 6
+    }
 
     private fun isEmojiOnly(text: String): Boolean =
         text.length <= 8 && text.codePoints().noneMatch { Character.isLetterOrDigit(it) }
