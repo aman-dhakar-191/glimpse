@@ -4,6 +4,7 @@ import android.util.Log
 import com.glimpse.app.data.model.LiveStroke
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.data.model.SpecialDate
+import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -56,6 +57,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchLatestMessageOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchLatestMessageOnce failed", e)
         null
     }
 
@@ -69,6 +71,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchRecentMessagesOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchRecentMessagesOnce failed", e)
         emptyList()
     }
 
@@ -80,6 +83,7 @@ object FirebaseSync {
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e(TAG, "listenToHistory cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToHistory cancelled", error.toException())
             }
         }
         historyQuery(limit).addValueEventListener(listener)
@@ -99,6 +103,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchAllMessages failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchAllMessages failed", e)
         emptyList()
     }
 
@@ -126,6 +131,7 @@ object FirebaseSync {
                         override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
                             if (error != null) {
                                 Log.e(TAG, "addReaction failed", error.toException())
+                                CrashLogger.recordException("FirebaseSync.addReaction transaction failed", error.toException())
                             }
                             if (continuation.isActive) {
                                 continuation.resume(error == null && committed)
@@ -136,6 +142,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "addReaction failed", e)
+            CrashLogger.recordException("FirebaseSync.addReaction failed", e)
             false
         }
     }
@@ -178,6 +185,7 @@ object FirebaseSync {
                         override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
                             if (error != null) {
                                 Log.e(TAG, "markSeenUpTo failed", error.toException())
+                                CrashLogger.recordException("FirebaseSync.markSeenUpTo transaction failed", error.toException())
                             }
                             if (continuation.isActive) {
                                 continuation.resume(Unit)
@@ -188,6 +196,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "markSeenUpTo failed", e)
+            CrashLogger.recordException("FirebaseSync.markSeenUpTo failed", e)
         }
     }
 
@@ -204,6 +213,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchLastSeenAtOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchLastSeenAtOnce failed", e)
         emptyMap()
     }
 
@@ -222,6 +232,7 @@ object FirebaseSync {
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e(TAG, "listenToLastSeenAt cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToLastSeenAt cancelled", error.toException())
             }
         }
         lastSeenAtRef().addValueEventListener(listener)
@@ -248,6 +259,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerNicknameOnce failed", e)
+            CrashLogger.recordException("FirebaseSync.fetchPartnerNicknameOnce failed", e)
             ""
         }
     }
@@ -277,6 +289,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerUidOnce failed", e)
+            CrashLogger.recordException("FirebaseSync.fetchPartnerUidOnce failed", e)
             null
         }
     }
@@ -297,6 +310,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "fetchMyMoodOnce failed", e)
+            CrashLogger.recordException("FirebaseSync.fetchMyMoodOnce failed", e)
             ""
         }
     }
@@ -311,6 +325,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "fetchPartnerMoodOnce failed", e)
+            CrashLogger.recordException("FirebaseSync.fetchPartnerMoodOnce failed", e)
             ""
         }
     }
@@ -337,6 +352,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchSpecialDateOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchSpecialDateOnce failed", e)
         null
     }
 
@@ -364,6 +380,7 @@ object FirebaseSync {
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e(TAG, "listenToLiveDrawing cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToLiveDrawing cancelled", error.toException())
             }
         }
         liveDrawingStrokesRef().addValueEventListener(listener)
@@ -384,6 +401,7 @@ object FirebaseSync {
         }
     } catch (e: Exception) {
         Log.e(TAG, "fetchLiveDrawingOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchLiveDrawingOnce failed", e)
         emptyMap()
     }
 
@@ -417,6 +435,7 @@ object FirebaseSync {
             }
         } catch (e: Exception) {
             Log.e(TAG, "clearLiveDrawing failed", e)
+            CrashLogger.recordException("FirebaseSync.clearLiveDrawing failed", e)
         }
     }
 
@@ -448,6 +467,7 @@ object FirebaseSync {
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e(TAG, "listenToDrawingPresence cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToDrawingPresence cancelled", error.toException())
             }
         }
         liveDrawingPresenceRef().addValueEventListener(listener)

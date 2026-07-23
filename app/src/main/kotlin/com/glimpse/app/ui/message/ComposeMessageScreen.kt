@@ -88,6 +88,7 @@ import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.ui.countdown.CountdownUiState
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.ui.dailyprompt.DailyPromptUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
@@ -190,6 +191,11 @@ private fun VideoThumbnail(uri: Uri, modifier: Modifier = Modifier) {
                 retriever.setDataSource(context, uri)
                 retriever.frameAtTime
             } catch (e: Exception) {
+                // Only a preview thumbnail failing, not the send itself —
+                // but still worth a record, since a corrupt/inaccessible
+                // video file here would also fail the actual upload right
+                // after, and this fires first.
+                CrashLogger.recordException("VideoThumbnail: frame decode failed (uri=$uri)", e)
                 null
             } finally {
                 retriever.release()

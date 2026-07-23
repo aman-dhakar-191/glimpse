@@ -9,6 +9,7 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.LiveStroke
 import com.glimpse.app.service.PhotoSendResults
 import com.glimpse.app.service.PhotoSendService
+import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -326,6 +327,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             val file = try {
                 saveToCacheFile(app, bitmap)
             } catch (e: Exception) {
+                CrashLogger.recordException("DrawingViewModel.send: saveToCacheFile failed", e)
                 _uiState.value = _uiState.value.copy(sendState = DrawingSendState.Error("Couldn't prepare the drawing. Try again."))
                 return@launch
             }

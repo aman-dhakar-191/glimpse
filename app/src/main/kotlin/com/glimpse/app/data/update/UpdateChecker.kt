@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,6 +45,7 @@ object UpdateChecker {
             }
         } catch (e: Exception) {
             Log.e(TAG, "checkForUpdate failed", e)
+            CrashLogger.recordException("UpdateChecker.checkForUpdate failed", e)
             null
         }
     }
@@ -138,6 +140,7 @@ object UpdateChecker {
             }
         } catch (e: Exception) {
             Log.e(TAG, "downloadApk failed", e)
+            CrashLogger.recordException("UpdateChecker.downloadApk failed", e)
             null
         }
     }

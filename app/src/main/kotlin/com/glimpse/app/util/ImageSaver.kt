@@ -49,6 +49,7 @@ object ImageSaver {
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveToGallery failed", e)
+            CrashLogger.recordException("ImageSaver.saveToGallery failed (imageUrl=$imageUrl)", e)
             false
         }
     }
@@ -62,6 +63,7 @@ object ImageSaver {
         (imageLoader.execute(request).drawable as? BitmapDrawable)?.bitmap
     } catch (e: Exception) {
         Log.e(TAG, "downloadBitmap failed", e)
+        CrashLogger.recordException("ImageSaver.downloadBitmap failed (url=$url)", e)
         null
     }
 }

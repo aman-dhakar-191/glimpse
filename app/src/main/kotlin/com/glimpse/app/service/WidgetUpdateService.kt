@@ -13,6 +13,7 @@ import com.glimpse.app.R
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.notification.NotificationChannels
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.widgets.ShapedCarouselWidget
 import com.glimpse.app.widgets.ShapedCarouselWidgetRenderer
 import com.glimpse.app.widgets.ShapedMessageWidget
@@ -87,6 +88,7 @@ class WidgetUpdateService : Service() {
                 appWidgetManager.updateAppWidget(appWidgetId, render(appWidgetId))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update $providerClass widget $appWidgetId", e)
+                CrashLogger.recordException("WidgetUpdateService: failed to update $providerClass widget $appWidgetId", e)
             }
         }
     }

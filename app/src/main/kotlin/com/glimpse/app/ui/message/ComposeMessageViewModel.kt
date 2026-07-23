@@ -16,6 +16,7 @@ import com.glimpse.app.service.PhotoSendResults
 import com.glimpse.app.service.PhotoSendService
 import com.glimpse.app.service.WidgetSyncTrigger
 import com.glimpse.app.util.ConnectivityUtil
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.work.SendMessageWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -128,6 +129,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             val file = try {
                 copyToCacheFile(app, imageUri, "outgoing_photos", "photo", "jpg")
             } catch (e: Exception) {
+                CrashLogger.recordException("sendPhotoMessage: copyToCacheFile failed (uri=$imageUri, contentType=$contentType)", e)
                 _uiState.value = ComposeUiState.Error("Couldn't read that photo. Try again.")
                 return@launch
             }
@@ -155,6 +157,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             val file = try {
                 copyToCacheFile(app, videoUri, "outgoing_videos", "video", "mp4")
             } catch (e: Exception) {
+                CrashLogger.recordException("sendVideoMessage: copyToCacheFile failed (uri=$videoUri)", e)
                 _uiState.value = ComposeUiState.Error("Couldn't read that video. Try again.")
                 return@launch
             }

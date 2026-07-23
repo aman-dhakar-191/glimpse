@@ -59,6 +59,7 @@ import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.ui.videolimit.VideoLimitViewModel
 import com.glimpse.app.ui.widgetaccent.WidgetAccentColorViewModel
 import com.glimpse.app.data.update.UpdateChecker
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.work.CarouselAutoAdvanceWorker
 import com.glimpse.app.work.StreakCheckWorker
 import com.glimpse.app.work.UpdateCheckWorker
@@ -97,6 +98,7 @@ class MainActivity : ComponentActivity() {
         val account = try {
             task.getResult(ApiException::class.java)
         } catch (e: ApiException) {
+            CrashLogger.recordException("Google sign-in failed (statusCode=${e.statusCode})", e)
             null
         }
         loginViewModel.onGoogleSignInResult(account) { onSignedIn() }

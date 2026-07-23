@@ -75,6 +75,7 @@ import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.ui.theme.bubbleShape
+import com.glimpse.app.util.CrashLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -437,6 +438,7 @@ private fun HistoryVideoThumbnail(url: String, modifier: Modifier = Modifier) {
                 retriever.setDataSource(url, emptyMap())
                 retriever.frameAtTime
             } catch (e: Exception) {
+                CrashLogger.recordException("HistoryVideoThumbnail: frame decode failed (url=$url)", e)
                 null
             } finally {
                 retriever.release()

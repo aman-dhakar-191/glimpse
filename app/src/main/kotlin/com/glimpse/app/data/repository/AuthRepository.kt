@@ -1,5 +1,6 @@
 package com.glimpse.app.data.repository
 
+import com.glimpse.app.util.CrashLogger
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -19,6 +20,9 @@ class AuthRepository {
         val credential = GoogleAuthProvider.getCredential(account.idToken, null)
         val authResult = auth.signInWithCredential(credential).await()
         val uid = authResult.user?.uid ?: error("Sign-in succeeded without a user")
+        // Tags every subsequent CrashLogger report (this session, on this
+        // device) with who it was, before anything else has a chance to fail.
+        CrashLogger.setUserId(uid)
 
         // Unlike before, not being allowed yet no longer signs the user back
         // out — PairingRepository.redeemPairingCode needs a live Firebase
@@ -32,6 +36,8 @@ class AuthRepository {
             "photoURL" to (account.photoUrl?.toString() ?: "")
         )
         database.child("users").child(uid).updateChildren(updates).await()
+    }.onFailure { e ->
+        if (e !is NeedsPairingException) CrashLogger.recordException("signInWithGoogle failed", e)
     }
 
     // Re-checked on every launch of an already-signed-in session, not just
@@ -72,6 +78,7 @@ class AuthRepository {
         val token = try {
             FirebaseMessaging.getInstance().token.await()
         } catch (e: Exception) {
+            CrashLogger.recordException("ensureFcmTokenRegistered: couldn't fetch FCM token", e)
             return
         }
         registerFcmToken(token)
