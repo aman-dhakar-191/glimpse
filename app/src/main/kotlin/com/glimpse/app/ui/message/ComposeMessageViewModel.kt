@@ -175,9 +175,16 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             // per-device setting (Settings screen) the intent hint itself
             // reads, so whichever one actually takes effect agrees with
             // the other.
+            //
+            // Even when a camera app DOES honor the hint, it doesn't cut at
+            // the exact millisecond — there's stop-command/encoder latency,
+            // so a "10s" recording routinely comes out as 10.3-11s. Without
+            // VIDEO_DURATION_GRACE_MILLIS, that overshoot (which the user
+            // never asked for and can't see) would get rejected as if they'd
+            // deliberately recorded something way longer.
             val limitSeconds = VideoLimitStore.load(app)
             val durationMs = videoDurationMillis(file)
-            if (durationMs != null && durationMs > limitSeconds * 1000L) {
+            if (durationMs != null && durationMs > limitSeconds * 1000L + VIDEO_DURATION_GRACE_MILLIS) {
                 file.delete()
                 _uiState.value = ComposeUiState.Error(
                     app.getString(R.string.compose_video_too_long, limitSeconds)
@@ -239,5 +246,6 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     companion object {
         private const val MAX_VIDEO_BYTES = 25L * 1024 * 1024
+        private const val VIDEO_DURATION_GRACE_MILLIS = 2000L
     }
 }
