@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.BitmapDrawable
+import android.media.MediaMetadataRetriever
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
@@ -18,6 +19,8 @@ import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // Renders the plain "Glimpse" widget — always just the single newest
 // message, no carousel. See ShapedCarouselWidgetRenderer for the separate
@@ -39,7 +42,6 @@ internal object ShapedWidgetRenderer {
 
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
-        ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
 
         // Drawn as a bitmap instead of relying on widget_blob_shape.xml's
         // own baked-in stroke color, so a per-device accent color pick (see
@@ -57,6 +59,7 @@ internal object ShapedWidgetRenderer {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
 
         if (message == null) {
+            ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
             ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, "")
             setAuthorName(remoteViews, showPhoto = false, name = "")
             remoteViews.setTextViewText(R.id.shaped_message_content, context.getString(R.string.widget_no_message))
@@ -64,6 +67,7 @@ internal object ShapedWidgetRenderer {
             return remoteViews
         }
 
+        ReactionActionBinder.bindOpenMessageAction(context, remoteViews, appWidgetId, message.id)
         ReactionActionBinder.bindReactAction(context, remoteViews, appWidgetId, message.id)
 
         // Best-effort "I looked at this" proxy for whichever message
@@ -95,9 +99,9 @@ internal object ShapedWidgetRenderer {
         val hiddenByLock = message.isLocked && message.authorUid != myUid
         val content = when {
             hiddenByLock -> context.getString(R.string.widget_locked_message)
-            // RemoteViews can't play video at all, so unlike photo/drawing
-            // below there's no ImageView content to show alongside this —
-            // the fallback text IS the whole widget's content for a video.
+            // Overwritten below once a thumbnail frame actually decodes —
+            // this fallback only sticks if that decode fails, same as the
+            // photo fallback further down.
             message.isVideo -> message.caption.ifBlank { context.getString(R.string.widget_video_fallback) }
             // The image itself goes into shaped_message_photo below — this
             // is just the caption line under it (or a fallback if blank).
@@ -108,13 +112,27 @@ internal object ShapedWidgetRenderer {
         remoteViews.setViewVisibility(R.id.shaped_message_content, if (content.isNotBlank()) View.VISIBLE else View.GONE)
 
         var showPhoto = false
-        if (message.isImage && !hiddenByLock) {
-            val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
-            if (photoBitmap != null) {
-                val masked = maskToBlobShape(photoBitmap, PHOTO_MASK_SIZE, accentColor)
+        if ((message.isImage || message.isVideo) && !hiddenByLock) {
+            val mediaBitmap = when {
+                message.photoUrl.isBlank() -> null
+                message.isVideo -> loadVideoThumbnail(message.photoUrl)
+                else -> loadBitmap(context, message.photoUrl)
+            }
+            if (mediaBitmap != null) {
+                val masked = maskToBlobShape(mediaBitmap, PHOTO_MASK_SIZE, accentColor)
                 remoteViews.setImageViewBitmap(R.id.shaped_message_photo, masked)
                 showPhoto = true
-            } else {
+                // A thumbnail alone is enough context for a video — the
+                // "no thumbnail" fallback text set above would just be
+                // redundant clutter next to it.
+                if (message.isVideo) {
+                    remoteViews.setTextViewText(R.id.shaped_message_content, message.caption)
+                    remoteViews.setViewVisibility(
+                        R.id.shaped_message_content,
+                        if (message.caption.isNotBlank()) View.VISIBLE else View.GONE
+                    )
+                }
+            } else if (!message.isVideo) {
                 val fallback = if (message.type == "drawing") R.string.widget_drawing_fallback else R.string.widget_photo_fallback
                 remoteViews.setTextViewText(R.id.shaped_message_content, content.ifBlank { context.getString(fallback) })
                 remoteViews.setViewVisibility(R.id.shaped_message_content, View.VISIBLE)
@@ -218,6 +236,31 @@ internal object ShapedWidgetRenderer {
         }
         canvas.drawBitmap(source, matrix, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
         return output
+    }
+
+    // MediaMetadataRetriever supports remote http(s) URLs directly (same
+    // approach as HistoryVideoThumbnail in MessageHistoryScreen) — no need
+    // to download the whole video file just to grab one frame for the
+    // widget's thumbnail.
+    private suspend fun loadVideoThumbnail(url: String): Bitmap? = withContext(Dispatchers.IO) {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(url, emptyMap())
+            val frame = retriever.frameAtTime ?: return@withContext null
+            // Same Binder-transaction-size reasoning as loadBitmap below.
+            val maxDimension = 480
+            if (frame.width <= maxDimension && frame.height <= maxDimension) {
+                frame
+            } else {
+                val scale = maxDimension.toFloat() / maxOf(frame.width, frame.height)
+                Bitmap.createScaledBitmap(frame, (frame.width * scale).toInt(), (frame.height * scale).toInt(), true)
+            }
+        } catch (e: Exception) {
+            CrashLogger.recordException("ShapedWidgetRenderer.loadVideoThumbnail failed (url=$url)", e)
+            null
+        } finally {
+            retriever.release()
+        }
     }
 
     private suspend fun loadBitmap(context: Context, url: String): Bitmap? {

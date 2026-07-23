@@ -54,6 +54,28 @@ internal object ReactionActionBinder {
         remoteViews.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
     }
 
+    // Tapping the message area for a KNOWN message (unlike
+    // bindOpenComposeAction below, used when there's nothing to show yet)
+    // opens straight to History instead of Compose — MainActivity matches
+    // this id against the loaded list and, for an image/video message,
+    // auto-opens the same full-screen viewer a tap in History itself would.
+    //
+    // Same per-message request code reasoning as bindReactAction above.
+    fun bindOpenMessageAction(context: Context, remoteViews: RemoteViews, appWidgetId: Int, messageId: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            putExtra(MainActivity.EXTRA_OPEN_MESSAGE_ID, messageId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            "$appWidgetId-open-$messageId".hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        remoteViews.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+    }
+
     // Broadcast (not an Activity launch, unlike the two actions above) —
     // advancing a page should never bring the app to the foreground, just
     // update this one widget instance in place.
