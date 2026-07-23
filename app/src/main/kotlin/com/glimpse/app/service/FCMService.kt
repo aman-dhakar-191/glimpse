@@ -27,12 +27,13 @@ class FCMService : FirebaseMessagingService() {
         // service isn't already active.
         WidgetSyncTrigger.requestSync(this)
 
-        // A nudge arriving while the app happens to be open also gets a
-        // live in-app burst (see ComposeMessageScreen) on top of the system
-        // notification below — the notification's own THINKING_OF_YOU
-        // channel still covers the distinct haptic in either case.
-        if (message.data["type"] == "nudge") {
-            IncomingEvents.postThinkingOfYou()
+        // A nudge or reaction arriving while the app happens to be open also
+        // gets a live in-app burst (see ComposeMessageScreen) on top of the
+        // system notification below — the notification's own channel/text
+        // still covers the case where the app wasn't open to see it.
+        when (message.data["type"]) {
+            "nudge" -> IncomingEvents.postThinkingOfYou()
+            "reaction" -> message.data["emoji"]?.let { IncomingEvents.postReaction(it) }
         }
 
         // The Cloud Function (functions/index.js) sends a data-only message

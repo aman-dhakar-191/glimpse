@@ -226,6 +226,7 @@ class MainActivity : ComponentActivity() {
                     val loginUiState by loginViewModel.uiState.collectAsState()
                     val composeUiState by composeMessageViewModel.uiState.collectAsState()
                     val thinkingOfYouBurst by composeMessageViewModel.thinkingOfYouBurst.collectAsState()
+                    val reactionBurstEmoji by composeMessageViewModel.reactionBurstEmoji.collectAsState()
                     val reactUiState by reactionPickerViewModel.uiState.collectAsState()
                     val updateUiState by updateViewModel.uiState.collectAsState()
                     val historyUiState by historyViewModel.uiState.collectAsState()
@@ -291,6 +292,8 @@ class MainActivity : ComponentActivity() {
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     thinkingOfYouBurst = thinkingOfYouBurst,
                                     onThinkingOfYouBurstHandled = { composeMessageViewModel.consumeThinkingOfYouBurst() },
+                                    reactionBurstEmoji = reactionBurstEmoji,
+                                    onReactionBurstHandled = { composeMessageViewModel.consumeReactionBurst() },
                                     dailyPromptUiState = dailyPromptUiState,
                                     onLoadDailyPrompt = { dailyPromptViewModel.check() },
                                     onDismissDailyPrompt = { dailyPromptViewModel.dismiss() },

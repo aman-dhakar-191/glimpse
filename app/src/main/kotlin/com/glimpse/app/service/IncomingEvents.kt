@@ -14,7 +14,14 @@ object IncomingEvents {
     private val _thinkingOfYou = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val thinkingOfYou: SharedFlow<Unit> = _thinkingOfYou.asSharedFlow()
 
+    private val _reactions = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val reactions: SharedFlow<String> = _reactions.asSharedFlow()
+
     fun postThinkingOfYou() {
         _thinkingOfYou.tryEmit(Unit)
+    }
+
+    fun postReaction(emoji: String) {
+        _reactions.tryEmit(emoji)
     }
 }

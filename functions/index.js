@@ -116,6 +116,10 @@ exports.onNewReaction = functions.database
       type: "reaction",
       title: "New reaction",
       body: `${reactorName} reacted ${emoji}`,
+      // Lets the client play a burst of the ACTUAL emoji reacted with
+      // (see FCMService/IncomingEvents) instead of just a generic icon —
+      // title/body alone don't cleanly separate the emoji from the name.
+      emoji,
     });
   });
 

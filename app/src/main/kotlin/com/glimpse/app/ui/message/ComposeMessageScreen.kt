@@ -160,6 +160,8 @@ fun ComposeMessageScreen(
     onSendNudge: () -> Unit,
     thinkingOfYouBurst: Boolean,
     onThinkingOfYouBurstHandled: () -> Unit,
+    reactionBurstEmoji: String?,
+    onReactionBurstHandled: () -> Unit,
     dailyPromptUiState: DailyPromptUiState,
     onLoadDailyPrompt: () -> Unit,
     onDismissDailyPrompt: () -> Unit,
@@ -177,6 +179,7 @@ fun ComposeMessageScreen(
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showSentBurst by remember { mutableStateOf(false) }
     var showThinkingOfYouBurst by remember { mutableStateOf(false) }
+    var activeReactionEmoji by remember { mutableStateOf<String?>(null) }
     // 0L = not a time capsule.
     var lockUntilMillis by rememberSaveable { mutableStateOf(0L) }
     var showLockDatePicker by remember { mutableStateOf(false) }
@@ -261,6 +264,23 @@ fun ComposeMessageScreen(
         if (showThinkingOfYouBurst) {
             delay(1400)
             showThinkingOfYouBurst = false
+        }
+    }
+
+    // Same shape again: the ViewModel's flag is consumed immediately (so a
+    // second reaction later can retrigger it) while the local var here
+    // keeps the specific emoji around for its own display timer.
+    LaunchedEffect(reactionBurstEmoji) {
+        val emoji = reactionBurstEmoji
+        if (emoji != null) {
+            activeReactionEmoji = emoji
+            onReactionBurstHandled()
+        }
+    }
+    LaunchedEffect(activeReactionEmoji) {
+        if (activeReactionEmoji != null) {
+            delay(1400)
+            activeReactionEmoji = null
         }
     }
 
@@ -614,6 +634,22 @@ fun ComposeMessageScreen(
                 style = MaterialTheme.typography.displayLarge,
                 modifier = Modifier.scale(scale)
             )
+        }
+
+        // The actual emoji your partner reacted with, not a fixed icon —
+        // a one-shot bounce like the sent-heart burst above (this one's
+        // already a specific, varied emoji, so it doesn't need the repeating
+        // pulse the other two use to read as "distinct").
+        AnimatedVisibility(
+            visible = activeReactionEmoji != null,
+            modifier = Modifier.align(Alignment.Center),
+            enter = scaleIn(
+                initialScale = 0.4f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            ) + fadeIn(),
+            exit = fadeOut()
+        ) {
+            Text(activeReactionEmoji ?: "", style = MaterialTheme.typography.displayLarge)
         }
         }
     }

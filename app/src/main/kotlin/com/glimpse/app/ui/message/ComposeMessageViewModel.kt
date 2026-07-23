@@ -44,6 +44,11 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
     private val _thinkingOfYouBurst = MutableStateFlow(false)
     val thinkingOfYouBurst: StateFlow<Boolean> = _thinkingOfYouBurst.asStateFlow()
 
+    // Same idea, for when your PARTNER reacts to one of YOUR messages —
+    // carries the actual emoji reacted with, not just a generic burst.
+    private val _reactionBurstEmoji = MutableStateFlow<String?>(null)
+    val reactionBurstEmoji: StateFlow<String?> = _reactionBurstEmoji.asStateFlow()
+
     init {
         // PhotoSendService posts here when it finishes — only relevant
         // while this ViewModel is actually alive to show it; the service's
@@ -59,6 +64,9 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
         viewModelScope.launch {
             IncomingEvents.thinkingOfYou.collect { _thinkingOfYouBurst.value = true }
+        }
+        viewModelScope.launch {
+            IncomingEvents.reactions.collect { emoji -> _reactionBurstEmoji.value = emoji }
         }
     }
 
@@ -153,5 +161,9 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     fun consumeThinkingOfYouBurst() {
         _thinkingOfYouBurst.value = false
+    }
+
+    fun consumeReactionBurst() {
+        _reactionBurstEmoji.value = null
     }
 }
