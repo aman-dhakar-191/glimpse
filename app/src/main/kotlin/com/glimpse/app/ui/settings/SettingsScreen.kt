@@ -1,6 +1,10 @@
 package com.glimpse.app.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
@@ -36,7 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -45,12 +52,14 @@ import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
 import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.ui.carousel.CarouselSettingsUiState
+import com.glimpse.app.ui.drawing.DrawingColors
 import com.glimpse.app.ui.nickname.NicknameUiState
 import com.glimpse.app.ui.pairing.PairingUiState
 import com.glimpse.app.ui.quiethours.QuietHoursUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
+import com.glimpse.app.ui.widgetaccent.WidgetAccentColorUiState
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -81,12 +90,16 @@ fun SettingsScreen(
     onLoadCarouselSettings: () -> Unit,
     onSetCarouselSize: (Int) -> Unit,
     onSetCarouselAutoAdvanceMinutes: (Int) -> Unit,
+    widgetAccentColorUiState: WidgetAccentColorUiState,
+    onLoadWidgetAccentColor: () -> Unit,
+    onSetWidgetAccentColor: (String?) -> Unit,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
         onLoadNickname()
         onLoadQuietHours()
         onLoadCarouselSettings()
+        onLoadWidgetAccentColor()
     }
 
     Scaffold(
@@ -116,6 +129,8 @@ fun SettingsScreen(
             QuietHoursCard(quietHoursUiState, onSetQuietHoursEnabled, onSetQuietHoursStart, onSetQuietHoursEnd)
 
             CarouselSizeCard(carouselSettingsUiState, onSetCarouselSize, onSetCarouselAutoAdvanceMinutes)
+
+            WidgetAccentColorCard(widgetAccentColorUiState, onSetWidgetAccentColor)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -458,6 +473,78 @@ private fun CarouselSizeCard(
             )
         }
     }
+}
+
+// Local-only, per-device — see WidgetAccentColorStore/WidgetAccentColorViewModel.
+// Reuses DrawingColors' palette rather than inventing a second one, so
+// there's a single consistent set of "pick a color" choices across the app.
+@Composable
+private fun WidgetAccentColorCard(uiState: WidgetAccentColorUiState, onSetColor: (String?) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(0.5f),
+        shape = BlobShapeSoftB,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.widget_accent_color_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.widget_accent_color_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Resets to the widget's original color, which itself
+                // already adapts to light/dark system theme — unlike the
+                // fixed presets below, so it gets its own neutral swatch
+                // rather than one more fixed hex value.
+                val isDefault = uiState.selectedColor == null
+                Box(
+                    modifier = Modifier
+                        .size(if (isDefault) 32.dp else 26.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(
+                            width = if (isDefault) 2.dp else 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            shape = CircleShape
+                        )
+                        .clickable { onSetColor(null) }
+                )
+                DrawingColors.PALETTE.forEach { hex ->
+                    val isSelected = hex == uiState.selectedColor
+                    Box(
+                        modifier = Modifier
+                            .size(if (isSelected) 32.dp else 26.dp)
+                            .clip(CircleShape)
+                            .background(parseColorOrBlack(hex))
+                            .border(
+                                width = if (isSelected) 2.dp else 0.dp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                shape = CircleShape
+                            )
+                            .clickable { onSetColor(hex) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun parseColorOrBlack(hex: String): Color = try {
+    Color(android.graphics.Color.parseColor(hex))
+} catch (e: IllegalArgumentException) {
+    Color.Black
 }
 
 @Composable
