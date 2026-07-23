@@ -110,6 +110,7 @@ fun DrawingScreen(
     onEndMove: () -> Unit,
     onMarkPresent: () -> Unit,
     onClearPresent: () -> Unit,
+    onDeleteSelected: () -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(Unit) { onStart() }
@@ -431,6 +432,18 @@ fun DrawingScreen(
                         onClick = { onSetMode(if (isSelectMode) DrawingMode.Draw else DrawingMode.Select) }
                     ) {
                         Text(if (isSelectMode) "👆" else "✏️")
+                    }
+                    // Only meaningful in Select mode, and only once
+                    // something's actually selected to act on — deleting
+                    // one/several tapped strokes without wiping the whole
+                    // shared canvas the way Clear does.
+                    if (isSelectMode) {
+                        OutlinedButton(
+                            onClick = onDeleteSelected,
+                            enabled = uiState.selectedStrokeIds.isNotEmpty()
+                        ) {
+                            Text(stringResource(R.string.drawing_delete_selected))
+                        }
                     }
                     OutlinedButton(onClick = onUndo) {
                         Text(stringResource(R.string.drawing_undo))

@@ -435,6 +435,7 @@ class MainActivity : ComponentActivity() {
                             onEndMove = { drawingViewModel.endMove() },
                             onMarkPresent = { drawingViewModel.markPresent() },
                             onClearPresent = { drawingViewModel.clearPresent() },
+                            onDeleteSelected = { drawingViewModel.deleteSelected() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }
