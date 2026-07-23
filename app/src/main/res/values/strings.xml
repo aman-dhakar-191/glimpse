@@ -73,6 +73,10 @@
     <string name="widget_label_shaped_carousel">Glimpse Carousel</string>
     <string name="widget_seen_suffix">%1$s · 👀</string>
     <string name="qs_tile_label">Send a Glimpse</string>
+    <string name="widget_label_thinking_of_you">Thinking of You</string>
+    <string name="widget_thinking_of_you_description">A tiny 1x1 widget — tap it to send a "thinking of you" straight from your home screen, no need to open the app at all.</string>
+    <string name="thinking_of_you_widget_sent">💓 Sent!</string>
+    <string name="thinking_of_you_widget_failed">Couldn\'t send — try again</string>
 
     <string name="compose_title">Send a message</string>
     <string name="compose_placeholder">Say something…</string>
