@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.glimpse.app.R
+import com.glimpse.app.data.WidgetAccentColorStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.google.firebase.auth.FirebaseAuth
@@ -30,9 +31,27 @@ internal object ShapedWidgetRenderer {
     // without ever cropping into the masked shape.
     private const val PHOTO_MASK_SIZE = 300
 
+    // Same reasoning as PHOTO_MASK_SIZE — a fixed bitmap size for the whole
+    // widget's background silhouette, scaled to fit via the ImageView's own
+    // scaleType="fitXY".
+    private const val BACKGROUND_SIZE = 300
+
     suspend fun render(context: Context, appWidgetId: Int, message: Message?): RemoteViews {
         val remoteViews = RemoteViews(context.packageName, R.layout.widget_shaped_message)
         ReactionActionBinder.bindOpenComposeAction(context, remoteViews, appWidgetId)
+
+        // Drawn as a bitmap instead of relying on widget_blob_shape.xml's
+        // own baked-in stroke color, so a per-device accent color pick (see
+        // WidgetAccentColorStore) actually shows up on the outline itself,
+        // not just the photo border/dots below. Unconditional (before the
+        // no-message early return) so the chosen color still shows even on
+        // an empty widget.
+        val accentColor = WidgetAccentColorStore.resolveColor(context)
+        val fillColor = ContextCompat.getColor(context, R.color.widget_bg_dark)
+        remoteViews.setImageViewBitmap(
+            R.id.shaped_widget_background,
+            buildBackgroundBitmap(BACKGROUND_SIZE, fillColor, accentColor)
+        )
 
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
 
@@ -87,8 +106,7 @@ internal object ShapedWidgetRenderer {
         if (message.isImage && !hiddenByLock) {
             val photoBitmap = if (message.photoUrl.isNotBlank()) loadBitmap(context, message.photoUrl) else null
             if (photoBitmap != null) {
-                val borderColor = ContextCompat.getColor(context, R.color.widget_border)
-                val masked = maskToBlobShape(photoBitmap, PHOTO_MASK_SIZE, borderColor)
+                val masked = maskToBlobShape(photoBitmap, PHOTO_MASK_SIZE, accentColor)
                 remoteViews.setImageViewBitmap(R.id.shaped_message_photo, masked)
                 showPhoto = true
             } else {
@@ -117,6 +135,27 @@ internal object ShapedWidgetRenderer {
         remoteViews.setTextViewText(R.id.shaped_author_name_row, name)
         remoteViews.setViewVisibility(R.id.shaped_author_name_overlay, if (showPhoto) View.VISIBLE else View.GONE)
         remoteViews.setViewVisibility(R.id.shaped_author_name_row, if (showPhoto) View.GONE else View.VISIBLE)
+    }
+
+    // Renders the same silhouette widget_blob_shape.xml draws statically,
+    // but with a caller-supplied border color instead of that XML's own
+    // baked-in one — the only way to let a per-device accent color pick
+    // actually affect the outline, since RemoteViews can't recolor a single
+    // path inside a vector drawable at runtime.
+    private fun buildBackgroundBitmap(size: Int, fillColor: Int, borderColor: Int): Bitmap {
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val path = blobPath(size.toFloat())
+        canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = fillColor })
+        canvas.drawPath(
+            path,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = size * 0.012f
+                color = borderColor
+            }
+        )
+        return output
     }
 
     // Same normalized path as BlobShapeSoftC (ui/theme/BlobShapes.kt) and

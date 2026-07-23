@@ -56,6 +56,7 @@ import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateScreen
 import com.glimpse.app.ui.update.UpdateViewModel
+import com.glimpse.app.ui.widgetaccent.WidgetAccentColorViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.CarouselAutoAdvanceWorker
 import com.glimpse.app.work.StreakCheckWorker
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private val dailyPromptViewModel: DailyPromptViewModel by viewModels()
     private val quietHoursViewModel: QuietHoursViewModel by viewModels()
     private val carouselSettingsViewModel: CarouselSettingsViewModel by viewModels()
+    private val widgetAccentColorViewModel: WidgetAccentColorViewModel by viewModels()
     private val drawingViewModel: DrawingViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -240,6 +242,7 @@ class MainActivity : ComponentActivity() {
                     val dailyPromptUiState by dailyPromptViewModel.uiState.collectAsState()
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
                     val carouselSettingsUiState by carouselSettingsViewModel.uiState.collectAsState()
+                    val widgetAccentColorUiState by widgetAccentColorViewModel.uiState.collectAsState()
                     val drawingUiState by drawingViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
@@ -338,6 +341,9 @@ class MainActivity : ComponentActivity() {
                             onLoadCarouselSettings = { carouselSettingsViewModel.load() },
                             onSetCarouselSize = { size -> carouselSettingsViewModel.setSize(size) },
                             onSetCarouselAutoAdvanceMinutes = { minutes -> carouselSettingsViewModel.setAutoAdvanceMinutes(minutes) },
+                            widgetAccentColorUiState = widgetAccentColorUiState,
+                            onLoadWidgetAccentColor = { widgetAccentColorViewModel.load() },
+                            onSetWidgetAccentColor = { hex -> widgetAccentColorViewModel.setColor(hex) },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 

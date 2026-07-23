@@ -58,6 +58,8 @@
     <string name="carousel_auto_advance_label">Auto-advance</string>
     <string name="carousel_auto_advance_off">Off</string>
     <string name="carousel_auto_advance_option">%1$dm</string>
+    <string name="widget_accent_color_title">Widget accent color</string>
+    <string name="widget_accent_color_desc">Pick a color for your own home-screen widget\'s outline and border — just for your device, doesn\'t affect your partner\'s.</string>
     <string name="guide_quiet_hours_start">Start: %1$s</string>
     <string name="guide_quiet_hours_end">End: %1$s</string>
     <string name="guide_quiet_hours_ok">OK</string>
