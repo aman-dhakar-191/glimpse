@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glimpse.app.data.GardenGrowth
 import com.glimpse.app.data.GardenStage
+import com.glimpse.app.data.GardenWeather
+import com.glimpse.app.data.GardenWeatherMapper
 import com.glimpse.app.data.StreakCalculator
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.util.CrashLogger
@@ -22,6 +24,10 @@ sealed interface GardenUiState {
         val stage: GardenStage,
         val isWilting: Boolean,
         val streakDays: Int,
+        // Your OWN current mood, not your partner's — this is meant to
+        // read as "here's how it feels to be looking at this right now,"
+        // not a second display of what's already on the mood picker.
+        val weather: GardenWeather,
         val isNaming: Boolean = false,
         val nameError: String? = null
     ) : GardenUiState
@@ -42,6 +48,7 @@ class GardenViewModel : ViewModel() {
             // info this same load displays, not just the next one.
             FirebaseSync.raiseGardenPeakStreak(streakDays)
             val info = FirebaseSync.fetchGardenInfoOnce()
+            val myMoodEmoji = FirebaseSync.fetchMyMoodOnce()
             val peakStreakDays = maxOf(info.peakStreakDays, streakDays)
             _uiState.value = GardenUiState.Loaded(
                 isNamed = info.isNamed,
@@ -49,7 +56,8 @@ class GardenViewModel : ViewModel() {
                 namedByMe = info.namedBy == myUid,
                 stage = GardenGrowth.currentStage(peakStreakDays, idleDays),
                 isWilting = GardenGrowth.isWilting(idleDays),
-                streakDays = streakDays
+                streakDays = streakDays,
+                weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji)
             )
         }
     }
