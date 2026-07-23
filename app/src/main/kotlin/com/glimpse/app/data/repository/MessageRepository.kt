@@ -86,7 +86,15 @@ class MessageRepository {
         val user = auth.currentUser ?: error("Not signed in.")
         val now = System.currentTimeMillis()
 
-        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+        // A video file is routinely several MB (up to MAX_VIDEO_BYTES in
+        // ComposeMessageViewModel) where a photo is a few hundred KB at
+        // most — NETWORK_TIMEOUT_MILLIS's 15s is fine for the latter but
+        // regularly not enough time to actually finish uploading the
+        // former on anything but a fast connection, cancelling the upload
+        // mid-transfer and surfacing a raw "Timed out waiting for ms"
+        // exception message as if the network had failed outright.
+        val timeoutMillis = if (contentType == "video/mp4") VIDEO_NETWORK_TIMEOUT_MILLIS else NETWORK_TIMEOUT_MILLIS
+        withTimeout(timeoutMillis) {
             // glimpse/ namespace since this Storage bucket is shared with
             // other projects on the same Firebase project. Videos live under
             // their own glimpse/videos/ prefix (not glimpse/messages/) so a
@@ -146,6 +154,11 @@ class MessageRepository {
 
     companion object {
         private const val THIRTY_DAYS_MILLIS = 30L * 24 * 60 * 60 * 1000
-        private const val NETWORK_TIMEOUT_MILLIS = 15_000L
+        // 15s used to be the default here, but that's not actually enough
+        // time to finish a photo upload (let alone the text/nudge writes
+        // sharing this same constant) on a slow/spotty connection — not
+        // just large video files, which get their own longer timeout below.
+        private const val NETWORK_TIMEOUT_MILLIS = 45_000L
+        private const val VIDEO_NETWORK_TIMEOUT_MILLIS = 120_000L
     }
 }

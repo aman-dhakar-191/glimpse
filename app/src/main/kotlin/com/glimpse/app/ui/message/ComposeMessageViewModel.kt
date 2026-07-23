@@ -18,6 +18,7 @@ import com.glimpse.app.service.WidgetSyncTrigger
 import com.glimpse.app.util.ConnectivityUtil
 import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.work.SendMessageWorker
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,7 +63,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
                 result.onSuccess {
                     _uiState.value = ComposeUiState.Sent
                 }.onFailure { throwable ->
-                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
+                    _uiState.value = ComposeUiState.Error(friendlySendErrorMessage(throwable, "Failed to send photo."))
                 }
             }
         }
@@ -175,9 +176,16 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             // per-device setting (Settings screen) the intent hint itself
             // reads, so whichever one actually takes effect agrees with
             // the other.
+            //
+            // Even when a camera app DOES honor the hint, it doesn't cut at
+            // the exact millisecond — there's stop-command/encoder latency,
+            // so a "10s" recording routinely comes out as 10.3-11s. Without
+            // VIDEO_DURATION_GRACE_MILLIS, that overshoot (which the user
+            // never asked for and can't see) would get rejected as if they'd
+            // deliberately recorded something way longer.
             val limitSeconds = VideoLimitStore.load(app)
             val durationMs = videoDurationMillis(file)
-            if (durationMs != null && durationMs > limitSeconds * 1000L) {
+            if (durationMs != null && durationMs > limitSeconds * 1000L + VIDEO_DURATION_GRACE_MILLIS) {
                 file.delete()
                 _uiState.value = ComposeUiState.Error(
                     app.getString(R.string.compose_video_too_long, limitSeconds)
@@ -202,6 +210,17 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    // TimeoutCancellationException's own .message is a raw, developer-facing
+    // "Timed out waiting for Nms" — not something to show as-is in the UI.
+    // Everything else's .message (a Firebase error, "Not signed in.", etc.)
+    // is already written to be user-readable, so it's shown as normal.
+    private fun friendlySendErrorMessage(throwable: Throwable, fallback: String): String =
+        if (throwable is TimeoutCancellationException) {
+            "That's taking a while — check your connection and try again."
+        } else {
+            throwable.message ?: fallback
+        }
+
     private fun copyToCacheFile(context: Context, uri: Uri, dirName: String, filePrefix: String, extension: String): File {
         val dir = File(context.cacheDir, dirName).apply { mkdirs() }
         val file = File(dir, "${filePrefix}_${System.currentTimeMillis()}.$extension")
@@ -220,7 +239,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             messageRepository.sendNudge()
                 .onSuccess { _uiState.value = ComposeUiState.Sent }
                 .onFailure { throwable ->
-                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Couldn't send nudge.")
+                    _uiState.value = ComposeUiState.Error(friendlySendErrorMessage(throwable, "Couldn't send nudge."))
                 }
         }
     }
@@ -239,5 +258,6 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     companion object {
         private const val MAX_VIDEO_BYTES = 25L * 1024 * 1024
+        private const val VIDEO_DURATION_GRACE_MILLIS = 2000L
     }
 }
