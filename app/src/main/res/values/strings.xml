@@ -82,7 +82,8 @@
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
     <string name="nav_draw">Draw</string>
-    <string name="compose_nudge_button">👋 Nudge</string>
+    <string name="compose_nudge_button">💓 Thinking of you</string>
+    <string name="thinking_of_you_channel_name">Thinking of you</string>
     <string name="compose_my_mood">Your mood: %1$s</string>
     <string name="compose_my_mood_unset">Set your mood</string>
     <string name="compose_mood_custom_placeholder">Or type any emoji…</string>

@@ -27,16 +27,25 @@ class FCMService : FirebaseMessagingService() {
         // service isn't already active.
         WidgetSyncTrigger.requestSync(this)
 
+        // A nudge arriving while the app happens to be open also gets a
+        // live in-app burst (see ComposeMessageScreen) on top of the system
+        // notification below — the notification's own THINKING_OF_YOU
+        // channel still covers the distinct haptic in either case.
+        if (message.data["type"] == "nudge") {
+            IncomingEvents.postThinkingOfYou()
+        }
+
         // The Cloud Function (functions/index.js) sends a data-only message
         // (no top-level "notification" key), so onMessageReceived always
         // runs here instead of the system silently auto-displaying it —
         // this builds the visible notification ourselves.
         val title = message.data["title"] ?: return
         val body = message.data["body"].orEmpty()
-        showNotification(title, body)
+        val channel = if (message.data["type"] == "nudge") NotificationChannels.THINKING_OF_YOU else NotificationChannels.MESSAGES
+        showNotification(title, body, channel)
     }
 
-    private fun showNotification(title: String, body: String) {
+    private fun showNotification(title: String, body: String, channel: String) {
         // The widget already refreshed unconditionally above — this only
         // suppresses the visible popup/sound/vibration during this device's
         // configured quiet hours, not the underlying content update.
@@ -52,7 +61,7 @@ class FCMService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, NotificationChannels.MESSAGES)
+        val notification = NotificationCompat.Builder(this, channel)
             .setContentTitle(title)
             .setContentText(body)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
