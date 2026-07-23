@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -57,6 +58,7 @@ fun GardenScreen(
     onLoad: () -> Unit,
     onNameGarden: (String) -> Unit,
     onNameErrorHandled: () -> Unit,
+    onWaterGarden: () -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(Unit) { onLoad() }
@@ -83,7 +85,7 @@ fun GardenScreen(
                 is GardenUiState.Loading -> CircularProgressIndicator()
                 is GardenUiState.Loaded -> {
                     GardenSky(weather = uiState.weather, modifier = Modifier.fillMaxSize())
-                    GardenContent(uiState)
+                    GardenContent(uiState, onWaterGarden)
                 }
             }
         }
@@ -101,7 +103,7 @@ fun GardenScreen(
 }
 
 @Composable
-private fun GardenContent(uiState: GardenUiState.Loaded) {
+private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth().padding(24.dp)
@@ -152,6 +154,25 @@ private fun GardenContent(uiState: GardenUiState.Loaded) {
 
         Canvas(modifier = Modifier.size(240.dp).padding(top = 12.dp)) {
             drawGarden(stage = uiState.stage, isWilting = uiState.isWilting, seedCount = uiState.pendingSeeds.size)
+        }
+
+        // A lightweight daily chore, not a real fix for a broken streak —
+        // it only ever softens the wilt calculation (see GardenViewModel),
+        // never the actual streak Stats shows. Disabled once already
+        // watered today so it reads as "done," not an infinitely-spammable
+        // button.
+        Button(
+            onClick = onWaterGarden,
+            enabled = !uiState.wateredToday && !uiState.isWatering,
+            modifier = Modifier.padding(top = 12.dp)
+        ) {
+            if (uiState.isWatering) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text(
+                    stringResource(if (uiState.wateredToday) R.string.garden_watered_today else R.string.garden_water_action)
+                )
+            }
         }
 
         if (uiState.isWilting) {

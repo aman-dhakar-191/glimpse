@@ -200,6 +200,8 @@
     <string name="garden_seed_partner">Blooms in %1$d days · Partner</string>
     <string name="garden_seed_you_today">Blooms today · You</string>
     <string name="garden_seed_partner_today">Blooms today · Partner</string>
+    <string name="garden_water_action">💧 Water the garden</string>
+    <string name="garden_watered_today">💧 Watered today</string>
     <string name="garden_streak_days">%1$d-day streak</string>
     <string name="garden_wilting_note">Feeling a little wilted — say something today 🌱</string>
     <string name="garden_named_by_you">You named this garden</string>

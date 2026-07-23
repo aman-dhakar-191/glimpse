@@ -40,6 +40,8 @@ sealed interface GardenUiState {
         // not a second display of what's already on the mood picker.
         val weather: GardenWeather,
         val pendingSeeds: List<GardenSeed> = emptyList(),
+        val wateredToday: Boolean = false,
+        val isWatering: Boolean = false,
         val isNaming: Boolean = false,
         val nameError: String? = null
     ) : GardenUiState
@@ -54,7 +56,7 @@ class GardenViewModel : ViewModel() {
             val myUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
             val messages = FirebaseSync.fetchAllMessages()
             val streakDays = StreakCalculator.currentStreakDays(messages)
-            val idleDays = StreakCalculator.daysSinceLastMessage(messages)
+            val idleDaysFromMessages = StreakCalculator.daysSinceLastMessage(messages)
             // Ratchet BEFORE reading back, so a brand new peak this load
             // (e.g. today just extended the streak) is reflected in the
             // info this same load displays, not just the next one.
@@ -62,6 +64,13 @@ class GardenViewModel : ViewModel() {
             val info = FirebaseSync.fetchGardenInfoOnce()
             val myMoodEmoji = FirebaseSync.fetchMyMoodOnce()
             val peakStreakDays = maxOf(info.peakStreakDays, streakDays)
+            val daysSinceWatered = daysSince(info.lastWateredAt)
+            // Whichever is more recent — a message or a tap of the Water
+            // button — counts as "activity" for wilt purposes. The real
+            // streak (streakDays above, and Stats' own display) is
+            // completely untouched by this; watering only ever softens
+            // how the garden LOOKS, never what it actually counts.
+            val idleDays = listOfNotNull(idleDaysFromMessages, daysSinceWatered).minOrNull()
             _uiState.value = GardenUiState.Loaded(
                 isNamed = info.isNamed,
                 gardenName = info.name,
@@ -70,9 +79,16 @@ class GardenViewModel : ViewModel() {
                 isWilting = GardenGrowth.isWilting(idleDays),
                 streakDays = streakDays,
                 weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji),
-                pendingSeeds = pendingSeeds(messages, myUid)
+                pendingSeeds = pendingSeeds(messages, myUid),
+                wateredToday = daysSinceWatered == 0
             )
         }
+    }
+
+    private fun daysSince(epochMillis: Long): Int? {
+        if (epochMillis <= 0) return null
+        val date = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        return ChronoUnit.DAYS.between(date, LocalDate.now()).toInt().coerceAtLeast(0)
     }
 
     // Reuses the SAME messages this load() already fetched for the streak
@@ -117,5 +133,19 @@ class GardenViewModel : ViewModel() {
     fun consumeNameError() {
         val current = _uiState.value as? GardenUiState.Loaded ?: return
         _uiState.value = current.copy(nameError = null)
+    }
+
+    fun waterGarden() {
+        val current = _uiState.value as? GardenUiState.Loaded ?: return
+        if (current.wateredToday || current.isWatering) return
+        _uiState.value = current.copy(isWatering = true)
+        viewModelScope.launch {
+            FirebaseSync.waterGarden()
+                .onSuccess { load() }
+                .onFailure { throwable ->
+                    CrashLogger.recordException("GardenViewModel.waterGarden failed", throwable)
+                    _uiState.value = current.copy(isWatering = false)
+                }
+        }
     }
 }
