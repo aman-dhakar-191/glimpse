@@ -54,16 +54,16 @@ class PhotoSendService : Service() {
             // whether it went through.
             if (result.isSuccess) {
                 WidgetSyncTrigger.requestSync(applicationContext)
-                if (messageType == "drawing") {
-                    SendingNotifier.showDrawingSent(applicationContext)
-                } else {
-                    SendingNotifier.showPhotoSent(applicationContext)
+                when (messageType) {
+                    "drawing" -> SendingNotifier.showDrawingSent(applicationContext)
+                    "video" -> SendingNotifier.showVideoSent(applicationContext)
+                    else -> SendingNotifier.showPhotoSent(applicationContext)
                 }
             } else {
-                if (messageType == "drawing") {
-                    SendingNotifier.showDrawingSendFailed(applicationContext)
-                } else {
-                    SendingNotifier.showPhotoSendFailed(applicationContext)
+                when (messageType) {
+                    "drawing" -> SendingNotifier.showDrawingSendFailed(applicationContext)
+                    "video" -> SendingNotifier.showVideoSendFailed(applicationContext)
+                    else -> SendingNotifier.showPhotoSendFailed(applicationContext)
                 }
             }
             if (messageType == "drawing") {
@@ -85,7 +85,15 @@ class PhotoSendService : Service() {
 
     private fun buildNotification(messageType: String): Notification =
         NotificationCompat.Builder(this, NotificationChannels.SENDING)
-            .setContentTitle(getString(if (messageType == "drawing") R.string.sending_drawing_notification else R.string.sending_photo_notification))
+            .setContentTitle(
+                getString(
+                    when (messageType) {
+                        "drawing" -> R.string.sending_drawing_notification
+                        "video" -> R.string.sending_video_notification
+                        else -> R.string.sending_photo_notification
+                    }
+                )
+            )
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)

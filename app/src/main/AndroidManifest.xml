@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- For recording a video note (see ComposeMessageScreen's video
+         capture button) — some camera apps' ACTION_VIDEO_CAPTURE handling
+         checks the calling app's own mic permission, not just its own. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Only needed to save a photo to the gallery on Android 9 and below —
          API 29+ writes through MediaStore without this permission at all
          (scoped storage), so it's capped to the OS versions that need it. -->

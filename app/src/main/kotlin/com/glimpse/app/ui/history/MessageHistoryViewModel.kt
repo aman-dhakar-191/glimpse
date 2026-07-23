@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.util.ImageSaver
+import com.glimpse.app.util.VideoSaver
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +73,15 @@ class MessageHistoryViewModel(application: Application) : AndroidViewModel(appli
     fun downloadImage(context: Context, imageUrl: String) {
         viewModelScope.launch {
             val success = ImageSaver.saveToGallery(context, imageUrl)
+            _uiState.value = _uiState.value.copy(
+                downloadResult = if (success) DownloadResult.Success else DownloadResult.Failure
+            )
+        }
+    }
+
+    fun downloadVideo(context: Context, videoUrl: String) {
+        viewModelScope.launch {
+            val success = VideoSaver.saveToGallery(context, videoUrl)
             _uiState.value = _uiState.value.copy(
                 downloadResult = if (success) DownloadResult.Success else DownloadResult.Failure
             )

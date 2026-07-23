@@ -56,6 +56,12 @@ object SendingNotifier {
     fun showDrawingSendFailed(context: Context) =
         showResult(context, context.getString(R.string.drawing_send_failed_notification))
 
+    fun showVideoSent(context: Context) =
+        showResult(context, context.getString(R.string.video_sent_notification))
+
+    fun showVideoSendFailed(context: Context) =
+        showResult(context, context.getString(R.string.video_send_failed_notification))
+
     private fun showResult(context: Context, title: String) {
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

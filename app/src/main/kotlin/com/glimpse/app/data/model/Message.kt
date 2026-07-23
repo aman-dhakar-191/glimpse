@@ -33,4 +33,13 @@ data class Message @JvmOverloads constructor(
     @get:Exclude
     val isImage: Boolean
         get() = type == "photo" || type == "drawing"
+
+    // Deliberately NOT folded into isImage above — video reuses the same
+    // photoUrl field as the actual media URL (renaming it app-wide felt
+    // riskier than just stretching its meaning here), but needs its own
+    // playback UI everywhere isImage's Coil-based AsyncImage rendering is
+    // used, since that can't decode a video file as a bitmap.
+    @get:Exclude
+    val isVideo: Boolean
+        get() = type == "video"
 }

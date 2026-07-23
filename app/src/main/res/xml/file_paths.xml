@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="camera_images" path="camera/" />
+    <cache-path name="camera_videos" path="camera_video/" />
     <cache-path name="update_apks" path="updates/" />
 </paths>

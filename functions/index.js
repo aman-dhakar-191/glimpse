@@ -74,6 +74,8 @@ exports.onNewMessage = functions.database
         ? "📷 Sent a photo"
         : after.type === "drawing"
         ? "🎨 Sent a drawing"
+        : after.type === "video"
+        ? "🎥 Sent a video"
         : after.content && after.content.length > 0
         ? after.content
         : "Sent a new message";
@@ -143,6 +145,43 @@ exports.onNudge = functions.database
       body: `${senderName} sent you a nudge`,
     });
   });
+
+// Videos are the one media type that actually costs meaningful Storage
+// money to keep around forever (see storage.rules' separate
+// glimpse/videos/ prefix) — this runs daily and deletes just the
+// underlying Storage file, not the message itself, for any video message
+// older than VIDEO_EXPIRY_DAYS. The message/caption stick around; clearing
+// photoUrl is what tells the client the video is gone (MessageHistoryScreen
+// shows an "expired" fallback, both widgets already show fallback text for
+// any video regardless of photoUrl).
+const VIDEO_EXPIRY_DAYS = 7;
+
+exports.expireOldVideos = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  const cutoff = Date.now() - VIDEO_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+  const snapshot = await db.ref("shared/messages").orderByChild("createdAt").endAt(cutoff).get();
+  const messages = snapshot.val() || {};
+  const bucket = admin.storage().bucket();
+
+  await Promise.all(
+    Object.entries(messages).map(async ([messageId, message]) => {
+      if (message.type !== "video" || !message.photoUrl) return null;
+      // Deterministic path, not parsed from the download URL — see
+      // MessageRepository.sendPhotoMessage, which always names a video
+      // file "<createdAt>.mp4" under this exact prefix.
+      const path = `glimpse/videos/${message.authorUid}/${message.createdAt}.mp4`;
+      try {
+        await bucket.file(path).delete();
+      } catch (e) {
+        // Already gone (e.g. a previous run partially completed) — still
+        // clear photoUrl below so the client stops trying to load it.
+        console.warn(`expireOldVideos: couldn't delete ${path}: ${e.message}`);
+      }
+      return db.ref(`shared/messages/${messageId}/photoUrl`).set("");
+    })
+  );
+
+  return null;
+});
 
 // shared/moods/{uid} is set by MoodViewModel/FirebaseSync.setMood — no
 // title/body here on purpose: FCMService.onMessageReceived triggers a

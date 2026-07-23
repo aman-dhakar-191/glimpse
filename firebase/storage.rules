@@ -12,5 +12,13 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Videos live under their own prefix (not glimpse/messages/) — see
+    // MessageRepository.sendPhotoMessage — so a future cleanup job can
+    // target just this prefix for expiry without touching photos.
+    match /glimpse/videos/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
