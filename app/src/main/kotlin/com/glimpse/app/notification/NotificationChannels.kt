@@ -18,6 +18,7 @@ object NotificationChannels {
     const val UPDATE_AVAILABLE = "update_available"
     const val SENDING = "message_sending"
     const val SEND_RESULT = "send_result"
+    const val THINKING_OF_YOU = "thinking_of_you"
 
     fun registerAll(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -52,6 +53,17 @@ object NotificationChannels {
         // still be noticeable if the app was closed for the whole send.
         manager.createNotificationChannel(
             NotificationChannel(SEND_RESULT, context.getString(R.string.send_result_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        // Its own channel (not MESSAGES) purely so it can carry a distinct
+        // vibration pattern — on Android O+ a per-notification setVibrate()
+        // is ignored in favor of whatever the channel itself was created
+        // with, so a genuinely different feel for this one requires a
+        // separate channel, not just different Builder calls.
+        manager.createNotificationChannel(
+            NotificationChannel(THINKING_OF_YOU, context.getString(R.string.thinking_of_you_channel_name), NotificationManager.IMPORTANCE_HIGH).apply {
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 100, 80, 100, 80, 200)
+            }
         )
     }
 }

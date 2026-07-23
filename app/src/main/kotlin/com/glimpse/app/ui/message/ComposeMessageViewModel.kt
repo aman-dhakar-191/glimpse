@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.glimpse.app.data.repository.MessageRepository
+import com.glimpse.app.service.IncomingEvents
 import com.glimpse.app.service.PhotoSendResults
 import com.glimpse.app.service.PhotoSendService
 import com.glimpse.app.service.WidgetSyncTrigger
@@ -35,6 +36,14 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
     private val _uiState = MutableStateFlow<ComposeUiState>(ComposeUiState.Idle)
     val uiState: StateFlow<ComposeUiState> = _uiState.asStateFlow()
 
+    // A distinct in-app burst for when your PARTNER sends YOU a "thinking of
+    // you" — separate from ComposeUiState.Sent, which is about your OWN
+    // sends (nudge included). Only fires while this ViewModel is alive to
+    // show it live; FCMService's own notification channel/vibration covers
+    // the case where the app wasn't open to see it.
+    private val _thinkingOfYouBurst = MutableStateFlow(false)
+    val thinkingOfYouBurst: StateFlow<Boolean> = _thinkingOfYouBurst.asStateFlow()
+
     init {
         // PhotoSendService posts here when it finishes — only relevant
         // while this ViewModel is actually alive to show it; the service's
@@ -47,6 +56,9 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
                     _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
                 }
             }
+        }
+        viewModelScope.launch {
+            IncomingEvents.thinkingOfYou.collect { _thinkingOfYouBurst.value = true }
         }
     }
 
@@ -137,5 +149,9 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     fun consumeSentState() {
         _uiState.value = ComposeUiState.Idle
+    }
+
+    fun consumeThinkingOfYouBurst() {
+        _thinkingOfYouBurst.value = false
     }
 }

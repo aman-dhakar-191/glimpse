@@ -158,6 +158,8 @@ fun ComposeMessageScreen(
     onOpenSettings: () -> Unit,
     onOpenDrawing: () -> Unit,
     onSendNudge: () -> Unit,
+    thinkingOfYouBurst: Boolean,
+    onThinkingOfYouBurstHandled: () -> Unit,
     dailyPromptUiState: DailyPromptUiState,
     onLoadDailyPrompt: () -> Unit,
     onDismissDailyPrompt: () -> Unit,
@@ -174,6 +176,7 @@ fun ComposeMessageScreen(
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showSentBurst by remember { mutableStateOf(false) }
+    var showThinkingOfYouBurst by remember { mutableStateOf(false) }
     // 0L = not a time capsule.
     var lockUntilMillis by rememberSaveable { mutableStateOf(0L) }
     var showLockDatePicker by remember { mutableStateOf(false) }
@@ -238,6 +241,26 @@ fun ComposeMessageScreen(
         if (showSentBurst) {
             delay(1100)
             showSentBurst = false
+        }
+    }
+
+    // Distinct from the heart burst above — that one is about YOUR OWN
+    // sends (nudge included); this is your PARTNER sending YOU a "thinking
+    // of you", so it needs its own visibly different animation rather than
+    // looking like an echo of your own action. Mirrors showSentBurst's own
+    // local-state-plus-timer shape: the ViewModel's flag is consumed (reset)
+    // immediately so a second one later can retrigger it, while the local
+    // var here keeps the animation playing on its own timer regardless.
+    LaunchedEffect(thinkingOfYouBurst) {
+        if (thinkingOfYouBurst) {
+            showThinkingOfYouBurst = true
+            onThinkingOfYouBurstHandled()
+        }
+    }
+    LaunchedEffect(showThinkingOfYouBurst) {
+        if (showThinkingOfYouBurst) {
+            delay(1400)
+            showThinkingOfYouBurst = false
         }
     }
 
@@ -560,6 +583,36 @@ fun ComposeMessageScreen(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(96.dp)
+            )
+        }
+
+        // Deliberately different from the heart-burst above (repeating
+        // pulse instead of a one-shot bounce-in, a different emoji/color)
+        // so it doesn't read as "you just sent something" — this is your
+        // PARTNER thinking of you, not your own action echoing back.
+        AnimatedVisibility(
+            visible = showThinkingOfYouBurst,
+            modifier = Modifier.align(Alignment.Center),
+            enter = scaleIn(
+                initialScale = 0.4f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            ) + fadeIn(),
+            exit = fadeOut()
+        ) {
+            val transition = rememberInfiniteTransition(label = "thinking-of-you-pulse")
+            val scale by transition.animateFloat(
+                initialValue = 0.9f,
+                targetValue = 1.15f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 350, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "scale"
+            )
+            Text(
+                "💓",
+                style = MaterialTheme.typography.displayLarge,
+                modifier = Modifier.scale(scale)
             )
         }
         }
