@@ -228,6 +228,7 @@ fun ComposeMessageScreen(
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDrawing: () -> Unit,
+    onOpenGarden: () -> Unit,
     onSendNudge: () -> Unit,
     thinkingOfYouBurst: Boolean,
     onThinkingOfYouBurstHandled: () -> Unit,
@@ -424,6 +425,12 @@ fun ComposeMessageScreen(
                     onClick = onOpenDrawing,
                     icon = { Text("🎨", style = MaterialTheme.typography.titleMedium) },
                     label = { Text(stringResource(R.string.nav_draw)) }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onOpenGarden,
+                    icon = { Text("🌱", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.nav_garden)) }
                 )
                 NavigationBarItem(
                     selected = false,

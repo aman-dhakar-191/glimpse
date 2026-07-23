@@ -92,6 +92,7 @@
     <string name="compose_widget_guide_link">Widget guide</string>
     <string name="compose_history_link">History</string>
     <string name="nav_draw">Draw</string>
+    <string name="nav_garden">Garden</string>
     <string name="compose_nudge_button">💓 Thinking of you</string>
     <string name="thinking_of_you_channel_name">Thinking of you</string>
     <string name="compose_my_mood">Your mood: %1$s</string>
@@ -183,6 +184,21 @@
     <string name="on_this_day_year">a year ago</string>
     <string name="on_this_day_photo_preview">📷 A photo you shared</string>
     <string name="on_this_day_drawing_preview">🎨 A drawing you shared</string>
+
+    <string name="garden_title">Our Garden</string>
+    <string name="garden_name_prompt_title">Plant your garden</string>
+    <string name="garden_name_prompt_message">Give it a name — just once, together.</string>
+    <string name="garden_name_placeholder">Name your garden</string>
+    <string name="garden_name_confirm">Plant it</string>
+    <string name="garden_stage_seed">Just a seed</string>
+    <string name="garden_stage_sprout">A little sprout</string>
+    <string name="garden_stage_budding">Budding</string>
+    <string name="garden_stage_blooming">In full bloom</string>
+    <string name="garden_stage_flourishing">Flourishing</string>
+    <string name="garden_streak_days">%1$d-day streak</string>
+    <string name="garden_wilting_note">Feeling a little wilted — say something today 🌱</string>
+    <string name="garden_named_by_you">You named this garden</string>
+    <string name="garden_named_by_partner">Your partner named this garden</string>
 
     <string name="drawing_title">Draw together</string>
     <string name="drawing_partner_present">🎨 Your partner is drawing too!</string>

@@ -34,6 +34,8 @@ import com.glimpse.app.ui.countdown.CountdownViewModel
 import com.glimpse.app.ui.dailyprompt.DailyPromptViewModel
 import com.glimpse.app.ui.drawing.DrawingScreen
 import com.glimpse.app.ui.drawing.DrawingViewModel
+import com.glimpse.app.ui.garden.GardenScreen
+import com.glimpse.app.ui.garden.GardenViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
 import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
@@ -68,7 +70,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update, Drawing }
+private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update, Drawing, Garden }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -88,6 +90,7 @@ class MainActivity : ComponentActivity() {
     private val widgetAccentColorViewModel: WidgetAccentColorViewModel by viewModels()
     private val videoLimitViewModel: VideoLimitViewModel by viewModels()
     private val drawingViewModel: DrawingViewModel by viewModels()
+    private val gardenViewModel: GardenViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -270,6 +273,7 @@ class MainActivity : ComponentActivity() {
                     val widgetAccentColorUiState by widgetAccentColorViewModel.uiState.collectAsState()
                     val videoLimitUiState by videoLimitViewModel.uiState.collectAsState()
                     val drawingUiState by drawingViewModel.uiState.collectAsState()
+                    val gardenUiState by gardenViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
                     // back stack (screen is just a flat mutableStateOf), so
@@ -321,6 +325,7 @@ class MainActivity : ComponentActivity() {
                                     onOpenHistory = { screen = AppScreen.History },
                                     onOpenSettings = { screen = AppScreen.Settings },
                                     onOpenDrawing = { screen = AppScreen.Drawing },
+                                    onOpenGarden = { screen = AppScreen.Garden },
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     thinkingOfYouBurst = thinkingOfYouBurst,
                                     onThinkingOfYouBurstHandled = { composeMessageViewModel.consumeThinkingOfYouBurst() },
@@ -436,6 +441,14 @@ class MainActivity : ComponentActivity() {
                             onMarkPresent = { drawingViewModel.markPresent() },
                             onClearPresent = { drawingViewModel.clearPresent() },
                             onDeleteSelected = { drawingViewModel.deleteSelected() },
+                            onBack = { screen = AppScreen.Compose }
+                        )
+
+                        AppScreen.Garden -> GardenScreen(
+                            uiState = gardenUiState,
+                            onLoad = { gardenViewModel.load() },
+                            onNameGarden = { name -> gardenViewModel.nameGarden(name) },
+                            onNameErrorHandled = { gardenViewModel.consumeNameError() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }
