@@ -98,6 +98,7 @@
     <string name="compose_queued">No connection — we\'ll send this once you\'re back online.</string>
     <string name="compose_uploading_photo">Sending your glimpse…</string>
     <string name="compose_video_too_large">That video\'s too large to send (over %1$d MB) — try a shorter clip.</string>
+    <string name="compose_video_too_long">That video\'s longer than %1$d seconds — please keep it shorter.</string>
     <string name="compose_lock_button">🔒 Time capsule</string>
     <string name="compose_locked_until">🔒 Locked until %1$s</string>
     <string name="compose_locked_remove">Remove</string>

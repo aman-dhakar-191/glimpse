@@ -2,6 +2,7 @@ package com.glimpse.app.ui.message
 
 import android.app.Application
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -163,7 +164,33 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
                 )
                 return@launch
             }
+            // Actually enforced, unlike the capture intent's duration-limit
+            // extra (ComposeMessageScreen) — that's only a hint some camera
+            // apps ignore, and it never applies at all to a video picked
+            // from the gallery instead of recorded fresh.
+            val durationMs = videoDurationMillis(file)
+            if (durationMs != null && durationMs > MAX_VIDEO_DURATION_MILLIS) {
+                file.delete()
+                _uiState.value = ComposeUiState.Error(
+                    app.getString(R.string.compose_video_too_long, (MAX_VIDEO_DURATION_MILLIS / 1000).toInt())
+                )
+                return@launch
+            }
             PhotoSendService.start(app, file, caption, unlockAt, contentType = "video/mp4", messageType = "video")
+        }
+    }
+
+    // release() (not the AutoCloseable close()/use{}, only added in API 29)
+    // — minSdk here is 26, and release() has always existed.
+    private fun videoDurationMillis(file: File): Long? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        } catch (e: Exception) {
+            null
+        } finally {
+            retriever.release()
         }
     }
 
@@ -204,5 +231,6 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     companion object {
         private const val MAX_VIDEO_BYTES = 25L * 1024 * 1024
+        private const val MAX_VIDEO_DURATION_MILLIS = 30_000L
     }
 }
