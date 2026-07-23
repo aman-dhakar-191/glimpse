@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -46,14 +48,18 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.GardenStage
 import com.glimpse.app.data.GardenWeather
+import kotlinx.coroutines.delay
 import java.time.format.DateTimeFormatter
+import java.time.LocalDate
 import kotlin.random.Random
+import kotlin.random.nextInt
 
 // A healthy stem/leaf green, independent of the theme (the plant should
 // read as a plant regardless of light/dark mode or accent color) — dulled
@@ -164,13 +170,16 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
             }
         }
 
-        Canvas(modifier = Modifier.size(240.dp).padding(top = 12.dp)) {
-            drawGarden(
-                stage = uiState.stage,
-                isWilting = uiState.isWilting,
-                seedCount = uiState.pendingSeeds.size,
-                isDoubleBloomToday = uiState.isDoubleBloomToday
-            )
+        Box(modifier = Modifier.padding(top = 12.dp).size(240.dp)) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawGarden(
+                    stage = uiState.stage,
+                    isWilting = uiState.isWilting,
+                    seedCount = uiState.pendingSeeds.size,
+                    isDoubleBloomToday = uiState.isDoubleBloomToday
+                )
+            }
+            GardenGnome(recentMemories = uiState.recentMemories)
         }
 
         if (uiState.isDoubleBloomToday) {
@@ -276,6 +285,77 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
                 GardenEchoDialog(memory = memory, onDismiss = { selectedMemory = null })
             }
         }
+    }
+}
+
+private sealed interface GnomeSurprise {
+    data class Compliment(val text: String) : GnomeSurprise
+    data object HeartBurst : GnomeSurprise
+    data class Memory(val memory: GardenMemory) : GnomeSurprise
+}
+
+// Position is seeded by the day (not per-recomposition), so it holds
+// still for the whole time the screen's open today and lands somewhere
+// new only on a fresh day/screen-open — a real "hidden somewhere new
+// each day," not a jittery one. BoxScope receiver so the surprise popups
+// below can center themselves over the plant via align().
+@Composable
+private fun BoxScope.GardenGnome(recentMemories: List<GardenMemory>) {
+    val today = remember { LocalDate.now().toEpochDay() }
+    val (offsetX, offsetY) = remember(today) {
+        val r = Random(today)
+        r.nextInt(20, 190).dp to r.nextInt(20, 190).dp
+    }
+    val compliments = stringArrayResource(R.array.garden_gnome_compliments)
+    var surprise by remember { mutableStateOf<GnomeSurprise?>(null) }
+
+    Text(
+        "🍄",
+        style = MaterialTheme.typography.headlineSmall,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .offset(x = offsetX, y = offsetY)
+            .clickable {
+                surprise = when (Random.nextInt(3)) {
+                    0 -> GnomeSurprise.Compliment(compliments.random())
+                    1 -> GnomeSurprise.HeartBurst
+                    else -> recentMemories.randomOrNull()?.let { GnomeSurprise.Memory(it) }
+                        ?: GnomeSurprise.Compliment(compliments.random())
+                }
+            }
+    )
+
+    when (val current = surprise) {
+        is GnomeSurprise.Compliment -> {
+            LaunchedEffect(current) {
+                delay(2500)
+                surprise = null
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                shape = MaterialTheme.shapes.large,
+                shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Text(
+                    current.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+        is GnomeSurprise.HeartBurst -> {
+            LaunchedEffect(current) {
+                delay(1200)
+                surprise = null
+            }
+            Text("💖", style = MaterialTheme.typography.displayLarge, modifier = Modifier.align(Alignment.Center))
+        }
+        is GnomeSurprise.Memory -> {
+            GardenEchoDialog(memory = current.memory, onDismiss = { surprise = null })
+        }
+        null -> Unit
     }
 }
 

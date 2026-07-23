@@ -207,6 +207,13 @@
     <string name="garden_echo_title">🌸 Tap a bloom to remember</string>
     <string name="garden_echo_video_placeholder">🎥 A video from that day</string>
     <string name="garden_echo_close">Close</string>
+    <string-array name="garden_gnome_compliments">
+        <item>You make ordinary days feel worth showing up for.</item>
+        <item>Someone out there is really glad you exist.</item>
+        <item>This little garden is lucky to have you tending it.</item>
+        <item>You\'re doing better than you think you are.</item>
+        <item>Today is better because you\'re in it.</item>
+    </string-array>
     <string name="garden_streak_days">%1$d-day streak</string>
     <string name="garden_wilting_note">Feeling a little wilted — say something today 🌱</string>
     <string name="garden_named_by_you">You named this garden</string>
