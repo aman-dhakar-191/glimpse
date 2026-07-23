@@ -23,7 +23,7 @@ if (file("google-services.json").exists()) {
 // Bump appVersionName by hand when there's an actual product-version change;
 // versionCode/the +build suffix take care of making every CI build unique
 // and installable over the last regardless.
-val appVersionName = "0.42.0"
+val appVersionName = "0.43.0"
 val appVersionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 val appFullVersionName = "$appVersionName+$appVersionCode"
 

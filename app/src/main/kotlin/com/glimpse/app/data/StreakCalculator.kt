@@ -4,6 +4,7 @@ import com.glimpse.app.data.model.Message
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 // Shared between StatsViewModel (on-demand display) and StreakCheckWorker
 // (daily background milestone check) so the two never drift apart on what
@@ -32,4 +33,17 @@ object StreakCalculator {
     }
 
     fun isMilestone(days: Int): Boolean = days in MILESTONES
+
+    // Calendar days since anyone last sent anything at all — 0 if today
+    // already has a message, null if there's no message history yet (a
+    // brand new pairing). Deliberately independent of currentStreakDays
+    // above: that resets straight to 0 the instant a day is missed, which
+    // is the right behavior for streak *counting* but the wrong signal for
+    // "how stale is this" — a garden wilting gradually wants the latter.
+    fun daysSinceLastMessage(messages: List<Message>, zone: ZoneId = ZoneId.systemDefault()): Int? {
+        val lastDate = messages.maxOfOrNull {
+            Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate()
+        } ?: return null
+        return ChronoUnit.DAYS.between(lastDate, LocalDate.now(zone)).toInt()
+    }
 }

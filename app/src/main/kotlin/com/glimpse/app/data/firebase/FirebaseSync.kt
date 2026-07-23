@@ -1,6 +1,7 @@
 package com.glimpse.app.data.firebase
 
 import android.util.Log
+import com.glimpse.app.data.model.GardenInfo
 import com.glimpse.app.data.model.LiveStroke
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.data.model.SpecialDate
@@ -33,6 +34,7 @@ object FirebaseSync {
     private fun liveDrawingStrokesRef() = database.child("shared/live_drawing/strokes")
     private fun liveDrawingPresenceRef() = database.child("shared/live_drawing/presence")
     private fun liveDrawingLastActiveRef() = database.child("shared/live_drawing/last_active")
+    private fun gardenRef() = database.child("shared/garden")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -507,5 +509,69 @@ object FirebaseSync {
 
     fun removeDrawingLastActiveListener(listener: ValueEventListener) {
         liveDrawingLastActiveRef().removeEventListener(listener)
+    }
+
+    suspend fun fetchGardenInfoOnce(): GardenInfo = try {
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            val snapshot = gardenRef().get().await()
+            GardenInfo(
+                name = snapshot.child("name").getValue(String::class.java).orEmpty(),
+                namedBy = snapshot.child("namedBy").getValue(String::class.java).orEmpty(),
+                namedAt = snapshot.child("namedAt").getValue(Long::class.java) ?: 0L,
+                peakStreakDays = snapshot.child("peakStreakDays").getValue(Int::class.java) ?: 0
+            )
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "fetchGardenInfoOnce failed", e)
+        CrashLogger.recordException("FirebaseSync.fetchGardenInfoOnce failed", e)
+        GardenInfo()
+    }
+
+    // A one-time shared ritual — name/namedBy/namedAt are only ever set
+    // once (DrawingScreen-style "fair game" reasoning doesn't apply here;
+    // GardenViewModel only calls this while the garden is still unnamed).
+    suspend fun nameGarden(name: String): Result<Unit> = runCatching {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
+        val data = mapOf("name" to name.trim(), "namedBy" to uid, "namedAt" to ServerValue.TIMESTAMP)
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            gardenRef().updateChildren(data).await()
+        }
+    }
+
+    // Ratchets the garden's peak streak upward, same transaction shape as
+    // markSeenUpTo above — called every time the garden screen recomputes
+    // the live streak, so a broken streak still wilts gradually from
+    // wherever it peaked instead of the plant snapping back to a seed the
+    // instant the streak itself resets to 0.
+    suspend fun raiseGardenPeakStreak(streakDays: Int) {
+        if (streakDays <= 0) return
+        try {
+            withTimeout(NETWORK_TIMEOUT_MILLIS) {
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    gardenRef().child("peakStreakDays").runTransaction(object : Transaction.Handler {
+                        override fun doTransaction(mutableData: MutableData): Transaction.Result {
+                            val current = mutableData.getValue(Int::class.java) ?: 0
+                            if (streakDays > current) {
+                                mutableData.value = streakDays
+                            }
+                            return Transaction.success(mutableData)
+                        }
+
+                        override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                            if (error != null) {
+                                Log.e(TAG, "raiseGardenPeakStreak failed", error.toException())
+                                CrashLogger.recordException("FirebaseSync.raiseGardenPeakStreak transaction failed", error.toException())
+                            }
+                            if (continuation.isActive) {
+                                continuation.resume(Unit)
+                            }
+                        }
+                    })
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "raiseGardenPeakStreak failed", e)
+            CrashLogger.recordException("FirebaseSync.raiseGardenPeakStreak failed", e)
+        }
     }
 }
