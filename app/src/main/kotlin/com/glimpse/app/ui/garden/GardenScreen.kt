@@ -1,5 +1,10 @@
 package com.glimpse.app.ui.garden
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -55,6 +62,7 @@ import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.GardenStage
 import com.glimpse.app.data.GardenWeather
+import com.glimpse.app.util.ShakeDetector
 import kotlinx.coroutines.delay
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
@@ -81,6 +89,23 @@ fun GardenScreen(
 ) {
     LaunchedEffect(Unit) { onLoad() }
 
+    // Pure novelty, zero function — shaking the phone swirls the whole
+    // screen like a snow globe for a few seconds. Tied to this screen
+    // actually being visible (DisposableEffect), not the ViewModel's
+    // longer lifetime, so leaving the Garden tab stops listening.
+    val context = LocalContext.current
+    var isSnowGlobeActive by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        val detector = ShakeDetector.register(context) { isSnowGlobeActive = true }
+        onDispose { ShakeDetector.unregister(context, detector) }
+    }
+    LaunchedEffect(isSnowGlobeActive) {
+        if (isSnowGlobeActive) {
+            delay(3500)
+            isSnowGlobeActive = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -104,6 +129,9 @@ fun GardenScreen(
                 is GardenUiState.Loaded -> {
                     GardenSky(weather = uiState.weather, modifier = Modifier.fillMaxSize())
                     GardenContent(uiState, onWaterGarden)
+                    if (isSnowGlobeActive) {
+                        SnowGlobeOverlay(modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
         }
@@ -117,6 +145,35 @@ fun GardenScreen(
             onConfirm = onNameGarden,
             onErrorHandled = onNameErrorHandled
         )
+    }
+}
+
+// Only ever composed while isSnowGlobeActive is true, so the animation
+// (and the sensor-driven state above it) stops costing anything the
+// moment the effect ends — nothing to manually pause/cancel here.
+@Composable
+private fun SnowGlobeOverlay(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "snowGlobe")
+    val progress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(durationMillis = 2000, easing = LinearEasing)),
+        label = "snowGlobeProgress"
+    )
+    // Fixed per-flake random offsets, generated once — only `progress`
+    // above needs to change frame to frame.
+    val flakes = remember { List(40) { Offset(Random.nextFloat(), Random.nextFloat()) } }
+
+    Canvas(modifier = modifier) {
+        flakes.forEach { seed ->
+            val swirl = kotlin.math.sin((progress + seed.x) * 2 * Math.PI).toFloat() * 0.05f
+            val fallY = (seed.y + progress) % 1f
+            drawCircle(
+                color = Color.White.copy(alpha = 0.85f),
+                radius = size.minDimension * 0.01f,
+                center = Offset((seed.x + swirl) * size.width, fallY * size.height)
+            )
+        }
     }
 }
 
