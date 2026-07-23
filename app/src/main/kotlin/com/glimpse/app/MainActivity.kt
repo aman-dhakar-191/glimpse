@@ -123,6 +123,11 @@ class MainActivity : ComponentActivity() {
 
     private var screen by mutableStateOf(AppScreen.Login)
 
+    // Set by handleOpenMessageIntent, consumed (and cleared) once
+    // MessageHistoryScreen has matched it against a loaded message — see
+    // that composable's autoOpenMessageId param.
+    private var pendingOpenMessageId by mutableStateOf<String?>(null)
+
     // checkPairingStatus's Firebase callback is always asynchronous (posted
     // via a Handler even when "cached"), so it reliably fires *after*
     // handleOpenComposeIntent/handleOpenReactIntent/handleOpenUpdateIntent
@@ -164,9 +169,10 @@ class MainActivity : ComponentActivity() {
         screen = AppScreen.Login
     }
 
-    // Widgets can't contain a text input field, so tapping the widget's
-    // message area (see ReactionActionBinder.bindOpenComposeAction) opens
-    // the app straight to Compose instead of wherever it was left —
+    // Widgets can't contain a text input field, so an EMPTY widget's message
+    // area (see ReactionActionBinder.bindOpenComposeAction — there's no
+    // message yet, so nothing for handleOpenMessageIntent below to show)
+    // opens the app straight to Compose instead of wherever it was left —
     // MainActivity is singleTask, so a tap while it's already running comes
     // through here rather than onCreate.
     private fun handleOpenComposeIntent(intent: Intent?) {
@@ -194,12 +200,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Tapping an image/video/text message on the widget (see
+    // ReactionActionBinder.bindOpenMessageAction) opens straight to History
+    // instead of Compose — for image/video, MessageHistoryScreen also
+    // matches this id against the loaded list to auto-open the same
+    // full-screen viewer a tap in that list would.
+    private fun handleOpenMessageIntent(intent: Intent?) {
+        val messageId = intent?.getStringExtra(EXTRA_OPEN_MESSAGE_ID)
+        if (messageId != null && loginViewModel.isSignedIn) {
+            pendingOpenMessageId = messageId
+            screen = AppScreen.History
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
         handleOpenUpdateIntent(intent)
+        handleOpenMessageIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -222,6 +242,7 @@ class MainActivity : ComponentActivity() {
         handleOpenComposeIntent(intent)
         handleOpenReactIntent(intent)
         handleOpenUpdateIntent(intent)
+        handleOpenMessageIntent(intent)
 
         setContent {
             GlimpseTheme {
@@ -374,7 +395,9 @@ class MainActivity : ComponentActivity() {
                                 onDownloadVideo = { url -> historyViewModel.downloadVideo(this@MainActivity, url) },
                                 onDownloadResultHandled = { historyViewModel.consumeDownloadResult() },
                                 onOpenStats = { screen = AppScreen.Stats },
-                                onSearch = { query -> historyViewModel.search(query) }
+                                onSearch = { query -> historyViewModel.search(query) },
+                                autoOpenMessageId = pendingOpenMessageId,
+                                onAutoOpenMessageHandled = { pendingOpenMessageId = null }
                             )
                         }
 
@@ -425,5 +448,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_REACT = "com.glimpse.app.EXTRA_OPEN_REACT"
         const val EXTRA_REACT_MESSAGE_ID = "com.glimpse.app.EXTRA_REACT_MESSAGE_ID"
         const val EXTRA_OPEN_UPDATE = "com.glimpse.app.EXTRA_OPEN_UPDATE"
+        const val EXTRA_OPEN_MESSAGE_ID = "com.glimpse.app.EXTRA_OPEN_MESSAGE_ID"
     }
 }

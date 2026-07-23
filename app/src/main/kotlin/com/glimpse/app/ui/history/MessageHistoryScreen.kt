@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -125,7 +126,9 @@ fun MessageHistoryScreen(
     onDownloadVideo: (String) -> Unit,
     onDownloadResultHandled: () -> Unit,
     onOpenStats: () -> Unit,
-    onSearch: (String) -> Unit
+    onSearch: (String) -> Unit,
+    autoOpenMessageId: String? = null,
+    onAutoOpenMessageHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,6 +137,24 @@ fun MessageHistoryScreen(
 
     var viewerPhotoUrl by remember { mutableStateOf<String?>(null) }
     var viewerVideoUrl by remember { mutableStateOf<String?>(null) }
+
+    // Tapping an image/video message on the widget lands here with that
+    // message's id — once the (async-loaded) message list actually
+    // contains it, jump straight to the same full-screen viewer a tap in
+    // this list would open. A text message has nothing to view full-screen,
+    // so it's left to just land on History itself (already scrolled to the
+    // latest message below).
+    LaunchedEffect(uiState.messages, autoOpenMessageId) {
+        val id = autoOpenMessageId ?: return@LaunchedEffect
+        val target = uiState.messages.find { it.id == id } ?: return@LaunchedEffect
+        val hiddenByLock = target.isLocked && target.authorUid != uiState.myUid
+        if (!hiddenByLock && target.photoUrl.isNotBlank()) {
+            if (target.isImage) viewerPhotoUrl = target.photoUrl
+            if (target.isVideo) viewerVideoUrl = target.photoUrl
+        }
+        onAutoOpenMessageHandled()
+    }
+
     var pendingDownloadUrl by remember { mutableStateOf<String?>(null) }
     var pendingDownloadIsVideo by remember { mutableStateOf(false) }
     val storagePermissionLauncher = rememberLauncherForActivityResult(
@@ -384,6 +405,27 @@ private fun FullScreenVideoViewer(
 ) {
     BackHandler(onBack = onDismiss)
 
+    // VideoView shows nothing at all until MediaPlayer finishes preparing —
+    // over a network URL that can take a few seconds, and with no feedback
+    // it just reads as a blank/broken screen. The same decoded poster frame
+    // HistoryVideoThumbnail uses for the chat bubble doubles as a "yes,
+    // this is loading" placeholder here, with a spinner on top of it.
+    var isReady by remember(videoUrl) { mutableStateOf(false) }
+    val posterFrame by produceState<Bitmap?>(initialValue = null, videoUrl) {
+        value = withContext(Dispatchers.IO) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(videoUrl, emptyMap())
+                retriever.frameAtTime
+            } catch (e: Exception) {
+                CrashLogger.recordException("FullScreenVideoViewer: poster frame decode failed (url=$videoUrl)", e)
+                null
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -394,6 +436,21 @@ private fun FullScreenVideoViewer(
                 .background(Color.Black)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
         ) {
+            if (!isReady) {
+                posterFrame?.let { bitmap ->
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
             AndroidView(
                 factory = { context ->
                     VideoView(context).also { videoView ->
@@ -401,7 +458,10 @@ private fun FullScreenVideoViewer(
                         val controller = MediaController(context)
                         controller.setAnchorView(videoView)
                         videoView.setMediaController(controller)
-                        videoView.setOnPreparedListener { videoView.start() }
+                        videoView.setOnPreparedListener {
+                            isReady = true
+                            videoView.start()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
