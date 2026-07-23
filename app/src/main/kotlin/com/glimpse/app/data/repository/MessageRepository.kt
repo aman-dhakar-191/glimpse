@@ -138,6 +138,7 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             database.child("shared/nudge").setValue(nudge).await()
         }
+        Unit
     }.onFailure { e -> CrashLogger.recordException("sendNudge failed", e) }
 
     private fun isEmojiOnly(text: String): Boolean =

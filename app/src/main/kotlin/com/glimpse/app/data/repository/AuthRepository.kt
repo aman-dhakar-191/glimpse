@@ -36,6 +36,7 @@ class AuthRepository {
             "photoURL" to (account.photoUrl?.toString() ?: "")
         )
         database.child("users").child(uid).updateChildren(updates).await()
+        Unit
     }.onFailure { e ->
         if (e !is NeedsPairingException) CrashLogger.recordException("signInWithGoogle failed", e)
     }
