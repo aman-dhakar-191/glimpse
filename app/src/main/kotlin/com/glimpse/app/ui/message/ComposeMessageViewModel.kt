@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.glimpse.app.R
 import com.glimpse.app.data.repository.MessageRepository
 import com.glimpse.app.service.IncomingEvents
 import com.glimpse.app.service.PhotoSendResults
@@ -123,7 +124,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             val contentType = app.contentResolver.getType(imageUri) ?: "image/jpeg"
             val file = try {
-                copyToCacheFile(app, imageUri)
+                copyToCacheFile(app, imageUri, "outgoing_photos", "photo", "jpg")
             } catch (e: Exception) {
                 _uiState.value = ComposeUiState.Error("Couldn't read that photo. Try again.")
                 return@launch
@@ -132,10 +133,44 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    private fun copyToCacheFile(context: Context, uri: Uri): File {
-        val dir = File(context.cacheDir, "outgoing_photos").apply { mkdirs() }
-        val file = File(dir, "photo_${System.currentTimeMillis()}.jpg")
-        val input = context.contentResolver.openInputStream(uri) ?: error("Couldn't open photo")
+    // Same reasoning/durable-copy pattern as sendPhotoMessage above, plus a
+    // hard byte-size cap — video files run far bigger than photos, and
+    // Storage isn't free, so this is the one thing actually enforced before
+    // ever starting an upload (the capture intent's duration-limit extra in
+    // ComposeMessageScreen is only a hint some camera apps honor, not a
+    // guarantee, and this also has to catch long videos picked from the
+    // gallery, which never goes through that intent at all).
+    fun sendVideoMessage(videoUri: Uri, caption: String, unlockAt: Long = 0) {
+        val app = getApplication<Application>()
+        if (!ConnectivityUtil.isConnected(app)) {
+            _uiState.value = ComposeUiState.Error(
+                "No internet connection. Videos can't be queued offline — try again once you're back online."
+            )
+            return
+        }
+        _uiState.value = ComposeUiState.Sending
+        viewModelScope.launch {
+            val file = try {
+                copyToCacheFile(app, videoUri, "outgoing_videos", "video", "mp4")
+            } catch (e: Exception) {
+                _uiState.value = ComposeUiState.Error("Couldn't read that video. Try again.")
+                return@launch
+            }
+            if (file.length() > MAX_VIDEO_BYTES) {
+                file.delete()
+                _uiState.value = ComposeUiState.Error(
+                    app.getString(R.string.compose_video_too_large, (MAX_VIDEO_BYTES / (1024 * 1024)).toInt())
+                )
+                return@launch
+            }
+            PhotoSendService.start(app, file, caption, unlockAt, contentType = "video/mp4", messageType = "video")
+        }
+    }
+
+    private fun copyToCacheFile(context: Context, uri: Uri, dirName: String, filePrefix: String, extension: String): File {
+        val dir = File(context.cacheDir, dirName).apply { mkdirs() }
+        val file = File(dir, "${filePrefix}_${System.currentTimeMillis()}.$extension")
+        val input = context.contentResolver.openInputStream(uri) ?: error("Couldn't open file")
         input.use { stream -> file.outputStream().use { output -> stream.copyTo(output) } }
         return file
     }
@@ -165,5 +200,9 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     fun consumeReactionBurst() {
         _reactionBurstEmoji.value = null
+    }
+
+    companion object {
+        private const val MAX_VIDEO_BYTES = 25L * 1024 * 1024
     }
 }

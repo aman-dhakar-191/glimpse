@@ -2,10 +2,16 @@ package com.glimpse.app.ui.history
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Build
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -44,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +67,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
@@ -66,6 +75,8 @@ import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.ui.theme.bubbleShape
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -110,6 +121,7 @@ fun MessageHistoryScreen(
     uiState: HistoryUiState,
     onBack: () -> Unit,
     onDownloadImage: (String) -> Unit,
+    onDownloadVideo: (String) -> Unit,
     onDownloadResultHandled: () -> Unit,
     onOpenStats: () -> Unit,
     onSearch: (String) -> Unit
@@ -120,25 +132,31 @@ fun MessageHistoryScreen(
     val downloadFailedMessage = stringResource(R.string.history_download_failed)
 
     var viewerPhotoUrl by remember { mutableStateOf<String?>(null) }
+    var viewerVideoUrl by remember { mutableStateOf<String?>(null) }
     var pendingDownloadUrl by remember { mutableStateOf<String?>(null) }
+    var pendingDownloadIsVideo by remember { mutableStateOf(false) }
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         val url = pendingDownloadUrl
+        val isVideo = pendingDownloadIsVideo
         pendingDownloadUrl = null
-        if (granted && url != null) onDownloadImage(url)
+        if (granted && url != null) {
+            if (isVideo) onDownloadVideo(url) else onDownloadImage(url)
+        }
     }
 
-    fun requestDownload(url: String) {
+    fun requestDownload(url: String, isVideo: Boolean) {
         // WRITE_EXTERNAL_STORAGE is only declared (and only needed) up to
         // API 28 — MediaStore writes on 29+ don't require it at all.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            onDownloadImage(url)
+            if (isVideo) onDownloadVideo(url) else onDownloadImage(url)
         } else {
             pendingDownloadUrl = url
+            pendingDownloadIsVideo = isVideo
             storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
     }
@@ -247,8 +265,10 @@ fun MessageHistoryScreen(
                             message = item.message,
                             isMine = item.message.authorUid == uiState.myUid,
                             seenStatus = if (item.isLast) uiState.lastMessageSeenStatus else null,
-                            onDownloadImage = { url -> requestDownload(url) },
-                            onImageClick = { url -> viewerPhotoUrl = url }
+                            onDownloadImage = { url -> requestDownload(url, isVideo = false) },
+                            onImageClick = { url -> viewerPhotoUrl = url },
+                            onDownloadVideo = { url -> requestDownload(url, isVideo = true) },
+                            onVideoClick = { url -> viewerVideoUrl = url }
                         )
                     }
                 }
@@ -262,7 +282,16 @@ fun MessageHistoryScreen(
         FullScreenImageViewer(
             photoUrl = photoUrl,
             onDismiss = { viewerPhotoUrl = null },
-            onDownload = { requestDownload(it) }
+            onDownload = { requestDownload(it, isVideo = false) }
+        )
+    }
+
+    val videoUrl = viewerVideoUrl
+    if (videoUrl != null) {
+        FullScreenVideoViewer(
+            videoUrl = videoUrl,
+            onDismiss = { viewerVideoUrl = null },
+            onDownload = { requestDownload(it, isVideo = true) }
         )
     }
 }
@@ -342,6 +371,92 @@ private fun FullScreenImageViewer(
     }
 }
 
+// Same transient-Dialog-overlay approach as the photo viewer above, opened
+// by tapping a video bubble. A plain system VideoView + MediaController —
+// no need for a heavier player library just for tap-to-play/pause/seek on
+// an already-hosted Firebase Storage URL.
+@Composable
+private fun FullScreenVideoViewer(
+    videoUrl: String,
+    onDismiss: () -> Unit,
+    onDownload: (String) -> Unit
+) {
+    BackHandler(onBack = onDismiss)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
+            AndroidView(
+                factory = { context ->
+                    VideoView(context).also { videoView ->
+                        videoView.setVideoURI(Uri.parse(videoUrl))
+                        val controller = MediaController(context)
+                        controller.setAnchorView(videoView)
+                        videoView.setMediaController(controller)
+                        videoView.setOnPreparedListener { videoView.start() }
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+            ) {
+                Text("✕", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            }
+
+            SmallFloatingActionButton(
+                onClick = { onDownload(videoUrl) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)
+            ) {
+                Text("⬇", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+// A single decoded frame (MediaMetadataRetriever supports remote http(s)
+// URLs directly via this overload, no need to download the whole file
+// first) with a play glyph on top — tapping it opens the real player above.
+@Composable
+private fun HistoryVideoThumbnail(url: String, modifier: Modifier = Modifier) {
+    val frame by produceState<Bitmap?>(initialValue = null, url) {
+        value = withContext(Dispatchers.IO) {
+            // release() (not the AutoCloseable close()/use{}, only added in
+            // API 29) — minSdk here is 26, and release() has always existed.
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(url, emptyMap())
+                retriever.frameAtTime
+            } catch (e: Exception) {
+                null
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
+    Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        frame?.let { bitmap ->
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Text("▶", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+    }
+}
+
 @Composable
 private fun DateDividerRow(label: String) {
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -366,7 +481,9 @@ private fun MessageBubbleRow(
     isMine: Boolean,
     seenStatus: SeenStatus?,
     onDownloadImage: (String) -> Unit,
-    onImageClick: (String) -> Unit
+    onImageClick: (String) -> Unit,
+    onDownloadVideo: (String) -> Unit,
+    onVideoClick: (String) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -435,6 +552,69 @@ private fun MessageBubbleRow(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = textColor,
                                 modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+                            )
+                        }
+                    }
+                }
+            } else if (message.isVideo && message.photoUrl.isNotBlank()) {
+                Surface(
+                    color = bubbleColor,
+                    shape = shape,
+                    modifier = Modifier.width(220.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Box {
+                            HistoryVideoThumbnail(
+                                url = message.photoUrl,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1.2f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onVideoClick(message.photoUrl) }
+                            )
+                            SmallFloatingActionButton(
+                                onClick = { onDownloadVideo(message.photoUrl) },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(6.dp)
+                            ) {
+                                Text("⬇", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                        // Always present (not just when there's a caption) —
+                        // keeps the thumbnail's own rectangular corner clear
+                        // of the bubble's curved tail notch below it.
+                        Spacer(Modifier.height(10.dp))
+                        if (message.caption.isNotBlank()) {
+                            Text(
+                                message.caption,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = textColor,
+                                modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+                            )
+                        }
+                    }
+                }
+            } else if (message.isVideo) {
+                // Reached only once the video's Storage file has already
+                // been deleted by the scheduled cleanup (see
+                // functions/index.js's expireOldVideos) — the message and
+                // its caption stick around, just without playable video.
+                Surface(color = bubbleColor, shape = shape) {
+                    Column(
+                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 20.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.history_video_expired),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = textColor
+                        )
+                        if (message.caption.isNotBlank()) {
+                            Text(
+                                message.caption,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = textColor,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                     }

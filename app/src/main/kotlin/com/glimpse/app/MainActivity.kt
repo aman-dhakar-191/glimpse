@@ -287,6 +287,9 @@ class MainActivity : ComponentActivity() {
                                     onSendPhoto = { uri, caption, unlockAt ->
                                         composeMessageViewModel.sendPhotoMessage(uri, caption, unlockAt)
                                     },
+                                    onSendVideo = { uri, caption, unlockAt ->
+                                        composeMessageViewModel.sendVideoMessage(uri, caption, unlockAt)
+                                    },
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
                                     onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
@@ -360,6 +363,7 @@ class MainActivity : ComponentActivity() {
                                 uiState = historyUiState,
                                 onBack = { screen = AppScreen.Compose },
                                 onDownloadImage = { url -> historyViewModel.downloadImage(this@MainActivity, url) },
+                                onDownloadVideo = { url -> historyViewModel.downloadVideo(this@MainActivity, url) },
                                 onDownloadResultHandled = { historyViewModel.consumeDownloadResult() },
                                 onOpenStats = { screen = AppScreen.Stats },
                                 onSearch = { query -> historyViewModel.search(query) }

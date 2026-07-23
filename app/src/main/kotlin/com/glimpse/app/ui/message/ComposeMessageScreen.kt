@@ -2,8 +2,12 @@ package com.glimpse.app.ui.message
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +23,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +65,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -69,6 +75,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,7 +93,9 @@ import com.glimpse.app.ui.theme.BlobChipShapeA
 import com.glimpse.app.ui.theme.BlobChipShapeB
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -98,6 +107,25 @@ private fun createCameraImageUri(context: Context): Uri {
     val imagesDir = File(context.cacheDir, "camera").apply { mkdirs() }
     val imageFile = File(imagesDir, "IMG_${System.currentTimeMillis()}.jpg")
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+}
+
+private fun createCameraVideoUri(context: Context): Uri {
+    val videosDir = File(context.cacheDir, "camera_video").apply { mkdirs() }
+    val videoFile = File(videosDir, "VID_${System.currentTimeMillis()}.mp4")
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", videoFile)
+}
+
+// A hint, not a guarantee — some camera apps ignore this extra entirely —
+// so it's paired with a hard byte-size check in
+// ComposeMessageViewModel.sendVideoMessage that actually gets enforced
+// regardless of source (recorded or picked from the gallery).
+private const val VIDEO_DURATION_LIMIT_SECONDS = 30
+
+// The stock CaptureVideo contract has no way to add extra Intent extras —
+// this just adds the one duration hint on top of what it already builds.
+private class CaptureVideoWithDurationLimit : ActivityResultContracts.CaptureVideo() {
+    override fun createIntent(context: Context, input: Uri): Intent =
+        super.createIntent(context, input).putExtra(MediaStore.EXTRA_DURATION_LIMIT, VIDEO_DURATION_LIMIT_SECONDS)
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
@@ -146,12 +174,50 @@ private fun PhotoUploadingOverlay(modifier: Modifier = Modifier) {
     }
 }
 
+// A single decoded frame (via MediaMetadataRetriever, off the main thread)
+// with a play glyph on top — a real live-playing preview here would need a
+// whole video player just for a few seconds of compose-screen preview,
+// which is a lot of machinery for something the History screen's own
+// full player (see MessageHistoryScreen) already does properly once sent.
+@Composable
+private fun VideoThumbnail(uri: Uri, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val frame by produceState<Bitmap?>(initialValue = null, uri) {
+        value = withContext(Dispatchers.IO) {
+            // release() (not the AutoCloseable close()/use{}, only added in
+            // API 29) — minSdk here is 26, and release() has always existed.
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, uri)
+                retriever.frameAtTime
+            } catch (e: Exception) {
+                null
+            } finally {
+                retriever.release()
+            }
+        }
+    }
+
+    Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        frame?.let { bitmap ->
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Text("▶", color = Color.White, style = MaterialTheme.typography.displaySmall)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeMessageScreen(
     uiState: ComposeUiState,
     onSend: (String, Long) -> Unit,
     onSendPhoto: (Uri, String, Long) -> Unit,
+    onSendVideo: (Uri, String, Long) -> Unit,
     onSentHandled: () -> Unit,
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -177,6 +243,13 @@ fun ComposeMessageScreen(
     var text by rememberSaveable { mutableStateOf("") }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    // Kept as its own separate pair of vars (not folded into
+    // selectedImageUri) rather than one "selected media Uri + is-it-a-video
+    // flag" — keeps every existing photo-only reference below unchanged and
+    // makes the two mutually-exclusive-by-construction (see the launcher
+    // callbacks below, which always clear the other one).
+    var selectedVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var pendingCameraVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showSentBurst by remember { mutableStateOf(false) }
     var showThinkingOfYouBurst by remember { mutableStateOf(false) }
     var activeReactionEmoji by remember { mutableStateOf<String?>(null) }
@@ -188,13 +261,31 @@ fun ComposeMessageScreen(
     val sentMessage = stringResource(R.string.compose_sent)
     val context = LocalContext.current
 
+    // ImageAndVideo (not ImageOnly) so this one "pick from gallery" button
+    // covers both — the callback below tells them apart by MIME type
+    // rather than needing a second, video-only picker button.
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri -> if (uri != null) selectedImageUri = uri }
+    ) { uri ->
+        if (uri != null) {
+            val isVideo = context.contentResolver.getType(uri)?.startsWith("video/") == true
+            if (isVideo) {
+                selectedVideoUri = uri
+                selectedImageUri = null
+            } else {
+                selectedImageUri = uri
+                selectedVideoUri = null
+            }
+        }
+    }
 
     val takePictureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
-    ) { success -> if (success) selectedImageUri = pendingCameraUri }
+    ) { success -> if (success) { selectedImageUri = pendingCameraUri; selectedVideoUri = null } }
+
+    val captureVideoLauncher = rememberLauncherForActivityResult(
+        contract = CaptureVideoWithDurationLimit()
+    ) { success -> if (success) { selectedVideoUri = pendingCameraVideoUri; selectedImageUri = null } }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -203,6 +294,21 @@ fun ComposeMessageScreen(
             val uri = createCameraImageUri(context)
             pendingCameraUri = uri
             takePictureLauncher.launch(uri)
+        }
+    }
+
+    // Both CAMERA and RECORD_AUDIO — some camera apps' ACTION_VIDEO_CAPTURE
+    // handling checks the CALLING app's own permissions (not just its own),
+    // even though it's the camera app's process actually doing the
+    // recording, so requesting only CAMERA (as launchCamera does for
+    // photos) isn't reliably enough for video across every OEM camera app.
+    val videoCameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        if (granted.values.all { it }) {
+            val uri = createCameraVideoUri(context)
+            pendingCameraVideoUri = uri
+            captureVideoLauncher.launch(uri)
         }
     }
 
@@ -218,6 +324,20 @@ fun ComposeMessageScreen(
         }
     }
 
+    fun launchVideoCamera() {
+        val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (hasCamera && hasMic) {
+            val uri = createCameraVideoUri(context)
+            pendingCameraVideoUri = uri
+            captureVideoLauncher.launch(uri)
+        } else {
+            videoCameraPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+        }
+    }
+
     LaunchedEffect(Unit) {
         onLoadDailyPrompt()
         onLoadPartnerMood()
@@ -229,6 +349,8 @@ fun ComposeMessageScreen(
             text = ""
             selectedImageUri = null
             pendingCameraUri = null
+            selectedVideoUri = null
+            pendingCameraVideoUri = null
             lockUntilMillis = 0L
             showSentBurst = true
             snackbarHostState.showSnackbar(sentMessage)
@@ -403,6 +525,8 @@ fun ComposeMessageScreen(
                     Spacer(Modifier.height(12.dp))
 
                     val uploadingPhoto = uiState is ComposeUiState.Sending && selectedImageUri != null
+                    val uploadingVideo = uiState is ComposeUiState.Sending && selectedVideoUri != null
+                    val hasAttachment = selectedImageUri != null || selectedVideoUri != null
 
                     selectedImageUri?.let { uri ->
                         Box(modifier = Modifier.fillMaxWidth()) {
@@ -434,6 +558,34 @@ fun ComposeMessageScreen(
                         Spacer(Modifier.height(12.dp))
                     }
 
+                    selectedVideoUri?.let { uri ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            VideoThumbnail(
+                                uri = uri,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            if (uploadingVideo) {
+                                PhotoUploadingOverlay(modifier = Modifier.fillMaxWidth().height(160.dp))
+                            } else {
+                                IconButton(
+                                    onClick = { selectedVideoUri = null },
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Text(
+                                        "✕",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it },
@@ -441,7 +593,7 @@ fun ComposeMessageScreen(
                         placeholder = {
                             Text(
                                 stringResource(
-                                    if (selectedImageUri != null) {
+                                    if (hasAttachment) {
                                         R.string.compose_caption_placeholder
                                     } else {
                                         R.string.compose_placeholder
@@ -449,7 +601,7 @@ fun ComposeMessageScreen(
                                 )
                             )
                         },
-                        minLines = if (selectedImageUri != null) 1 else 3
+                        minLines = if (hasAttachment) 1 else 3
                     )
 
                     Spacer(Modifier.height(12.dp))
@@ -468,12 +620,22 @@ fun ComposeMessageScreen(
                             Text("📸")
                         }
                         OutlinedButton(
+                            onClick = { launchVideoCamera() },
+                            shape = BlobChipShapeB,
+                            contentPadding = BlobChipPadding
+                        ) {
+                            Text("🎥")
+                        }
+                        OutlinedButton(
                             onClick = {
+                                // ImageAndVideo (not ImageOnly) — the launcher
+                                // callback above tells the two apart by MIME
+                                // type, so one button covers picking either.
                                 photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                                 )
                             },
-                            shape = BlobChipShapeB,
+                            shape = BlobChipShapeA,
                             contentPadding = BlobChipPadding
                         ) {
                             Text("🖼️")
@@ -542,15 +704,16 @@ fun ComposeMessageScreen(
             }
 
             val canSend = uiState !is ComposeUiState.Sending && uiState !is ComposeUiState.Queued &&
-                (selectedImageUri != null || text.isNotBlank())
+                (selectedImageUri != null || selectedVideoUri != null || text.isNotBlank())
 
             Button(
                 onClick = {
-                    val uri = selectedImageUri
-                    if (uri != null) {
-                        onSendPhoto(uri, text, lockUntilMillis)
-                    } else {
-                        onSend(text, lockUntilMillis)
+                    val photoUri = selectedImageUri
+                    val videoUri = selectedVideoUri
+                    when {
+                        photoUri != null -> onSendPhoto(photoUri, text, lockUntilMillis)
+                        videoUri != null -> onSendVideo(videoUri, text, lockUntilMillis)
+                        else -> onSend(text, lockUntilMillis)
                     }
                 },
                 enabled = canSend,

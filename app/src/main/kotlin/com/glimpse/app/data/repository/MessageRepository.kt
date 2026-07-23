@@ -70,10 +70,11 @@ class MessageRepository {
     //
     // messageType lets this same upload-then-create-message flow (and, via
     // PhotoSendService, the same app-closure-survival guarantee) serve the
-    // drawing feature too — a finished drawing is rasterized to a PNG file
-    // and sent through here exactly like a photo, just tagged "drawing"
-    // instead of "photo" so the widget/history can show an appropriate
-    // fallback icon if the image fails to load.
+    // drawing and video features too — a finished drawing is rasterized to
+    // a PNG file and sent through here exactly like a photo, just tagged
+    // "drawing" instead of "photo" so the widget/history can show an
+    // appropriate fallback if the image fails to load; a video recording
+    // is sent through here the same way, tagged "video".
     suspend fun sendPhotoMessage(
         imageUri: Uri,
         caption: String,
@@ -85,10 +86,14 @@ class MessageRepository {
         val now = System.currentTimeMillis()
 
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
-            // glimpse/ namespace since this Storage bucket is shared with other
-            // projects on the same Firebase project.
-            val extension = if (contentType == "image/png") "png" else "jpg"
-            val photoRef = storage.reference.child("glimpse/messages/${user.uid}/$now.$extension")
+            // glimpse/ namespace since this Storage bucket is shared with
+            // other projects on the same Firebase project. Videos live under
+            // their own glimpse/videos/ prefix (not glimpse/messages/) so a
+            // future cleanup job can target just that prefix for expiry
+            // without touching photos, which aren't expired.
+            val extension = if (contentType == "video/mp4") "mp4" else if (contentType == "image/png") "png" else "jpg"
+            val basePath = if (contentType == "video/mp4") "glimpse/videos" else "glimpse/messages"
+            val photoRef = storage.reference.child("$basePath/${user.uid}/$now.$extension")
             val metadata = StorageMetadata.Builder().setContentType(contentType).build()
             photoRef.putFile(imageUri, metadata).await()
             val photoUrl = photoRef.downloadUrl.await().toString()

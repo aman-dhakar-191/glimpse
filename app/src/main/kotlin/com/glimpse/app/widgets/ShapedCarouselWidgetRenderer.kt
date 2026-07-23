@@ -139,6 +139,10 @@ internal object ShapedCarouselWidgetRenderer {
         val hiddenByLock = message.isLocked && message.authorUid != myUid
         val content = when {
             hiddenByLock -> context.getString(R.string.widget_locked_message)
+            // RemoteViews can't play video at all, so unlike photo/drawing
+            // below there's no ImageView content to show alongside this —
+            // the fallback text IS the whole widget's content for a video.
+            message.isVideo -> message.caption.ifBlank { context.getString(R.string.widget_video_fallback) }
             // The image itself goes into shaped_message_photo below — this
             // is just the caption line under it (or a fallback if blank).
             message.isImage -> message.caption
