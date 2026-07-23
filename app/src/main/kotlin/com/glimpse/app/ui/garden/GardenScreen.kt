@@ -153,7 +153,21 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
         }
 
         Canvas(modifier = Modifier.size(240.dp).padding(top = 12.dp)) {
-            drawGarden(stage = uiState.stage, isWilting = uiState.isWilting, seedCount = uiState.pendingSeeds.size)
+            drawGarden(
+                stage = uiState.stage,
+                isWilting = uiState.isWilting,
+                seedCount = uiState.pendingSeeds.size,
+                isDoubleBloomToday = uiState.isDoubleBloomToday
+            )
+        }
+
+        if (uiState.isDoubleBloomToday) {
+            Text(
+                stringResource(R.string.garden_double_bloom_today),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
 
         // A lightweight daily chore, not a real fix for a broken streak —
@@ -482,7 +496,15 @@ private fun DrawScope.drawConfetti() {
 // seedCount (capped at 3 dots — the text list below covers the exact
 // count) plants a few small still-buried dots off to one side of the
 // stem, standing in for time-capsule messages waiting to unlock.
-private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean, seedCount: Int = 0) {
+// isDoubleBloomToday draws a rainbow sparkle burst regardless of stage —
+// a same-day-but-independent send from both of you is a rare enough
+// coincidence to celebrate no matter how far along the plant otherwise is.
+private fun DrawScope.drawGarden(
+    stage: GardenStage,
+    isWilting: Boolean,
+    seedCount: Int = 0,
+    isDoubleBloomToday: Boolean = false
+) {
     val w = size.width
     val h = size.height
     val potTop = h * 0.78f
@@ -507,7 +529,12 @@ private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean, seedCou
         drawCircle(color = Color(0xFF3E2A1A), radius = w * 0.012f, center = Offset(dotX, soilCenter.y))
     }
 
-    if (stage == GardenStage.Seed) return
+    if (stage == GardenStage.Seed) {
+        if (isDoubleBloomToday) {
+            drawDoubleBloomSparkle(center = Offset(soilCenter.x, soilCenter.y - h * 0.14f), radius = w * 0.14f)
+        }
+        return
+    }
 
     val stemColor = if (isWilting) WILTED_GREEN else HEALTHY_GREEN
     val stemHeight = h * (0.12f + 0.11f * stage.ordinal)
@@ -542,6 +569,28 @@ private fun DrawScope.drawGarden(stage: GardenStage, isWilting: Boolean, seedCou
             topLeft = Offset(stemTop.x - w * 0.035f, stemTop.y - w * 0.045f),
             size = androidx.compose.ui.geometry.Size(w * 0.07f, w * 0.09f)
         )
+    }
+
+    if (isDoubleBloomToday) {
+        drawDoubleBloomSparkle(center = stemTop, radius = w * 0.16f)
+    }
+}
+
+// A ring of distinctly different colors (unlike drawBloom's single-hue
+// petals) — reads as "something unusual/rare happened here today," not
+// as just a bigger regular flower.
+private fun DrawScope.drawDoubleBloomSparkle(center: Offset, radius: Float) {
+    val colors = listOf(
+        Color(0xFFFF5252), Color(0xFFFFB300), Color(0xFFFFEE58),
+        Color(0xFF66BB6A), Color(0xFF42A5F5), Color(0xFFAB47BC)
+    )
+    colors.forEachIndexed { i, color ->
+        val angle = 2 * Math.PI * i / colors.size
+        val point = Offset(
+            center.x + (radius * kotlin.math.cos(angle)).toFloat(),
+            center.y + (radius * kotlin.math.sin(angle)).toFloat()
+        )
+        drawCircle(color = color, radius = radius * 0.22f, center = point)
     }
 }
 

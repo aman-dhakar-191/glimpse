@@ -43,6 +43,11 @@ sealed interface GardenUiState {
         // Nudges sent late at night, made tangible — see
         // FirebaseSync.addFirefly/fetchRecentFirefliesOnce.
         val fireflyCount: Int = 0,
+        // Both of you sent SOMETHING today, independently — not a reply
+        // thread (this app has no such concept), just two messages
+        // landing on the same calendar day without either of you planning
+        // it that way.
+        val isDoubleBloomToday: Boolean = false,
         val wateredToday: Boolean = false,
         val isWatering: Boolean = false,
         val isNaming: Boolean = false,
@@ -85,9 +90,21 @@ class GardenViewModel : ViewModel() {
                 weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji),
                 pendingSeeds = pendingSeeds(messages, myUid),
                 fireflyCount = fireflies.size,
+                isDoubleBloomToday = isDoubleBloomToday(messages),
                 wateredToday = daysSinceWatered == 0
             )
         }
+    }
+
+    // True the moment BOTH of you have sent at least one message today —
+    // reusing the same message list already fetched for the streak, so
+    // this can never disagree with what actually happened today.
+    private fun isDoubleBloomToday(messages: List<Message>): Boolean {
+        val today = LocalDate.now()
+        val authorsToday = messages.filter {
+            Instant.ofEpochMilli(it.createdAt).atZone(ZoneId.systemDefault()).toLocalDate() == today
+        }.map { it.authorUid }.toSet()
+        return authorsToday.size >= 2
     }
 
     private fun daysSince(epochMillis: Long): Int? {
