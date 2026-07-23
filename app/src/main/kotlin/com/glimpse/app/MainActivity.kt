@@ -449,6 +449,7 @@ class MainActivity : ComponentActivity() {
                             onLoad = { gardenViewModel.load() },
                             onNameGarden = { name -> gardenViewModel.nameGarden(name) },
                             onNameErrorHandled = { gardenViewModel.consumeNameError() },
+                            onWaterGarden = { gardenViewModel.waterGarden() },
                             onBack = { screen = AppScreen.Compose }
                         )
                     }

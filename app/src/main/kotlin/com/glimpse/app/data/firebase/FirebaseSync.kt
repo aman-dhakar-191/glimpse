@@ -518,7 +518,9 @@ object FirebaseSync {
                 name = snapshot.child("name").getValue(String::class.java).orEmpty(),
                 namedBy = snapshot.child("namedBy").getValue(String::class.java).orEmpty(),
                 namedAt = snapshot.child("namedAt").getValue(Long::class.java) ?: 0L,
-                peakStreakDays = snapshot.child("peakStreakDays").getValue(Int::class.java) ?: 0
+                peakStreakDays = snapshot.child("peakStreakDays").getValue(Int::class.java) ?: 0,
+                lastWateredAt = snapshot.child("lastWateredAt").getValue(Long::class.java) ?: 0L,
+                lastWateredBy = snapshot.child("lastWateredBy").getValue(String::class.java).orEmpty()
             )
         }
     } catch (e: Exception) {
@@ -533,6 +535,19 @@ object FirebaseSync {
     suspend fun nameGarden(name: String): Result<Unit> = runCatching {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
         val data = mapOf("name" to name.trim(), "namedBy" to uid, "namedAt" to ServerValue.TIMESTAMP)
+        withTimeout(NETWORK_TIMEOUT_MILLIS) {
+            gardenRef().updateChildren(data).await()
+        }
+    }
+
+    // Either of you tapping the Water button — a lightweight daily ritual
+    // that counts as activity for the wilt calculation (see GardenGrowth)
+    // without touching the real streak/message data at all. Whoever taps
+    // it last today is the one shown; no need for anything fancier than
+    // a plain overwrite, same as shared/nudge above.
+    suspend fun waterGarden(): Result<Unit> = runCatching {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: error("Not signed in.")
+        val data = mapOf("lastWateredAt" to ServerValue.TIMESTAMP, "lastWateredBy" to uid)
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             gardenRef().updateChildren(data).await()
         }
