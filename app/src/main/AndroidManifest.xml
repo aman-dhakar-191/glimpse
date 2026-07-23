@@ -82,6 +82,26 @@
             android:name=".widgets.ShapedCarouselAdvanceReceiver"
             android:exported="false" />
 
+        <!-- 1x1 "thinking of you" widget — a single tap sends the same
+             nudge as the in-app button, straight from the home screen, no
+             need to open the app at all. See ThinkingOfYouWidget. -->
+        <receiver
+            android:name=".widgets.ThinkingOfYouWidget"
+            android:exported="true"
+            android:label="@string/widget_label_thinking_of_you">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_thinking_of_you_info" />
+        </receiver>
+
+        <!-- Handles the widget's tap — see ThinkingOfYouSendReceiver. -->
+        <receiver
+            android:name=".widgets.ThinkingOfYouSendReceiver"
+            android:exported="false" />
+
         <!-- Widget Update Service -->
         <service
             android:name=".service.WidgetUpdateService"

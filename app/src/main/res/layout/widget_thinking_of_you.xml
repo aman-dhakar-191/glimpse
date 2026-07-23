@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A single circular tap target filling the whole 1x1 cell — the entire
+     point of this widget is "tap it, done", nothing else to lay out.
+     RelativeLayout, not FrameLayout — see widget_shaped_message.xml's own
+     comment: a RemoteViews FrameLayout was implicated in a "Can't load
+     widget" crash on this app before, so every widget layout here sticks
+     to RelativeLayout for the root/overlap container instead. -->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/thinking_of_you_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_react_icon_bg">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="💓"
+        android:textSize="28sp" />
+</RelativeLayout>
