@@ -190,6 +190,10 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
             }
         }
 
+        if (uiState.fireflyCount > 0) {
+            FireflyJar(fireflyCount = uiState.fireflyCount, modifier = Modifier.padding(top = 12.dp))
+        }
+
         if (uiState.pendingSeeds.isNotEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -214,6 +218,53 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
                 }
             }
         }
+    }
+}
+
+// A small jar with a glowing dot per firefly (capped visually — the count
+// text alongside it is the actual source of truth once there are more
+// than fit legibly). Positions are stable across recompositions (seeded
+// by count) but not meant to correspond to any particular firefly.
+@Composable
+private fun FireflyJar(fireflyCount: Int, modifier: Modifier = Modifier) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Canvas(modifier = Modifier.size(72.dp)) {
+            drawFireflyJar(fireflyCount.coerceAtMost(8))
+        }
+        Text(
+            stringResource(R.string.garden_firefly_count, fireflyCount),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+private fun DrawScope.drawFireflyJar(count: Int) {
+    val w = size.width
+    val h = size.height
+    val bodyTop = h * 0.28f
+
+    drawRoundRect(
+        color = Color(0xFF8D6E63),
+        topLeft = Offset(w * 0.22f, h * 0.14f),
+        size = androidx.compose.ui.geometry.Size(w * 0.56f, h * 0.16f),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.06f)
+    )
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.25f),
+        topLeft = Offset(w * 0.15f, bodyTop),
+        size = androidx.compose.ui.geometry.Size(w * 0.7f, h * 0.68f),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.12f),
+        style = Stroke(width = w * 0.03f)
+    )
+
+    val random = Random(count)
+    repeat(count) {
+        val x = w * (0.28f + random.nextFloat() * 0.44f)
+        val y = bodyTop + h * 0.1f + random.nextFloat() * h * 0.5f
+        drawCircle(color = Color(0xFFFFEE58).copy(alpha = 0.35f), radius = w * 0.06f, center = Offset(x, y))
+        drawCircle(color = Color(0xFFFFEE58), radius = w * 0.022f, center = Offset(x, y))
     }
 }
 

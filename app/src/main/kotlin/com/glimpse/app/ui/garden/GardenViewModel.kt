@@ -40,6 +40,9 @@ sealed interface GardenUiState {
         // not a second display of what's already on the mood picker.
         val weather: GardenWeather,
         val pendingSeeds: List<GardenSeed> = emptyList(),
+        // Nudges sent late at night, made tangible — see
+        // FirebaseSync.addFirefly/fetchRecentFirefliesOnce.
+        val fireflyCount: Int = 0,
         val wateredToday: Boolean = false,
         val isWatering: Boolean = false,
         val isNaming: Boolean = false,
@@ -63,6 +66,7 @@ class GardenViewModel : ViewModel() {
             FirebaseSync.raiseGardenPeakStreak(streakDays)
             val info = FirebaseSync.fetchGardenInfoOnce()
             val myMoodEmoji = FirebaseSync.fetchMyMoodOnce()
+            val fireflies = FirebaseSync.fetchRecentFirefliesOnce()
             val peakStreakDays = maxOf(info.peakStreakDays, streakDays)
             val daysSinceWatered = daysSince(info.lastWateredAt)
             // Whichever is more recent — a message or a tap of the Water
@@ -80,6 +84,7 @@ class GardenViewModel : ViewModel() {
                 streakDays = streakDays,
                 weather = GardenWeatherMapper.forMoodEmoji(myMoodEmoji),
                 pendingSeeds = pendingSeeds(messages, myUid),
+                fireflyCount = fireflies.size,
                 wateredToday = daysSinceWatered == 0
             )
         }
