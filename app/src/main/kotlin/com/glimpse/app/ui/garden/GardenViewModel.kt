@@ -1,12 +1,15 @@
 package com.glimpse.app.ui.garden
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.glimpse.app.data.GardenGrowth
 import com.glimpse.app.data.GardenStage
 import com.glimpse.app.data.GardenWeather
 import com.glimpse.app.data.GardenWeatherMapper
+import com.glimpse.app.data.RealWeatherCondition
 import com.glimpse.app.data.StreakCalculator
+import com.glimpse.app.data.WeatherFetcher
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
 import com.glimpse.app.util.CrashLogger
@@ -61,6 +64,11 @@ sealed interface GardenUiState {
         // it that way.
         val isDoubleBloomToday: Boolean = false,
         val recentMemories: List<GardenMemory> = emptyList(),
+        // Your OWN real weather (see WeatherFetcher) — null whenever
+        // there's nothing to show, whether that's a denied permission, no
+        // cached location, or genuinely clear skies. Layered on top of
+        // (not a replacement for) mood-driven weather above.
+        val realWeatherCondition: RealWeatherCondition? = null,
         val wateredToday: Boolean = false,
         val isWatering: Boolean = false,
         val isNaming: Boolean = false,
@@ -68,7 +76,7 @@ sealed interface GardenUiState {
     ) : GardenUiState
 }
 
-class GardenViewModel : ViewModel() {
+class GardenViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<GardenUiState>(GardenUiState.Loading)
     val uiState: StateFlow<GardenUiState> = _uiState.asStateFlow()
 
@@ -85,6 +93,7 @@ class GardenViewModel : ViewModel() {
             val info = FirebaseSync.fetchGardenInfoOnce()
             val myMoodEmoji = FirebaseSync.fetchMyMoodOnce()
             val fireflies = FirebaseSync.fetchRecentFirefliesOnce()
+            val realWeatherCondition = WeatherFetcher.fetchCondition(getApplication())
             val peakStreakDays = maxOf(info.peakStreakDays, streakDays)
             val daysSinceWatered = daysSince(info.lastWateredAt)
             // Whichever is more recent — a message or a tap of the Water
@@ -105,6 +114,7 @@ class GardenViewModel : ViewModel() {
                 fireflyCount = fireflies.size,
                 isDoubleBloomToday = isDoubleBloomToday(messages),
                 recentMemories = recentMemories(messages),
+                realWeatherCondition = realWeatherCondition,
                 wateredToday = daysSinceWatered == 0
             )
         }
