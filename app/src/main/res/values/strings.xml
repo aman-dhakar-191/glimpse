@@ -186,6 +186,13 @@
 
     <string name="drawing_title">Draw together</string>
     <string name="drawing_partner_present">🎨 Your partner is drawing too!</string>
+    <string name="drawing_last_active_you">Last active %1$s · You</string>
+    <string name="drawing_last_active_partner">Last active %1$s · Partner</string>
+    <string name="drawing_no_activity_yet">No activity yet</string>
+    <string name="drawing_time_just_now">just now</string>
+    <string name="drawing_time_minutes_ago">%1$dm ago</string>
+    <string name="drawing_time_hours_ago">%1$dh ago</string>
+    <string name="drawing_time_days_ago">%1$dd ago</string>
     <string name="drawing_pen_size">Pen size</string>
     <string name="drawing_undo">Undo</string>
     <string name="drawing_clear">Clear</string>

@@ -32,6 +32,7 @@ object FirebaseSync {
     private fun specialDateRef() = database.child("shared/specialDate")
     private fun liveDrawingStrokesRef() = database.child("shared/live_drawing/strokes")
     private fun liveDrawingPresenceRef() = database.child("shared/live_drawing/presence")
+    private fun liveDrawingLastActiveRef() = database.child("shared/live_drawing/last_active")
 
     private fun latestMessageQuery(): Query =
         messagesRef().orderByChild("createdAt").limitToLast(1)
@@ -450,6 +451,12 @@ object FirebaseSync {
         val ref = liveDrawingPresenceRef().child(uid)
         ref.onDisconnect().removeValue()
         ref.setValue(true)
+
+        // Unlike presence above, this deliberately does NOT clear on
+        // disconnect/exit — it's the answer to "when did either of you
+        // last open this screen", which needs to survive long after
+        // whoever it was has left, not just while they're still here.
+        liveDrawingLastActiveRef().setValue(mapOf("uid" to uid, "at" to ServerValue.TIMESTAMP))
     }
 
     fun clearDrawingPresence() {
@@ -476,5 +483,29 @@ object FirebaseSync {
 
     fun removeDrawingPresenceListener(listener: ValueEventListener) {
         liveDrawingPresenceRef().removeEventListener(listener)
+    }
+
+    // Who most recently opened the Draw screen, and when — independent of
+    // (and outliving) presence above, so the screen can still say "last
+    // active 5m ago" once whoever it was has already left.
+    fun listenToDrawingLastActive(onChange: (uid: String, at: Long) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val uid = snapshot.child("uid").getValue(String::class.java) ?: return
+                val at = snapshot.child("at").getValue(Long::class.java) ?: return
+                onChange(uid, at)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "listenToDrawingLastActive cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToDrawingLastActive cancelled", error.toException())
+            }
+        }
+        liveDrawingLastActiveRef().addValueEventListener(listener)
+        return listener
+    }
+
+    fun removeDrawingLastActiveListener(listener: ValueEventListener) {
+        liveDrawingLastActiveRef().removeEventListener(listener)
     }
 }
