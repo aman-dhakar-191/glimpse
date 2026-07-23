@@ -195,6 +195,7 @@
     <string name="drawing_time_days_ago">%1$dd ago</string>
     <string name="drawing_pen_size">Pen size</string>
     <string name="drawing_undo">Undo</string>
+    <string name="drawing_delete_selected">Delete</string>
     <string name="drawing_clear">Clear</string>
     <string name="drawing_clear_confirm_title">Clear the canvas?</string>
     <string name="drawing_clear_confirm_message">This clears it for both of you, including anything your partner\'s drawn.</string>

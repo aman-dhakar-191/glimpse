@@ -166,6 +166,17 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.value = _uiState.value.copy(selectedStrokeIds = updated)
     }
 
+    // Deletes every currently selected stroke — anyone's, same "fair game"
+    // reasoning as selectTapAt below. removeAll from myStrokeStack too, so
+    // Undo can't later try to remove an id that's already gone.
+    fun deleteSelected() {
+        val selected = _uiState.value.selectedStrokeIds
+        if (selected.isEmpty()) return
+        selected.forEach { FirebaseSync.removeLiveStroke(it) }
+        myStrokeStack.removeAll(selected)
+        _uiState.value = _uiState.value.copy(selectedStrokeIds = emptySet())
+    }
+
     // Called once when a drag starts on top of a non-empty selection.
     fun beginMove() {
         val selected = _uiState.value.selectedStrokeIds
