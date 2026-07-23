@@ -18,6 +18,7 @@ import com.glimpse.app.service.WidgetSyncTrigger
 import com.glimpse.app.util.ConnectivityUtil
 import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.work.SendMessageWorker
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,7 +63,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
                 result.onSuccess {
                     _uiState.value = ComposeUiState.Sent
                 }.onFailure { throwable ->
-                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Failed to send photo.")
+                    _uiState.value = ComposeUiState.Error(friendlySendErrorMessage(throwable, "Failed to send photo."))
                 }
             }
         }
@@ -209,6 +210,17 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    // TimeoutCancellationException's own .message is a raw, developer-facing
+    // "Timed out waiting for Nms" — not something to show as-is in the UI.
+    // Everything else's .message (a Firebase error, "Not signed in.", etc.)
+    // is already written to be user-readable, so it's shown as normal.
+    private fun friendlySendErrorMessage(throwable: Throwable, fallback: String): String =
+        if (throwable is TimeoutCancellationException) {
+            "That's taking a while — check your connection and try again."
+        } else {
+            throwable.message ?: fallback
+        }
+
     private fun copyToCacheFile(context: Context, uri: Uri, dirName: String, filePrefix: String, extension: String): File {
         val dir = File(context.cacheDir, dirName).apply { mkdirs() }
         val file = File(dir, "${filePrefix}_${System.currentTimeMillis()}.$extension")
@@ -227,7 +239,7 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             messageRepository.sendNudge()
                 .onSuccess { _uiState.value = ComposeUiState.Sent }
                 .onFailure { throwable ->
-                    _uiState.value = ComposeUiState.Error(throwable.message ?: "Couldn't send nudge.")
+                    _uiState.value = ComposeUiState.Error(friendlySendErrorMessage(throwable, "Couldn't send nudge."))
                 }
         }
     }
