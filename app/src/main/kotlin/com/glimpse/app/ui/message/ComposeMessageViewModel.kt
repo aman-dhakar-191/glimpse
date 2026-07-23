@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.glimpse.app.R
+import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.data.repository.MessageRepository
 import com.glimpse.app.service.IncomingEvents
 import com.glimpse.app.service.PhotoSendResults
@@ -167,12 +168,16 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
             // Actually enforced, unlike the capture intent's duration-limit
             // extra (ComposeMessageScreen) — that's only a hint some camera
             // apps ignore, and it never applies at all to a video picked
-            // from the gallery instead of recorded fresh.
+            // from the gallery instead of recorded fresh. Reads the same
+            // per-device setting (Settings screen) the intent hint itself
+            // reads, so whichever one actually takes effect agrees with
+            // the other.
+            val limitSeconds = VideoLimitStore.load(app)
             val durationMs = videoDurationMillis(file)
-            if (durationMs != null && durationMs > MAX_VIDEO_DURATION_MILLIS) {
+            if (durationMs != null && durationMs > limitSeconds * 1000L) {
                 file.delete()
                 _uiState.value = ComposeUiState.Error(
-                    app.getString(R.string.compose_video_too_long, (MAX_VIDEO_DURATION_MILLIS / 1000).toInt())
+                    app.getString(R.string.compose_video_too_long, limitSeconds)
                 )
                 return@launch
             }
@@ -231,6 +236,5 @@ class ComposeMessageViewModel(application: Application) : AndroidViewModel(appli
 
     companion object {
         private const val MAX_VIDEO_BYTES = 25L * 1024 * 1024
-        private const val MAX_VIDEO_DURATION_MILLIS = 30_000L
     }
 }

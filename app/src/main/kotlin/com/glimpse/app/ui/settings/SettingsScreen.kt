@@ -51,6 +51,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
 import com.glimpse.app.data.CarouselSettingsStore
+import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.ui.carousel.CarouselSettingsUiState
 import com.glimpse.app.ui.drawing.DrawingColors
 import com.glimpse.app.ui.nickname.NicknameUiState
@@ -59,6 +60,7 @@ import com.glimpse.app.ui.quiethours.QuietHoursUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobShapeSoftB
 import com.glimpse.app.ui.theme.BlobShapeSoftC
+import com.glimpse.app.ui.videolimit.VideoLimitUiState
 import com.glimpse.app.ui.widgetaccent.WidgetAccentColorUiState
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -93,6 +95,9 @@ fun SettingsScreen(
     widgetAccentColorUiState: WidgetAccentColorUiState,
     onLoadWidgetAccentColor: () -> Unit,
     onSetWidgetAccentColor: (String?) -> Unit,
+    videoLimitUiState: VideoLimitUiState,
+    onLoadVideoLimit: () -> Unit,
+    onSetVideoLimitSeconds: (Int) -> Unit,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
@@ -100,6 +105,7 @@ fun SettingsScreen(
         onLoadQuietHours()
         onLoadCarouselSettings()
         onLoadWidgetAccentColor()
+        onLoadVideoLimit()
     }
 
     Scaffold(
@@ -131,6 +137,8 @@ fun SettingsScreen(
             CarouselSizeCard(carouselSettingsUiState, onSetCarouselSize, onSetCarouselAutoAdvanceMinutes)
 
             WidgetAccentColorCard(widgetAccentColorUiState, onSetWidgetAccentColor)
+
+            VideoLimitCard(videoLimitUiState, onSetVideoLimitSeconds)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -470,6 +478,41 @@ private fun CarouselSizeCard(
                     }
                 },
                 onSelect = onSetAutoAdvanceMinutes
+            )
+        }
+    }
+}
+
+// Local-only, per-device — see VideoLimitStore/VideoLimitViewModel. Read by
+// both the capture intent's duration-limit hint and the actual post-
+// recording duration check (ComposeMessageScreen/ComposeMessageViewModel),
+// so whichever one actually takes effect agrees with the other.
+@Composable
+private fun VideoLimitCard(uiState: VideoLimitUiState, onSetLimitSeconds: (Int) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(-0.3f),
+        shape = BlobShapeSoftC,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.video_limit_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.video_limit_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            OptionButtonRow(
+                options = VideoLimitStore.OPTIONS,
+                selected = uiState.limitSeconds,
+                label = { stringResource(R.string.video_limit_option, it) },
+                onSelect = onSetLimitSeconds
             )
         }
     }

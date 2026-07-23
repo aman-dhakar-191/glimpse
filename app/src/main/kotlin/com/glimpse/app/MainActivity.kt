@@ -56,6 +56,7 @@ import com.glimpse.app.ui.stats.StatsViewModel
 import com.glimpse.app.ui.theme.GlimpseTheme
 import com.glimpse.app.ui.update.UpdateScreen
 import com.glimpse.app.ui.update.UpdateViewModel
+import com.glimpse.app.ui.videolimit.VideoLimitViewModel
 import com.glimpse.app.ui.widgetaccent.WidgetAccentColorViewModel
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.work.CarouselAutoAdvanceWorker
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private val quietHoursViewModel: QuietHoursViewModel by viewModels()
     private val carouselSettingsViewModel: CarouselSettingsViewModel by viewModels()
     private val widgetAccentColorViewModel: WidgetAccentColorViewModel by viewModels()
+    private val videoLimitViewModel: VideoLimitViewModel by viewModels()
     private val drawingViewModel: DrawingViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -243,6 +245,7 @@ class MainActivity : ComponentActivity() {
                     val quietHoursUiState by quietHoursViewModel.uiState.collectAsState()
                     val carouselSettingsUiState by carouselSettingsViewModel.uiState.collectAsState()
                     val widgetAccentColorUiState by widgetAccentColorViewModel.uiState.collectAsState()
+                    val videoLimitUiState by videoLimitViewModel.uiState.collectAsState()
                     val drawingUiState by drawingViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
@@ -347,6 +350,9 @@ class MainActivity : ComponentActivity() {
                             widgetAccentColorUiState = widgetAccentColorUiState,
                             onLoadWidgetAccentColor = { widgetAccentColorViewModel.load() },
                             onSetWidgetAccentColor = { hex -> widgetAccentColorViewModel.setColor(hex) },
+                            videoLimitUiState = videoLimitUiState,
+                            onLoadVideoLimit = { videoLimitViewModel.load() },
+                            onSetVideoLimitSeconds = { seconds -> videoLimitViewModel.setLimitSeconds(seconds) },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 
