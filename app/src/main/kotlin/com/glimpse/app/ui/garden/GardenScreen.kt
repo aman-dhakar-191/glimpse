@@ -1,5 +1,9 @@
 package com.glimpse.app.ui.garden
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -58,10 +62,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.glimpse.app.R
 import com.glimpse.app.data.GardenStage
 import com.glimpse.app.data.GardenWeather
+import com.glimpse.app.data.RealWeatherCondition
 import com.glimpse.app.util.ShakeDetector
 import kotlinx.coroutines.delay
 import java.time.format.DateTimeFormatter
@@ -87,13 +93,29 @@ fun GardenScreen(
     onWaterGarden: () -> Unit,
     onBack: () -> Unit
 ) {
-    LaunchedEffect(Unit) { onLoad() }
+    val context = LocalContext.current
+
+    // Best-effort, silent either way — granted just means the next load()
+    // can actually show real weather; denied means it stays off, same as
+    // if the device had no location services at all. No custom rationale
+    // screen, matching how this app asks for notification permission too.
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) onLoad() }
+
+    LaunchedEffect(Unit) {
+        onLoad()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
 
     // Pure novelty, zero function — shaking the phone swirls the whole
     // screen like a snow globe for a few seconds. Tied to this screen
     // actually being visible (DisposableEffect), not the ViewModel's
     // longer lifetime, so leaving the Garden tab stops listening.
-    val context = LocalContext.current
     var isSnowGlobeActive by remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
         val detector = ShakeDetector.register(context) { isSnowGlobeActive = true }
@@ -128,6 +150,9 @@ fun GardenScreen(
                 is GardenUiState.Loading -> CircularProgressIndicator()
                 is GardenUiState.Loaded -> {
                     GardenSky(weather = uiState.weather, modifier = Modifier.fillMaxSize())
+                    uiState.realWeatherCondition?.let { condition ->
+                        RealWeatherOverlay(condition = condition, modifier = Modifier.fillMaxSize())
+                    }
                     GardenContent(uiState, onWaterGarden)
                     if (isSnowGlobeActive) {
                         SnowGlobeOverlay(modifier = Modifier.fillMaxSize())
@@ -173,6 +198,50 @@ private fun SnowGlobeOverlay(modifier: Modifier = Modifier) {
                 radius = size.minDimension * 0.01f,
                 center = Offset((seed.x + swirl) * size.width, fallY * size.height)
             )
+        }
+    }
+}
+
+// Ambient, not a timed burst like SnowGlobeOverlay above — stays up for
+// as long as realWeatherCondition is non-null, i.e. as long as your own
+// real weather actually is raining/snowing.
+@Composable
+private fun RealWeatherOverlay(condition: RealWeatherCondition, modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "realWeather")
+    val progress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (condition == RealWeatherCondition.Snow) 3000 else 900,
+                easing = LinearEasing
+            )
+        ),
+        label = "realWeatherProgress"
+    )
+    val drops = remember(condition) { List(24) { Offset(Random.nextFloat(), Random.nextFloat()) } }
+
+    Canvas(modifier = modifier) {
+        drops.forEach { seed ->
+            val fallY = (seed.y + progress) % 1f
+            if (condition == RealWeatherCondition.Snow) {
+                val swirl = kotlin.math.sin((progress + seed.x) * 2 * Math.PI).toFloat() * 0.04f
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.7f),
+                    radius = size.minDimension * 0.008f,
+                    center = Offset((seed.x + swirl) * size.width, fallY * size.height)
+                )
+            } else {
+                drawLine(
+                    color = Color(0xFFAFC9E0).copy(alpha = 0.6f),
+                    start = Offset(seed.x * size.width, fallY * size.height),
+                    end = Offset(
+                        seed.x * size.width - size.width * 0.015f,
+                        fallY * size.height + size.height * 0.04f
+                    ),
+                    strokeWidth = size.width * 0.004f
+                )
+            }
         }
     }
 }
@@ -242,6 +311,21 @@ private fun GardenContent(uiState: GardenUiState.Loaded, onWaterGarden: () -> Un
         if (uiState.isDoubleBloomToday) {
             Text(
                 stringResource(R.string.garden_double_bloom_today),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        uiState.realWeatherCondition?.let { condition ->
+            Text(
+                stringResource(
+                    if (condition == RealWeatherCondition.Snow) {
+                        R.string.garden_real_weather_snow
+                    } else {
+                        R.string.garden_real_weather_rain
+                    }
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)

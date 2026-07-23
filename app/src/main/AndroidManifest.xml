@@ -23,6 +23,11 @@
          needs this special permission, granted per-app via Settings, not a
          runtime dangerous-permission prompt. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Garden's real-weather crossover (see GardenViewModel) only ever
+         needs city-level accuracy for a weather lookup, never fine-grained
+         position — coarse only, and entirely optional (silently skipped if
+         denied, see WeatherFetcher). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:name=".App"
