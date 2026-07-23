@@ -3,6 +3,7 @@ package com.glimpse.app.data.repository
 import android.net.Uri
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ServerValue
@@ -22,7 +23,7 @@ class MessageRepository {
         require(messageId.isNotEmpty()) { "No message to react to yet." }
         val success = FirebaseSync.addReaction(messageId, trimmed)
         if (!success) error("Failed to send reaction.")
-    }
+    }.onFailure { e -> CrashLogger.recordException("addReaction failed (messageId=$messageId, emoji=$emoji)", e) }
 
     suspend fun sendMessage(content: String, unlockAt: Long = 0): Result<Unit> = runCatching {
         val trimmed = content.trim()
@@ -61,7 +62,7 @@ class MessageRepository {
         // separately opening History. Best-effort: FirebaseSync.markSeenUpTo
         // swallows its own errors, so a hiccup here never fails the send.
         FirebaseSync.markSeenUpTo(now)
-    }
+    }.onFailure { e -> CrashLogger.recordException("sendMessage failed", e) }
 
     // contentType defaults to image/jpeg for callers uploading from a plain
     // file:// Uri (see PhotoSendService) — unlike a content:// Uri from the
@@ -113,6 +114,11 @@ class MessageRepository {
             database.child("shared/messages").push().setValue(message).await()
         }
         FirebaseSync.markSeenUpTo(now)
+    }.onFailure { e ->
+        CrashLogger.recordException(
+            "sendPhotoMessage failed (messageType=$messageType, contentType=$contentType, uri=$imageUri)",
+            e
+        )
     }
 
     // A single overwritten node (not a growing list like messages) — a
@@ -132,7 +138,8 @@ class MessageRepository {
         withTimeout(NETWORK_TIMEOUT_MILLIS) {
             database.child("shared/nudge").setValue(nudge).await()
         }
-    }
+        Unit
+    }.onFailure { e -> CrashLogger.recordException("sendNudge failed", e) }
 
     private fun isEmojiOnly(text: String): Boolean =
         text.length <= 8 && text.codePoints().noneMatch { Character.isLetterOrDigit(it) }

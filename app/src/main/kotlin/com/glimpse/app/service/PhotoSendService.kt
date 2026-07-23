@@ -12,6 +12,7 @@ import com.glimpse.app.R
 import com.glimpse.app.data.repository.MessageRepository
 import com.glimpse.app.notification.NotificationChannels
 import com.glimpse.app.notification.SendingNotifier
+import com.glimpse.app.util.CrashLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,6 +46,16 @@ class PhotoSendService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(messageType))
 
         val file = File(filePath)
+        // A breadcrumb from the SERVICE's own perspective, not just
+        // MessageRepository's (which already records the exception itself
+        // on failure) — this captures file state right before the upload
+        // starts, since a zero-byte or missing cache file (e.g. the caller's
+        // copy step silently failed) would otherwise look identical to a
+        // network/Storage failure once it reaches Crashlytics.
+        CrashLogger.log(
+            "PhotoSendService starting upload: messageType=$messageType, contentType=$contentType, " +
+                "fileExists=${file.exists()}, fileSizeBytes=${file.length()}"
+        )
         serviceScope.launch {
             val result = MessageRepository().sendPhotoMessage(Uri.fromFile(file), caption, unlockAt, contentType, messageType)
             file.delete()

@@ -13,6 +13,7 @@ import androidx.work.workDataOf
 import com.glimpse.app.data.repository.MessageRepository
 import com.glimpse.app.notification.SendingNotifier
 import com.glimpse.app.service.WidgetSyncTrigger
+import com.glimpse.app.util.CrashLogger
 import java.util.concurrent.TimeUnit
 
 // A NetworkType.CONNECTED constraint means this only ever starts once the
@@ -41,6 +42,11 @@ class SendMessageWorker(context: Context, params: WorkerParameters) : CoroutineW
         } else if (runAttemptCount < MAX_ATTEMPTS) {
             Result.retry()
         } else {
+            // sendMessage() already recorded the underlying exception itself
+            // — this breadcrumb marks the distinct "gave up after retries"
+            // fault, which MessageRepository has no visibility into on its
+            // own (it doesn't know this is attempt N of MAX_ATTEMPTS).
+            CrashLogger.log("SendMessageWorker: giving up after $runAttemptCount attempts")
             SendingNotifier.cancel(applicationContext)
             Result.failure()
         }

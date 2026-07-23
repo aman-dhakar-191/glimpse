@@ -16,6 +16,7 @@ import com.glimpse.app.R
 import com.glimpse.app.data.WidgetAccentColorStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 
 // Renders the plain "Glimpse" widget — always just the single newest
@@ -243,6 +244,7 @@ internal object ShapedWidgetRenderer {
                 )
             }
         } catch (e: Exception) {
+            CrashLogger.recordException("ShapedWidgetRenderer.loadBitmap failed (url=$url)", e)
             null
         }
     }

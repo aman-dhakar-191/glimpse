@@ -3,14 +3,18 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services) apply false
+    alias(libs.plugins.firebase.crashlytics) apply false
 }
 
 // google-services.json holds real Firebase project credentials and is gitignored.
 // Only apply the plugin when a file is actually present (CI provides one from a
 // secret, or falls back to the checked-in placeholder — see .github/workflows/build.yml)
-// so a fresh checkout without secrets still compiles.
+// so a fresh checkout without secrets still compiles. Crashlytics needs the same
+// real project config (it uploads build/session info tagged to that Firebase
+// project), so it's gated the same way.
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 // versionCode must strictly increase for Android to treat a new install as
@@ -19,7 +23,7 @@ if (file("google-services.json").exists()) {
 // Bump appVersionName by hand when there's an actual product-version change;
 // versionCode/the +build suffix take care of making every CI build unique
 // and installable over the last regardless.
-val appVersionName = "0.37.0"
+val appVersionName = "0.39.0"
 val appVersionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 val appFullVersionName = "$appVersionName+$appVersionCode"
 
@@ -132,6 +136,7 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.functions)
+    implementation(libs.firebase.crashlytics)
 
     implementation(libs.play.services.auth)
     implementation(libs.coil.compose)

@@ -18,6 +18,7 @@ import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.data.WidgetAccentColorStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import com.glimpse.app.data.model.Message
+import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 
 // Renders the SEPARATE "Glimpse Carousel" widget (widget_shaped_carousel.xml
@@ -339,6 +340,7 @@ internal object ShapedCarouselWidgetRenderer {
                 )
             }
         } catch (e: Exception) {
+            CrashLogger.recordException("ShapedCarouselWidgetRenderer.loadBitmap failed (url=$url)", e)
             null
         }
     }

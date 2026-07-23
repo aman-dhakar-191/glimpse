@@ -62,6 +62,7 @@ object VideoSaver {
             true
         } catch (e: Exception) {
             Log.e(TAG, "saveToGallery failed", e)
+            CrashLogger.recordException("VideoSaver.saveToGallery failed (videoUrl=$videoUrl)", e)
             false
         }
     }

@@ -60,6 +60,9 @@
     <string name="carousel_auto_advance_option">%1$dm</string>
     <string name="widget_accent_color_title">Widget accent color</string>
     <string name="widget_accent_color_desc">Pick a color for your own home-screen widget\'s outline and border — just for your device, doesn\'t affect your partner\'s.</string>
+    <string name="video_limit_title">Video length limit</string>
+    <string name="video_limit_desc">How long a video note can run before it\'s rejected — just for your device.</string>
+    <string name="video_limit_option">%1$ds</string>
     <string name="guide_quiet_hours_start">Start: %1$s</string>
     <string name="guide_quiet_hours_end">End: %1$s</string>
     <string name="guide_quiet_hours_ok">OK</string>

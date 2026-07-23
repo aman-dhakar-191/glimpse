@@ -86,7 +86,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.glimpse.app.R
+import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.ui.countdown.CountdownUiState
+import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.ui.dailyprompt.DailyPromptUiState
 import com.glimpse.app.ui.theme.BlobButtonShape
 import com.glimpse.app.ui.theme.BlobChipShapeA
@@ -115,17 +117,15 @@ private fun createCameraVideoUri(context: Context): Uri {
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", videoFile)
 }
 
-// A hint, not a guarantee — some camera apps ignore this extra entirely —
-// so it's paired with a hard byte-size check in
-// ComposeMessageViewModel.sendVideoMessage that actually gets enforced
-// regardless of source (recorded or picked from the gallery).
-private const val VIDEO_DURATION_LIMIT_SECONDS = 30
-
 // The stock CaptureVideo contract has no way to add extra Intent extras —
 // this just adds the one duration hint on top of what it already builds.
+// A hint, not a guarantee (some camera apps ignore it entirely) — the
+// actual enforcement is ComposeMessageViewModel.sendVideoMessage's
+// post-recording duration check, which reads this same VideoLimitStore
+// setting so the two never disagree.
 private class CaptureVideoWithDurationLimit : ActivityResultContracts.CaptureVideo() {
     override fun createIntent(context: Context, input: Uri): Intent =
-        super.createIntent(context, input).putExtra(MediaStore.EXTRA_DURATION_LIMIT, VIDEO_DURATION_LIMIT_SECONDS)
+        super.createIntent(context, input).putExtra(MediaStore.EXTRA_DURATION_LIMIT, VideoLimitStore.load(context))
 }
 
 private val QUICK_EMOJIS = listOf("❤️", "😊", "👍", "😂", "🎉")
@@ -191,6 +191,11 @@ private fun VideoThumbnail(uri: Uri, modifier: Modifier = Modifier) {
                 retriever.setDataSource(context, uri)
                 retriever.frameAtTime
             } catch (e: Exception) {
+                // Only a preview thumbnail failing, not the send itself —
+                // but still worth a record, since a corrupt/inaccessible
+                // video file here would also fail the actual upload right
+                // after, and this fires first.
+                CrashLogger.recordException("VideoThumbnail: frame decode failed (uri=$uri)", e)
                 null
             } finally {
                 retriever.release()
