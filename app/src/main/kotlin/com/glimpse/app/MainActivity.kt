@@ -467,7 +467,7 @@ class MainActivity : ComponentActivity() {
                             onProbeSensors = { heartRateViewModel.probeSensors() },
                             onStart = { heartRateViewModel.start() },
                             onStop = { heartRateViewModel.stop() },
-                            onFrame = { luma, timestamp -> heartRateViewModel.onFrame(luma, timestamp) },
+                            onFrame = { frame, timestamp -> heartRateViewModel.onFrame(frame, timestamp) },
                             onBack = {
                                 // Stopping on the way out releases the
                                 // camera and torch — leaving here without

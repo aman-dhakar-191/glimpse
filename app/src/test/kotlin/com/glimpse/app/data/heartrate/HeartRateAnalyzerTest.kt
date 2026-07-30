@@ -6,6 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -128,6 +129,49 @@ class HeartRateAnalyzerTest {
         val reading = analyzer.analyze()
         assertNull("one second is not enough to claim a rate", reading.bpm)
         assertEquals(0f, reading.confidence, 0.001f)
+    }
+
+    // Regression for a real failure seen on a phone: a couple of movement
+    // excursions, each many times the size of a heartbeat, and the reading
+    // died. A mean-based peak threshold gets dragged above the actual beats
+    // by outliers like these and then finds nothing at all.
+    @Test
+    fun `survives movement spikes`() {
+        val analyzer = HeartRateAnalyzer()
+        val random = Random(11)
+        val spikeFrames = setOf(120, 240, 300)
+        val beatsPerMilli = 72.0 / 60_000.0
+        for (i in 0 until 430) {
+            val t = i * frameIntervalMillis.toDouble()
+            var value = 128.0 + sin(2 * PI * beatsPerMilli * t) + 0.3 * (random.nextDouble() - 0.5)
+            if (i in spikeFrames) value += 25.0
+            analyzer.add(value, t.toLong())
+        }
+
+        val reading = analyzer.analyze()
+        assertNotNull("movement spikes must not kill the reading", reading.bpm)
+        assertEquals(72.0, reading.bpm!!.toDouble(), 8.0)
+    }
+
+    // The waveform is the feature's only real diagnostic, and it is worthless
+    // if it looks identical with and without a finger on the lens. Scaling
+    // purely by the signal's own size did exactly that: it stretched noise to
+    // fill the view, so an empty reading looked as alive as a real pulse.
+    @Test
+    fun `draws a faint signal faintly and a real pulse fully`() {
+        val pulse = HeartRateAnalyzer()
+        feed(pulse, bpm = 72.0, seconds = 10.0)
+        val pulseHeight = pulse.analyze().waveform.maxOf { abs(it) }
+
+        val faint = HeartRateAnalyzer()
+        val random = Random(3)
+        for (i in 0 until 300) {
+            faint.add(128.0 + random.nextDouble() * 0.4, i * frameIntervalMillis)
+        }
+        val faintHeight = faint.analyze().waveform.maxOf { abs(it) }
+
+        assertTrue("a real pulse should fill the view, was $pulseHeight", pulseHeight > 0.7f)
+        assertTrue("faint noise should stay small, was $faintHeight", faintHeight < 0.5f)
     }
 
     @Test

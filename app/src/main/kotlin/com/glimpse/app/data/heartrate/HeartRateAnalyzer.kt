@@ -73,15 +73,28 @@ class HeartRateAnalyzer(
         val detrended = subtractMovingAverage(raw, detrendWindow)
         val smoothed = movingAverage(detrended, SMOOTHING_WINDOW)
 
-        val amplitude = smoothed.maxOfOrNull { abs(it) } ?: 0.0
-        val waveform = if (amplitude <= 0.0) {
-            List(smoothed.size) { 0f }
-        } else {
-            smoothed.map { (it / amplitude).toFloat() }
-        }
+        // A typical amplitude rather than the largest one. Movement while
+        // measuring produces excursions many times bigger than a heartbeat,
+        // and scaling by the maximum lets a single one of those flatten the
+        // entire real signal into a straight line.
+        val sortedMagnitudes = smoothed.map { abs(it) }.sorted()
+        val typicalAmplitude = percentile(sortedMagnitudes, ROBUST_AMPLITUDE_PERCENTILE)
+
+        // The floor is what makes the drawn waveform honest. Dividing purely
+        // by the signal's own size means noise gets stretched to fill the
+        // view exactly like a real pulse does, so the display looks alive
+        // whether or not a finger is anywhere near the lens — which makes it
+        // useless as the diagnostic it exists to be. Against a fixed floor, a
+        // weak signal draws small and a real pulse fills the space.
+        val displayScale = maxOf(typicalAmplitude, MIN_DISPLAY_AMPLITUDE)
+        val waveform = smoothed.map { (it / displayScale).toFloat().coerceIn(-1f, 1f) }
 
         val minPeakGap = (MIN_BEAT_GAP_MILLIS / millisPerSample).toInt().coerceAtLeast(1)
-        val peaks = findPeaks(smoothed, minPeakGap)
+        // Derived from the typical amplitude for the same reason: a mean
+        // taken over spiky data sits far above the real beats and finds
+        // nothing at all.
+        val peakThreshold = typicalAmplitude * PEAK_THRESHOLD_FACTOR
+        val peaks = findPeaks(smoothed, minPeakGap, peakThreshold)
         if (peaks.size < MIN_PEAKS) {
             return Reading(null, 0f, waveform, peaks.size, mean)
         }
@@ -125,11 +138,8 @@ class HeartRateAnalyzer(
     // enough space since the last one that it can't be the same beat counted
     // twice. The threshold is relative to the signal's own spread, since
     // absolute brightness varies wildly between phones and skin tones.
-    private fun findPeaks(signal: List<Double>, minGap: Int): List<Int> {
-        if (signal.size < 3) return emptyList()
-        val positive = signal.filter { it > 0 }
-        if (positive.isEmpty()) return emptyList()
-        val threshold = positive.average() * PEAK_THRESHOLD_FACTOR
+    private fun findPeaks(signal: List<Double>, minGap: Int, threshold: Double): List<Int> {
+        if (signal.size < 3 || threshold <= 0.0) return emptyList()
 
         val peaks = mutableListOf<Int>()
         for (i in 1 until signal.lastIndex) {
@@ -145,6 +155,15 @@ class HeartRateAnalyzer(
             peaks.add(i)
         }
         return peaks
+    }
+
+    // Linear interpolation would be more precise, but this runs on every
+    // frame and the index is only ever used to pick a scale — a fraction of
+    // one sample either way changes nothing downstream.
+    private fun percentile(sorted: List<Double>, fraction: Double): Double {
+        if (sorted.isEmpty()) return 0.0
+        val index = (fraction * (sorted.size - 1)).toInt().coerceIn(0, sorted.lastIndex)
+        return sorted[index]
     }
 
     private fun subtractMovingAverage(signal: List<Double>, window: Int): List<Double> {
@@ -178,7 +197,18 @@ class HeartRateAnalyzer(
         const val MAX_INTERVAL_MILLIS = 1_714.0
         const val MIN_BPM = 35
         const val MAX_BPM = 200
-        const val PEAK_THRESHOLD_FACTOR = 0.6
+        // Against the 75th-percentile amplitude. For a clean sine that
+        // percentile sits at ~0.92 of the true amplitude, so this lands the
+        // threshold near 0.37 of a beat's height — deliberately close to
+        // what the previous mean-based rule produced on clean signals, so
+        // this change buys robustness to spikes without moving the
+        // sensitivity that was already verified against known rates.
+        const val PEAK_THRESHOLD_FACTOR = 0.4
+        const val ROBUST_AMPLITUDE_PERCENTILE = 0.75
+        // In raw luma units (0..255). Sensor noise sits well under this;
+        // a real pulse reaches it. Worth re-tuning against measurements
+        // from actual hardware.
+        const val MIN_DISPLAY_AMPLITUDE = 1.0
         const val VARIATION_PENALTY = 3.0
         const val CONFIDENT_INTERVAL_COUNT = 6.0
     }

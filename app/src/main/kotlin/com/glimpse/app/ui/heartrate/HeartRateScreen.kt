@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.glimpse.app.R
@@ -55,7 +56,7 @@ fun HeartRateScreen(
     onProbeSensors: () -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onFrame: (Double, Long) -> Unit,
+    onFrame: (com.glimpse.app.data.heartrate.CameraLuma.Frame, Long) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -93,7 +94,7 @@ fun HeartRateScreen(
             analysis.setAnalyzer(executor) { image ->
                 try {
                     onFrame(
-                        com.glimpse.app.data.heartrate.CameraLuma.averageCentreLuma(image),
+                        com.glimpse.app.data.heartrate.CameraLuma.analyse(image),
                         System.currentTimeMillis()
                     )
                 } finally {
@@ -154,20 +155,34 @@ fun HeartRateScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
+                    // Centred, and that isn't only cosmetic: the card's blob
+                    // shape curves inward at its corners, and left-aligned
+                    // headline text ran straight into that curve and lost its
+                    // first characters. The middle of the blob is its widest
+                    // point, so text centred there always fits.
                     Text(
-                        text = uiState.bpm?.let { stringResource(R.string.heart_rate_bpm, it) }
-                            ?: stringResource(R.string.heart_rate_searching),
-                        style = MaterialTheme.typography.headlineMedium
+                        text = when {
+                            !uiState.measuring && uiState.bpm == null -> stringResource(R.string.heart_rate_idle)
+                            uiState.measuring && !uiState.fingerDetected -> stringResource(R.string.heart_rate_no_finger)
+                            uiState.bpm != null -> stringResource(R.string.heart_rate_bpm, uiState.bpm)
+                            else -> stringResource(R.string.heart_rate_searching)
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Text(
                         text = stringResource(R.string.heart_rate_confidence, (uiState.confidence * 100).toInt()),
                         style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
                         color = if (uiState.trustworthy) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
                             MaterialTheme.colorScheme.error
                         },
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
                     )
                     LinearProgressIndicator(
                         progress = { uiState.confidence.coerceIn(0f, 1f) },
@@ -220,7 +235,8 @@ fun HeartRateScreen(
                     text = stringResource(
                         R.string.heart_rate_debug,
                         uiState.samplesCollected,
-                        uiState.meanLevel.toInt()
+                        uiState.meanLevel.toInt(),
+                        uiState.spread.toInt()
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
