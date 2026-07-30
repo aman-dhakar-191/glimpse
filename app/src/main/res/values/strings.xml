@@ -238,5 +238,14 @@
     <string name="drawing_clear_confirm_message">This clears it for both of you, including anything your partner\'s drawn.</string>
     <string name="drawing_send">Send</string>
     <string name="drawing_sent">Sent! It\'s live on the widget now.</string>
+    <string name="drawing_mode_draw">Draw</string>
+    <string name="drawing_mode_select">Select</string>
+    <string name="drawing_mode_fill">Fill</string>
+    <string name="drawing_region_rectangle">▭</string>
+    <string name="drawing_region_lasso">➰</string>
+    <string name="drawing_brush_round">● Round</string>
+    <string name="drawing_brush_square">■ Square</string>
+    <string name="drawing_brush_marker">▮ Marker</string>
+    <string name="drawing_brush_dashed">┄ Dashed</string>
     <string name="widget_drawing_fallback">🎨 A drawing</string>
 </resources>

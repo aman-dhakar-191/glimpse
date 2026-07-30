@@ -17,5 +17,13 @@ data class LiveStroke @JvmOverloads constructor(
     // independent fraction. Defaults to the original fixed pen size so
     // strokes drawn before this field existed still deserialize and render
     // at the same thickness they were drawn at.
-    val width: Double = 0.012
+    val width: Double = 0.012,
+    // Auto-closed (last point connects back to the first) and filled solid
+    // with `color` instead of outlined, when true — see DrawingViewModel's
+    // fillStrokeAt / DrawingScreen's drawLiveStroke.
+    val isFilled: Boolean = false,
+    // BrushType.name — a plain string (not an enum) for the same Firebase
+    // round-trip reliability reason color/points are primitives, not
+    // richer types.
+    val brushType: String = "round"
 )
