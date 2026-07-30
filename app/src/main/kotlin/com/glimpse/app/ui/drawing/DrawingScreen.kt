@@ -538,7 +538,7 @@ fun DrawingScreen(
                         shadowElevation = 6.dp
                     ) {
                         IconButton(onClick = onDeleteSelected) {
-                            Text(stringResource(R.string.drawing_delete_selected))
+                            Text("✕", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
@@ -798,11 +798,17 @@ private fun PenSizeSlider(width: Float, onWidthChange: (Float) -> Unit) {
 // scale+translate the Canvas's own graphicsLayer applies for rendering
 // (contentPos = (screenPos - panOffset) / scale) before normalizing to the
 // 0f..1f stroke space every device shares regardless of its own zoom.
+// Deliberately NOT coerced into 0f..1f — while zoomed in, a drag that goes
+// past the visible edge of the content is still a real position just
+// off-canvas; clamping it would pin every following point to exactly x=0/1
+// (or y=0/1), drawing a dead-straight "wall" along that edge instead of
+// just letting the stroke run past it, where the Box's own clip already
+// hides whatever falls outside the canvas.
 private fun toContent(rawPosition: Offset, canvasSize: IntSize, scale: Float, panOffset: Offset): Pair<Float, Float> {
     if (canvasSize.width == 0 || canvasSize.height == 0 || scale == 0f) return 0f to 0f
     val contentX = (rawPosition.x - panOffset.x) / scale
     val contentY = (rawPosition.y - panOffset.y) / scale
-    return (contentX / canvasSize.width).coerceIn(0f, 1f) to (contentY / canvasSize.height).coerceIn(0f, 1f)
+    return (contentX / canvasSize.width) to (contentY / canvasSize.height)
 }
 
 private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size, isSelected: Boolean) {
