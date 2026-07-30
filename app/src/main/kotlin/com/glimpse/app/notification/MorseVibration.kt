@@ -1,6 +1,7 @@
 package com.glimpse.app.notification
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -8,9 +9,9 @@ import android.os.VibratorManager
 
 // Turns a name into a vibration pattern by spelling it in Morse code, so a
 // "thinking of you" nudge is identifiable by feel alone — you know who it
-// is from your pocket, without looking at the screen. The sender's name is
-// what gets encoded (see FCMService), so each of you feels the OTHER's
-// name buzz out on your own phone.
+// is from your pocket, without looking at the screen. What gets encoded is
+// the nickname you set for your partner (see ThinkingOfYouNotifier.nameFor),
+// so each of you feels the name you actually call the other by.
 object MorseVibration {
 
     // Standard Morse timing, scaled by DOT_MILLIS: a dash is 3 dots, the
@@ -110,10 +111,22 @@ object MorseVibration {
         return timings.toLongArray()
     }
 
-    // Plays a pattern directly rather than through a notification — used by
-    // the Settings preview, where the point is to learn what a name feels
-    // like without waiting for someone to actually nudge you. The -1 repeat
-    // index means play once and stop.
+    // Tagging the vibration as a notification rather than leaving it as the
+    // default USAGE_UNKNOWN. This matters specifically for the case that
+    // counts: a real nudge arrives while the app is in the background, and
+    // an untagged vibration from a backgrounded app is exactly the kind the
+    // system is entitled to drop. The Settings preview never exposed this,
+    // because there the app is on screen and playing by different rules.
+    private val VIBRATION_ATTRIBUTES = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+
+    // Plays a pattern directly rather than letting a notification channel do
+    // it — see NotificationChannels.thinkingOfYouChannelFor for why that
+    // route had to be abandoned. Also drives the Settings preview, where the
+    // point is to learn what a name feels like without waiting to be nudged.
+    // The -1 repeat index means play once and stop.
     fun play(context: Context, name: String) {
         val pattern = patternFor(name) ?: return
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -123,6 +136,6 @@ object MorseVibration {
             context.getSystemService(Vibrator::class.java)
         } ?: return
         if (!vibrator.hasVibrator()) return
-        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1), VIBRATION_ATTRIBUTES)
     }
 }

@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -16,11 +17,11 @@ import com.glimpse.app.data.QuietHoursStore
 
 // The one place a "thinking of you" notification gets posted, shared by the
 // real push path (FCMService) and the Settings test button. Keeping them on
-// a single code path is the entire point: the Morse pattern lives on the
-// notification CHANNEL, not on the notification, so a test that built its
-// own notification could happily buzz while the real nudge was landing on a
-// stale or wrong channel. A test that doesn't exercise the thing it's
-// testing is worse than no test.
+// a single code path is the entire point: posting the notification and
+// playing the Morse are two steps that have to stay in lockstep, and a test
+// button that reimplemented either could pass while real nudges were
+// broken. A test that doesn't exercise the thing it's testing is worse than
+// no test.
 object ThinkingOfYouNotifier {
 
     // Distinct from FCMService's message notification ID — a nudge and a
@@ -35,7 +36,15 @@ object ThinkingOfYouNotifier {
     // Named Outcome, not Result: kotlin.Result is default-imported and
     // used all over this codebase for Firebase calls, so a nested type
     // shadowing it inside this object would resolve fine but read as a bug.
-    enum class Outcome { POSTED, SUPPRESSED_QUIET_HOURS, NOTIFICATIONS_DISABLED }
+    enum class Outcome {
+        POSTED,
+        // Notification shown, buzz deliberately skipped — the phone is in
+        // silent mode or Do Not Disturb, the two states where buzzing
+        // anyway would be the app overruling an explicit "leave me alone".
+        POSTED_WITHOUT_VIBRATION,
+        SUPPRESSED_QUIET_HOURS,
+        NOTIFICATIONS_DISABLED
+    }
 
     // The name whose Morse this device buzzes for an incoming nudge: the
     // nickname you set for your partner, falling back to whatever the
@@ -60,10 +69,9 @@ object ThinkingOfYouNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // The channel carries the vibration pattern (see
-        // NotificationChannels.thinkingOfYouChannelFor) — on Android O+ a
-        // per-notification setVibrate() is ignored, so this call is what
-        // actually decides how the nudge feels.
+        // The channel is the visual/sound half only; it's created with
+        // vibration off and the buzz is played explicitly below. See
+        // NotificationChannels.thinkingOfYouChannelFor for why.
         val notification = NotificationCompat.Builder(context, NotificationChannels.thinkingOfYouChannelFor(context, name))
             .setContentTitle(title)
             .setContentText(body)
@@ -75,7 +83,36 @@ object ThinkingOfYouNotifier {
 
         context.getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, notification)
+
+        // The buzz is driven here rather than by the channel — see
+        // NotificationChannels.thinkingOfYouChannelFor for why the channel
+        // route silently lost on a real device. The cost of taking it over
+        // is that the two "the user asked for quiet" states the channel
+        // used to honor for free now have to be honored by hand, directly
+        // below.
+        if (!shouldVibrate(context)) return Outcome.POSTED_WITHOUT_VIBRATION
+        MorseVibration.play(context, name)
         return Outcome.POSTED
+    }
+
+    // Silent mode is an explicit "not now" and a love note doesn't get to
+    // overrule it. Vibrate ringer mode emphatically does NOT belong here —
+    // that one means "buzz me, don't ring me", which is exactly this
+    // feature's job.
+    //
+    // Do Not Disturb is deliberately only honored at its strictest setting.
+    // The looser filters let allowed apps through, and whether Glimpse is
+    // on that allowlist is already the user's decision, enforced by the
+    // system on the notification itself. Treating any DND at all as "stay
+    // still" would mute the buzz on a nudge whose sound the system just
+    // permitted — which is precisely the inconsistency that made this
+    // feature look broken in the first place.
+    private fun shouldVibrate(context: Context): Boolean {
+        val audioManager = context.getSystemService(AudioManager::class.java)
+        if (audioManager?.ringerMode == AudioManager.RINGER_MODE_SILENT) return false
+
+        return context.getSystemService(NotificationManager::class.java)
+            .currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_NONE
     }
 
     // POST_NOTIFICATIONS is a runtime permission on API 33+ (MainActivity

@@ -107,6 +107,7 @@
     <string name="morse_test_posted">Sent. That is exactly what an incoming nudge feels like.</string>
     <string name="morse_test_quiet_hours">Quiet hours are on, so a real nudge would not buzz right now. Turn them off above to test.</string>
     <string name="morse_test_disabled">Glimpse notifications are switched off in system settings, so a nudge cannot show at all.</string>
+    <string name="morse_test_no_vibration">Shown, but not buzzed — the phone is in silent mode or full Do Not Disturb. Switch to ring or vibrate and test again.</string>
     <string name="thinking_of_you_test_title">💓 Thinking of you</string>
     <string name="thinking_of_you_test_body">%1$s sent you a nudge (test)</string>
     <string name="compose_my_mood">Your mood: %1$s</string>

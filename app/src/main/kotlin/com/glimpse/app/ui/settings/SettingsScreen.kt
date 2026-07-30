@@ -642,6 +642,7 @@ private fun MorseCard(nicknameUiState: NicknameUiState) {
                 Text(
                     text = when (result) {
                         ThinkingOfYouNotifier.Outcome.POSTED -> stringResource(R.string.morse_test_posted)
+                        ThinkingOfYouNotifier.Outcome.POSTED_WITHOUT_VIBRATION -> stringResource(R.string.morse_test_no_vibration)
                         ThinkingOfYouNotifier.Outcome.SUPPRESSED_QUIET_HOURS -> stringResource(R.string.morse_test_quiet_hours)
                         ThinkingOfYouNotifier.Outcome.NOTIFICATIONS_DISABLED -> stringResource(R.string.morse_test_disabled)
                     },
