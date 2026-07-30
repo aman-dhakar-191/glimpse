@@ -468,6 +468,7 @@ class MainActivity : ComponentActivity() {
                             onStart = { heartRateViewModel.start() },
                             onStop = { heartRateViewModel.stop() },
                             onFrame = { frame, timestamp -> heartRateViewModel.onFrame(frame, timestamp) },
+                            onSettled = { heartRateViewModel.markSettled() },
                             onBack = {
                                 // Stopping on the way out releases the
                                 // camera and torch — leaving here without

@@ -4,6 +4,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.hardware.camera2.CaptureRequest
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -44,7 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.glimpse.app.R
 import com.glimpse.app.ui.theme.BlobShapeSoftC
+import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
+
+// Long enough for the torch to reach full brightness and auto-exposure to
+// stop hunting, short enough not to feel like the app has hung.
+private const val EXPOSURE_SETTLE_MILLIS = 1_500L
 
 // Measures a pulse by watching a fingertip through the rear camera. This is
 // the standalone reader: it proves the signal is good on real hardware
@@ -57,6 +67,7 @@ fun HeartRateScreen(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onFrame: (com.glimpse.app.data.heartrate.CameraLuma.Frame, Long) -> Unit,
+    onSettled: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -70,6 +81,7 @@ fun HeartRateScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasCameraPermission = granted }
+    var boundCamera by remember { mutableStateOf<Camera?>(null) }
 
     LaunchedEffect(Unit) { onProbeSensors() }
 
@@ -111,6 +123,7 @@ fun HeartRateScreen(
                 // Without the torch there is nothing to see through a
                 // finger — the light source is half the measurement.
                 camera.cameraControl.enableTorch(true)
+                boundCamera = camera
             } catch (_: Exception) {
                 // Camera unavailable (in use elsewhere, or no back camera).
                 // The screen stays on its "no reading" state rather than
@@ -119,9 +132,31 @@ fun HeartRateScreen(
         }, ContextCompat.getMainExecutor(context))
 
         onDispose {
+            boundCamera = null
             boundProvider?.unbindAll()
             executor.shutdown()
         }
+    }
+
+    // The single most important thing this screen does, and it isn't
+    // obvious: auto-exposure has to be switched off before measuring.
+    //
+    // A camera's whole job is to hold brightness constant, so it quietly
+    // compensates for exactly the fluctuation a pulse consists of — left on,
+    // it erases the signal as fast as the finger produces it. Auto white
+    // balance does the same thing per colour channel.
+    //
+    // Locking is deliberately delayed rather than applied at bind time: the
+    // torch has just switched on and the sensor needs a moment to settle,
+    // and locking immediately would freeze a wildly wrong exposure from
+    // before the light arrived. Samples gathered during that settling are
+    // discarded, since they contain the auto-exposure ramp rather than a
+    // heartbeat.
+    LaunchedEffect(boundCamera) {
+        val camera = boundCamera ?: return@LaunchedEffect
+        delay(EXPOSURE_SETTLE_MILLIS)
+        lockExposure(camera)
+        onSettled()
     }
 
     Scaffold(
@@ -163,6 +198,7 @@ fun HeartRateScreen(
                     Text(
                         text = when {
                             !uiState.measuring && uiState.bpm == null -> stringResource(R.string.heart_rate_idle)
+                            uiState.settling -> stringResource(R.string.heart_rate_settling)
                             uiState.measuring && !uiState.fingerDetected -> stringResource(R.string.heart_rate_no_finger)
                             uiState.bpm != null -> stringResource(R.string.heart_rate_bpm, uiState.bpm)
                             else -> stringResource(R.string.heart_rate_searching)
@@ -243,6 +279,21 @@ fun HeartRateScreen(
                 )
             }
         }
+    }
+}
+
+// Wrapped because Camera2 interop is best-effort: some devices reject these
+// keys outright, and a phone that won't lock its exposure should still get a
+// degraded reading rather than no camera at all.
+@OptIn(ExperimentalCamera2Interop::class)
+private fun lockExposure(camera: Camera) {
+    runCatching {
+        Camera2CameraControl.from(camera.cameraControl).setCaptureRequestOptions(
+            CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+                .build()
+        )
     }
 }
 

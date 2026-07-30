@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class HeartRateUiState(
     val measuring: Boolean = false,
+    // True from the moment the torch comes on until auto-exposure has been
+    // locked. Samples taken during it are the exposure ramp, not a pulse.
+    val settling: Boolean = false,
     val bpm: Int? = null,
     val confidence: Float = 0f,
     val waveform: List<Float> = emptyList(),
@@ -56,6 +59,7 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
         analyzer.reset()
         _uiState.value = _uiState.value.copy(
             measuring = true,
+            settling = true,
             bpm = null,
             confidence = 0f,
             waveform = emptyList(),
@@ -65,7 +69,21 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun stop() {
-        _uiState.value = _uiState.value.copy(measuring = false)
+        _uiState.value = _uiState.value.copy(measuring = false, settling = false)
+    }
+
+    // Called once auto-exposure has been locked. Everything gathered before
+    // this point was measured under a moving exposure, so it is thrown away
+    // rather than blended into the reading.
+    fun markSettled() {
+        analyzer.reset()
+        _uiState.value = _uiState.value.copy(
+            settling = false,
+            bpm = null,
+            confidence = 0f,
+            waveform = emptyList(),
+            samplesCollected = 0
+        )
     }
 
     // Called from the camera analysis thread, once per frame.
