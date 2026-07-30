@@ -224,11 +224,11 @@ fun ComposeMessageScreen(
     onSendPhoto: (Uri, String, Long) -> Unit,
     onSendVideo: (Uri, String, Long) -> Unit,
     onSentHandled: () -> Unit,
-    onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDrawing: () -> Unit,
     onOpenGarden: () -> Unit,
+    onOpenHeartRate: () -> Unit,
     onSendNudge: () -> Unit,
     thinkingOfYouBurst: Boolean,
     onThinkingOfYouBurstHandled: () -> Unit,
@@ -440,9 +440,9 @@ fun ComposeMessageScreen(
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = onOpenGuide,
-                    icon = { Text("🧩", style = MaterialTheme.typography.titleMedium) },
-                    label = { Text(stringResource(R.string.compose_widget_guide_link)) }
+                    onClick = onOpenHeartRate,
+                    icon = { Text("💓", style = MaterialTheme.typography.titleMedium) },
+                    label = { Text(stringResource(R.string.nav_pulse)) }
                 )
                 NavigationBarItem(
                     selected = false,

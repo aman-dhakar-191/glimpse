@@ -105,6 +105,9 @@ android {
         getByName("main") {
             kotlin.srcDirs("src/main/kotlin")
         }
+        getByName("test") {
+            kotlin.srcDirs("src/test/kotlin")
+        }
     }
 
     packaging {
@@ -143,6 +146,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.okhttp)
     implementation(libs.androidx.work.runtime.ktx)
+    // Camera frames for the fingertip pulse reader (see CameraLuma) — the
+    // rest of the app captures photos/video via system camera intents, which
+    // can't hand back a live frame stream.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

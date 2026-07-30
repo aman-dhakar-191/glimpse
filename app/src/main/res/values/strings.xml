@@ -96,6 +96,16 @@
     <string name="compose_nudge_button">💓 Thinking of you</string>
     <string name="thinking_of_you_channel_name">Thinking of you</string>
     <string name="thinking_of_you_morse_channel_name">Thinking of you — %1$s</string>
+    <string name="heart_rate_title">Your heartbeat</string>
+    <string name="heart_rate_instructions">Cover the rear camera lens completely with your fingertip — gently, no pressing. Hold still for about ten seconds. The torch will switch on; that is what lights up your blood.</string>
+    <string name="heart_rate_bpm">%1$d bpm</string>
+    <string name="heart_rate_searching">Looking for your pulse…</string>
+    <string name="heart_rate_confidence">Signal %1$d%%</string>
+    <string name="heart_rate_start">Start measuring</string>
+    <string name="heart_rate_stop">Stop</string>
+    <string name="heart_rate_grant_camera">Allow camera access</string>
+    <string name="heart_rate_debug">%1$d frames · brightness %2$d</string>
+    <string name="nav_pulse">Pulse</string>
     <string name="morse_title">Name in buzzes</string>
     <string name="morse_desc">A nudge buzzes your nickname for each other in Morse code, so you know who it is without looking. Edit the name to feel any pattern.</string>
     <string name="morse_name_label">Name</string>

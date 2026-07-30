@@ -37,6 +37,8 @@ import com.glimpse.app.ui.drawing.DrawingViewModel
 import com.glimpse.app.ui.garden.GardenScreen
 import com.glimpse.app.ui.garden.GardenViewModel
 import com.glimpse.app.ui.guide.WidgetGuideScreen
+import com.glimpse.app.ui.heartrate.HeartRateScreen
+import com.glimpse.app.ui.heartrate.HeartRateViewModel
 import com.glimpse.app.ui.history.MessageHistoryScreen
 import com.glimpse.app.ui.history.MessageHistoryViewModel
 import com.glimpse.app.ui.message.ComposeMessageScreen
@@ -70,7 +72,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update, Drawing, Garden }
+private enum class AppScreen { Login, Compose, Guide, Settings, React, History, Stats, Update, Drawing, Garden, HeartRate }
 
 class MainActivity : ComponentActivity() {
     private val loginViewModel: LoginViewModel by viewModels()
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
     private val videoLimitViewModel: VideoLimitViewModel by viewModels()
     private val drawingViewModel: DrawingViewModel by viewModels()
     private val gardenViewModel: GardenViewModel by viewModels()
+    private val heartRateViewModel: HeartRateViewModel by viewModels()
 
     private lateinit var googleSignInClient: GoogleSignInClient
 
@@ -274,6 +277,7 @@ class MainActivity : ComponentActivity() {
                     val videoLimitUiState by videoLimitViewModel.uiState.collectAsState()
                     val drawingUiState by drawingViewModel.uiState.collectAsState()
                     val gardenUiState by gardenViewModel.uiState.collectAsState()
+                    val heartRateUiState by heartRateViewModel.uiState.collectAsState()
 
                     // None of these screens are pushed onto a real Navigation
                     // back stack (screen is just a flat mutableStateOf), so
@@ -321,11 +325,11 @@ class MainActivity : ComponentActivity() {
                                         composeMessageViewModel.sendVideoMessage(uri, caption, unlockAt)
                                     },
                                     onSentHandled = { composeMessageViewModel.consumeSentState() },
-                                    onOpenGuide = { screen = AppScreen.Guide },
                                     onOpenHistory = { screen = AppScreen.History },
                                     onOpenSettings = { screen = AppScreen.Settings },
                                     onOpenDrawing = { screen = AppScreen.Drawing },
                                     onOpenGarden = { screen = AppScreen.Garden },
+                                    onOpenHeartRate = { screen = AppScreen.HeartRate },
                                     onSendNudge = { composeMessageViewModel.sendNudge() },
                                     thinkingOfYouBurst = thinkingOfYouBurst,
                                     onThinkingOfYouBurstHandled = { composeMessageViewModel.consumeThinkingOfYouBurst() },
@@ -381,6 +385,7 @@ class MainActivity : ComponentActivity() {
                             videoLimitUiState = videoLimitUiState,
                             onLoadVideoLimit = { videoLimitViewModel.load() },
                             onSetVideoLimitSeconds = { seconds -> videoLimitViewModel.setLimitSeconds(seconds) },
+                            onOpenGuide = { screen = AppScreen.Guide },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 
@@ -455,6 +460,21 @@ class MainActivity : ComponentActivity() {
                             onNameErrorHandled = { gardenViewModel.consumeNameError() },
                             onWaterGarden = { gardenViewModel.waterGarden() },
                             onBack = { screen = AppScreen.Compose }
+                        )
+
+                        AppScreen.HeartRate -> HeartRateScreen(
+                            uiState = heartRateUiState,
+                            onProbeSensors = { heartRateViewModel.probeSensors() },
+                            onStart = { heartRateViewModel.start() },
+                            onStop = { heartRateViewModel.stop() },
+                            onFrame = { luma, timestamp -> heartRateViewModel.onFrame(luma, timestamp) },
+                            onBack = {
+                                // Stopping on the way out releases the
+                                // camera and torch — leaving here without
+                                // this would keep the flash burning.
+                                heartRateViewModel.stop()
+                                screen = AppScreen.Compose
+                            }
                         )
                     }
                 }
