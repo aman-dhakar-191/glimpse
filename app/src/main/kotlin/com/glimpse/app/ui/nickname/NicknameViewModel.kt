@@ -1,7 +1,9 @@
 package com.glimpse.app.ui.nickname
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.glimpse.app.data.PartnerNicknameStore
 import com.glimpse.app.data.firebase.FirebaseSync
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +22,19 @@ sealed interface NicknameUiState {
     ) : NicknameUiState
 }
 
-class NicknameViewModel : ViewModel() {
+// AndroidViewModel (not a plain ViewModel) for the Application context
+// PartnerNicknameStore needs — every load/save mirrors the nickname into
+// that local store so FCMService can read it synchronously while handling
+// an incoming nudge. See PartnerNicknameStore for why that matters.
+class NicknameViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<NicknameUiState>(NicknameUiState.Loading)
     val uiState: StateFlow<NicknameUiState> = _uiState.asStateFlow()
 
     fun load() {
         viewModelScope.launch {
-            _uiState.value = NicknameUiState.Loaded(nickname = FirebaseSync.fetchPartnerNicknameOnce())
+            val nickname = FirebaseSync.fetchPartnerNicknameOnce()
+            PartnerNicknameStore.save(getApplication(), nickname)
+            _uiState.value = NicknameUiState.Loaded(nickname = nickname)
         }
     }
 
@@ -36,6 +44,7 @@ class NicknameViewModel : ViewModel() {
         viewModelScope.launch {
             FirebaseSync.setPartnerNickname(nickname)
                 .onSuccess {
+                    PartnerNicknameStore.save(getApplication(), nickname)
                     _uiState.value = NicknameUiState.Loaded(nickname = nickname.trim(), justSaved = true)
                 }
                 .onFailure { throwable ->

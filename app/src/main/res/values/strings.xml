@@ -97,7 +97,7 @@
     <string name="thinking_of_you_channel_name">Thinking of you</string>
     <string name="thinking_of_you_morse_channel_name">Thinking of you — %1$s</string>
     <string name="morse_title">Name in buzzes</string>
-    <string name="morse_desc">A nudge vibrates the sender\'s name in Morse code, so you know who it is without looking. Type a name to feel its pattern.</string>
+    <string name="morse_desc">A nudge buzzes your nickname for each other in Morse code, so you know who it is without looking. Edit the name to feel any pattern.</string>
     <string name="morse_name_label">Name</string>
     <string name="morse_play_button">Feel it</string>
     <string name="morse_empty">Type a name with letters or numbers to hear its pattern.</string>

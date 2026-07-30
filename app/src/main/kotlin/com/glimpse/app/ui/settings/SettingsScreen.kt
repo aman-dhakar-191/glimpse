@@ -100,7 +100,6 @@ fun SettingsScreen(
     videoLimitUiState: VideoLimitUiState,
     onLoadVideoLimit: () -> Unit,
     onSetVideoLimitSeconds: (Int) -> Unit,
-    myDisplayName: String,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
@@ -143,7 +142,7 @@ fun SettingsScreen(
 
             VideoLimitCard(videoLimitUiState, onSetVideoLimitSeconds)
 
-            MorseCard(myDisplayName)
+            MorseCard(nicknameUiState)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -523,16 +522,21 @@ private fun VideoLimitCard(uiState: VideoLimitUiState, onSetLimitSeconds: (Int) 
     }
 }
 
-// A "thinking of you" nudge vibrates the SENDER's name in Morse (see
+// A "thinking of you" nudge vibrates your partner's name in Morse (see
 // MorseVibration + NotificationChannels.thinkingOfYouChannelFor), which is
 // a feature you can only otherwise discover by having someone nudge you.
-// This plays any name's pattern on demand so you can learn each other's by
-// feel — and pre-fills your own, since yours is the one your partner will
-// be learning.
+// This plays a pattern on demand so you can learn it by feel instead.
+//
+// Pre-filled from the nickname set in the card above, because that's the
+// exact string a real incoming nudge encodes — keeping the two in sync
+// means the preview can't quietly disagree with the real thing. The field
+// stays editable so you can also feel what YOUR name buzzes like on their
+// phone.
 @Composable
-private fun MorseCard(myDisplayName: String) {
+private fun MorseCard(nicknameUiState: NicknameUiState) {
+    val partnerNickname = (nicknameUiState as? NicknameUiState.Loaded)?.nickname.orEmpty()
     val context = LocalContext.current
-    var name by rememberSaveable(myDisplayName) { mutableStateOf(myDisplayName) }
+    var name by rememberSaveable(partnerNickname) { mutableStateOf(partnerNickname) }
     val morse = MorseVibration.morseFor(name)
     val emptyLabel = stringResource(R.string.morse_empty)
 

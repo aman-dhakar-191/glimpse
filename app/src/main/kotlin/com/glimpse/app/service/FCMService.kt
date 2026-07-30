@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.glimpse.app.MainActivity
 import com.glimpse.app.R
+import com.glimpse.app.data.PartnerNicknameStore
 import com.glimpse.app.data.QuietHoursStore
 import com.glimpse.app.data.repository.AuthRepository
 import com.glimpse.app.notification.NotificationChannels
@@ -42,18 +43,33 @@ class FCMService : FirebaseMessagingService() {
         // this builds the visible notification ourselves.
         val title = message.data["title"] ?: return
         val body = message.data["body"].orEmpty()
-        // A nudge buzzes out the SENDER's name in Morse (see
-        // MorseVibration), which is why the channel is picked per-sender
+        // A nudge buzzes the sender's name out in Morse (see
+        // MorseVibration), which is why its channel is picked per-name
         // rather than being a constant like the message one.
-        val channel = if (message.data["type"] == "nudge") {
-            NotificationChannels.thinkingOfYouChannelFor(this, message.data["senderName"].orEmpty())
+        //
+        // The name comes from the nickname YOU set for your partner, not
+        // from their account's display name: the nickname is stored under
+        // your own uid (see FirebaseSync.partnerNicknameRef), so each of
+        // you feels the name you actually call the other by, and neither
+        // side can change what the other's phone buzzes. senderName from
+        // the payload is only the fallback for a device that hasn't
+        // loaded a nickname yet, or a pair who never set one.
+        val isNudge = message.data["type"] == "nudge"
+        val channel = if (isNudge) {
+            val nickname = PartnerNicknameStore.load(this)
+                .ifBlank { message.data["senderName"].orEmpty() }
+            NotificationChannels.thinkingOfYouChannelFor(this, nickname)
         } else {
             NotificationChannels.MESSAGES
         }
-        showNotification(title, body, channel)
+        // Separate IDs so a nudge and a message stop overwriting each other
+        // in the shade — they're unrelated events, and collapsing them lost
+        // whichever arrived first.
+        val notificationId = if (isNudge) NUDGE_NOTIFICATION_ID else NOTIFICATION_ID
+        showNotification(title, body, channel, notificationId)
     }
 
-    private fun showNotification(title: String, body: String, channel: String) {
+    private fun showNotification(title: String, body: String, channel: String, notificationId: Int) {
         // The widget already refreshed unconditionally above — this only
         // suppresses the visible popup/sound/vibration during this device's
         // configured quiet hours, not the underlying content update.
@@ -79,10 +95,11 @@ class FCMService : FirebaseMessagingService() {
             .build()
 
         getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, notification)
+            .notify(notificationId, notification)
     }
 
     companion object {
         private const val NOTIFICATION_ID = 2001
+        private const val NUDGE_NOTIFICATION_ID = 2002
     }
 }

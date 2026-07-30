@@ -15,10 +15,16 @@ object MorseVibration {
 
     // Standard Morse timing, scaled by DOT_MILLIS: a dash is 3 dots, the
     // gap between symbols within a letter is 1 dot, and the gap between
-    // letters is 3 dots. 60ms is deliberately short — at the textbook
-    // 100ms+ a five-letter name runs past five seconds, which stops being
-    // a notification and starts being an event.
-    private const val DOT_MILLIS = 60L
+    // letters is 3 dots. The 3:1 dash:dot ratio is what makes Morse
+    // readable, so it's the scale that gets tuned here, never the ratio.
+    //
+    // 35ms is well below the textbook 100ms+, which would put a five-letter
+    // name past five seconds — long enough to stop reading as a
+    // notification and start reading as a nuisance. It's still comfortably
+    // above the ~10-20ms of a standard UI haptic tick, so a dot is a
+    // distinct tap rather than a blur, and a 105ms dash is unmistakably
+    // longer.
+    private const val DOT_MILLIS = 35L
     private const val DASH_MILLIS = DOT_MILLIS * 3
     private const val SYMBOL_GAP_MILLIS = DOT_MILLIS
     private const val LETTER_GAP_MILLIS = DOT_MILLIS * 3
@@ -38,16 +44,40 @@ object MorseVibration {
         '8' to "---..", '9' to "----."
     )
 
-    // A long name would vibrate for an uncomfortably long time, and Android
-    // gives no guarantee about honoring an arbitrarily long pattern anyway.
-    // First names are the realistic case; this only bites on a full legal
-    // name in the display-name field.
-    private const val MAX_LETTERS = 8
+    // A ceiling on how long the buzz can run, enforced as a duration rather
+    // than a letter count: letters cost wildly different amounts of time
+    // ("O" is ---, eleven units; "E" is a single dot), so capping the count
+    // would still let an unlucky name run twice as long as a lucky one.
+    // This bounds the worst case directly, whatever the name spells.
+    //
+    // 2s is the point where a notification stops being a signal and starts
+    // being an interruption. "Komal" lands at ~1.9s and "Aman" at ~1.1s, so
+    // realistic pet names fit whole and truncation only ever bites on
+    // something long enough that you'd stop reading it as a name anyway.
+    private const val MAX_PATTERN_MILLIS = 2000L
 
-    fun normalize(name: String): String =
-        name.uppercase()
-            .filter { CODES.containsKey(it) }
-            .take(MAX_LETTERS)
+    // What one letter costs in dot-units: its own symbols (1 for a dot, 3
+    // for a dash) plus the single-unit gaps holding them apart.
+    private fun costUnits(code: String): Int =
+        code.sumOf { if (it == '.') 1 else 3 } + (code.length - 1)
+
+    // Drops trailing letters that would push the pattern past the ceiling,
+    // so morseFor() and patternFor() always agree on which letters made the
+    // cut — the dots-and-dashes shown on screen are exactly what the phone
+    // will buzz, never a longer aspirational version of it.
+    fun normalize(name: String): String {
+        val letters = name.uppercase().filter { CODES.containsKey(it) }
+        val kept = StringBuilder()
+        var units = 0
+        for (letter in letters) {
+            // Every letter after the first also pays for the gap ahead of it.
+            val addedUnits = costUnits(CODES.getValue(letter)) + if (kept.isEmpty()) 0 else 3
+            if ((units + addedUnits) * DOT_MILLIS > MAX_PATTERN_MILLIS) break
+            units += addedUnits
+            kept.append(letter)
+        }
+        return kept.toString()
+    }
 
     // The dots-and-dashes rendering, for showing the pattern on screen
     // (Settings) next to the button that plays it — seeing "-.- --- -- .- .-.."
