@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.glimpse.app.data.heartrate.CameraLuma
 import com.glimpse.app.data.heartrate.HeartRateAnalyzer
 import com.glimpse.app.data.heartrate.HeartRateSensorProbe
+import com.glimpse.app.data.heartrate.PulseHaptics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ data class HeartRateUiState(
     // be debugged and one that just shows a wiggling line forever.
     val fingerDetected: Boolean = false,
     val samplesCollected: Int = 0,
+    val beatsFelt: Int = 0,
     // Filled once on entry — see HeartRateSensorProbe for why this is
     // reported rather than silently used.
     val sensorReport: String = ""
@@ -64,7 +66,8 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
             confidence = 0f,
             waveform = emptyList(),
             fingerDetected = false,
-            samplesCollected = 0
+            samplesCollected = 0,
+            beatsFelt = 0
         )
     }
 
@@ -82,7 +85,8 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
             bpm = null,
             confidence = 0f,
             waveform = emptyList(),
-            samplesCollected = 0
+            samplesCollected = 0,
+            beatsFelt = 0
         )
     }
 
@@ -109,6 +113,12 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
 
         analyzer.add(frame.mean, timestampMillis)
         val reading = analyzer.analyze()
+
+        // Ticked here rather than from the screen so it fires on the frame
+        // the beat was found, with no recomposition in between — a haptic
+        // that lags the pulse it is reporting is worse than none.
+        if (reading.beatNow) PulseHaptics.tick(getApplication())
+
         _uiState.value = _uiState.value.copy(
             bpm = reading.bpm,
             confidence = reading.confidence,
@@ -116,7 +126,8 @@ class HeartRateViewModel(application: Application) : AndroidViewModel(applicatio
             meanLevel = reading.meanLevel,
             spread = frame.spread,
             fingerDetected = true,
-            samplesCollected = _uiState.value.samplesCollected + 1
+            samplesCollected = _uiState.value.samplesCollected + 1,
+            beatsFelt = reading.beatsDetected
         )
     }
 }
