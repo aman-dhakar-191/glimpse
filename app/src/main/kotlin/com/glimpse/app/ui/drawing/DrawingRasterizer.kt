@@ -30,7 +30,29 @@ object DrawingRasterizer {
             strokeJoin = Paint.Join.ROUND
         }
 
-        strokes.forEach { stroke ->
+        // Flood-fill regions first, so they sit UNDER the strokes that bound
+        // them — a fill's blocky grid edge can otherwise overlap a boundary
+        // stroke by a cell and nibble into it. See DrawingFloodFill.
+        strokes.sortedBy { if (it.fillRects.isEmpty()) 1 else 0 }.forEach { stroke ->
+            if (stroke.fillRects.isNotEmpty()) {
+                paint.color = parseColor(stroke.color)
+                paint.alpha = 255
+                paint.pathEffect = null
+                paint.style = Paint.Style.FILL
+                var i = 0
+                while (i + 3 < stroke.fillRects.size) {
+                    canvas.drawRect(
+                        (stroke.fillRects[i] * sizePx).toFloat(),
+                        (stroke.fillRects[i + 1] * sizePx).toFloat(),
+                        (stroke.fillRects[i + 2] * sizePx).toFloat(),
+                        (stroke.fillRects[i + 3] * sizePx).toFloat(),
+                        paint
+                    )
+                    i += 4
+                }
+                paint.style = Paint.Style.STROKE
+                return@forEach
+            }
             val points = stroke.points
             if (points.size < 2) return@forEach
             val strokeWidthPx = sizePx * stroke.width.toFloat()
