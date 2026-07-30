@@ -430,6 +430,7 @@ class MainActivity : ComponentActivity() {
                             onStrokeMove = { x, y -> drawingViewModel.onStrokeMove(x, y) },
                             onStrokeEnd = { drawingViewModel.onStrokeEnd() },
                             onUndo = { drawingViewModel.undoLastStroke() },
+                            onRedo = { drawingViewModel.redoLastStroke() },
                             onClear = { drawingViewModel.clearCanvas() },
                             onSend = { drawingViewModel.send() },
                             onSendStateHandled = { drawingViewModel.consumeSendState() },

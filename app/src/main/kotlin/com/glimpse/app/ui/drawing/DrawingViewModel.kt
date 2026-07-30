@@ -79,6 +79,12 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // of yours are still on the canvas.
     private val myStrokeStack = mutableListOf<String>()
 
+    // What Undo has removed, most recent first, so Redo can bring strokes
+    // BACK exactly as they were — cleared on any new stroke/clear/send
+    // since that's the point a fresh action makes the old redo history
+    // stale, same convention any undo/redo stack follows.
+    private val myRedoStack = mutableListOf<Pair<String, LiveStroke>>()
+
     // Every point gets appended locally for instant local feedback, but
     // only every Nth one (plus stroke start/end) is actually pushed to
     // Firebase — pushing on every single pointer-move callback (up to
@@ -359,6 +365,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onStrokeStart(x: Float, y: Float) {
+        myRedoStack.clear()
         val id = FirebaseSync.newLiveStrokeId()
         currentStrokeId = id
         currentStrokePoints = mutableListOf(x.toDouble(), y.toDouble())
@@ -404,7 +411,18 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // be drawing isn't something a single tap should risk.
     fun undoLastStroke() {
         val id = myStrokeStack.removeLastOrNull() ?: return
+        _uiState.value.strokes[id]?.let { myRedoStack.add(id to it) }
         FirebaseSync.removeLiveStroke(id)
+    }
+
+    // Brings back the most recently undone stroke, exactly as it was —
+    // same id, so a later Undo can remove it again. Only ever touches
+    // YOUR OWN undo history, same "your own strokes only" reasoning as
+    // undoLastStroke above.
+    fun redoLastStroke() {
+        val (id, stroke) = myRedoStack.removeLastOrNull() ?: return
+        FirebaseSync.updateLiveStroke(id, stroke)
+        myStrokeStack.add(id)
     }
 
     // Unlike undo, this wipes the WHOLE shared canvas — both of your work,
@@ -412,6 +430,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // dialog before ever calling this.
     fun clearCanvas() {
         myStrokeStack.clear()
+        myRedoStack.clear()
         moveOriginalStrokes = emptyMap()
         _uiState.value = _uiState.value.copy(selectedStrokeIds = emptySet())
         viewModelScope.launch { FirebaseSync.clearLiveDrawing() }
@@ -440,6 +459,7 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             }
             FirebaseSync.clearLiveDrawing()
             myStrokeStack.clear()
+            myRedoStack.clear()
             moveOriginalStrokes = emptyMap()
             _uiState.value = _uiState.value.copy(selectedStrokeIds = emptySet())
             PhotoSendService.start(app, file, caption = "", unlockAt = 0, contentType = "image/png", messageType = "drawing")
