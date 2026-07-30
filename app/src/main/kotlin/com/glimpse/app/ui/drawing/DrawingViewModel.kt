@@ -449,14 +449,19 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     // messageType param). The canvas then clears for both of you, win or
     // lose — if the upload fails, SendingNotifier.showDrawingSendFailed
     // still tells you, and you can just draw a new one.
-    fun send() {
+    // canvasWidthPx/canvasHeightPx are the sending device's own canvas
+    // dimensions — needed because points are normalized against whatever
+    // canvas they were drawn on, so that's the only thing that says what
+    // aspect ratio the drawing was actually composed at. See
+    // DrawingRasterizer.renderForSend.
+    fun send(canvasWidthPx: Int, canvasHeightPx: Int) {
         val strokes = _uiState.value.strokes
         if (strokes.isEmpty()) return
         _uiState.value = _uiState.value.copy(sendState = DrawingSendState.Sending)
         viewModelScope.launch {
             val app = getApplication<Application>()
             val fresh = FirebaseSync.fetchLiveDrawingOnce().ifEmpty { strokes }
-            val bitmap = DrawingRasterizer.render(fresh.values, RENDER_SIZE_PX)
+            val bitmap = DrawingRasterizer.renderForSend(fresh.values, canvasWidthPx, canvasHeightPx, RENDER_SIZE_PX)
             val file = try {
                 saveToCacheFile(app, bitmap)
             } catch (e: Exception) {
@@ -496,6 +501,9 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
 
     companion object {
         private const val POINTS_PER_PUSH = 3
+
+        // The sent PNG's LONGER side; the shorter one follows from the
+        // canvas's aspect ratio (see DrawingRasterizer.renderForSend).
         private const val RENDER_SIZE_PX = 720
 
         // A minimum touch-target padding (normalized 0f..1f stroke space)

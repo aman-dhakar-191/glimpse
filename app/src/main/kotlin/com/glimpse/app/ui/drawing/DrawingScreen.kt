@@ -112,7 +112,7 @@ fun DrawingScreen(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onClear: () -> Unit,
-    onSend: () -> Unit,
+    onSend: (Int, Int) -> Unit,
     onSendStateHandled: () -> Unit,
     onSetMode: (DrawingMode) -> Unit,
     onSetBrush: (String) -> Unit,
@@ -230,7 +230,7 @@ fun DrawingScreen(
                         Text("🗑️", style = MaterialTheme.typography.titleMedium)
                     }
                     IconButton(
-                        onClick = onSend,
+                        onClick = { onSend(canvasSize.width, canvasSize.height) },
                         enabled = uiState.strokes.isNotEmpty() && uiState.sendState !is DrawingSendState.Sending
                     ) {
                         if (uiState.sendState is DrawingSendState.Sending) {

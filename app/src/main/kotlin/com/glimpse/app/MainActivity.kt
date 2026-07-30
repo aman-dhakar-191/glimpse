@@ -432,7 +432,7 @@ class MainActivity : ComponentActivity() {
                             onUndo = { drawingViewModel.undoLastStroke() },
                             onRedo = { drawingViewModel.redoLastStroke() },
                             onClear = { drawingViewModel.clearCanvas() },
-                            onSend = { drawingViewModel.send() },
+                            onSend = { width, height -> drawingViewModel.send(width, height) },
                             onSendStateHandled = { drawingViewModel.consumeSendState() },
                             onSetMode = { mode -> drawingViewModel.setMode(mode) },
                             onSetBrush = { brush -> drawingViewModel.setBrush(brush) },
