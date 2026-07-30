@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,6 +109,7 @@ fun DrawingScreen(
     onStrokeMove: (Float, Float) -> Unit,
     onStrokeEnd: () -> Unit,
     onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onClear: () -> Unit,
     onSend: () -> Unit,
     onSendStateHandled: () -> Unit,
@@ -556,7 +559,13 @@ fun DrawingScreen(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(10.dp)
+                    // A growing button count (3 modes + region toggle + undo/
+                    // redo/clear/send) can exceed screen width on smaller
+                    // phones — scrolls instead of silently clipping/pushing
+                    // Send off the visible edge.
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .horizontalScroll(rememberScrollState())
                 ) {
                     // All three modes shown at once (not one icon that swaps)
                     // so which one is active is always visible, not hidden
@@ -598,11 +607,14 @@ fun DrawingScreen(
                             )
                         }
                     }
-                    OutlinedButton(onClick = onUndo) {
-                        Text(stringResource(R.string.drawing_undo))
+                    IconButton(onClick = onUndo) {
+                        Text("↩️", style = MaterialTheme.typography.titleLarge)
                     }
-                    OutlinedButton(onClick = { showClearConfirm = true }) {
-                        Text(stringResource(R.string.drawing_clear))
+                    IconButton(onClick = onRedo) {
+                        Text("↪️", style = MaterialTheme.typography.titleLarge)
+                    }
+                    IconButton(onClick = { showClearConfirm = true }) {
+                        Text("🗑️", style = MaterialTheme.typography.titleLarge)
                     }
                     Button(
                         onClick = onSend,
@@ -614,7 +626,7 @@ fun DrawingScreen(
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text(stringResource(R.string.drawing_send))
+                            Text("➤", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
