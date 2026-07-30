@@ -12,10 +12,12 @@ import com.glimpse.app.service.PhotoSendService
 import com.glimpse.app.util.CrashLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 sealed interface DrawingSendState {
@@ -184,10 +186,13 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     fun selectStrokesInPolygon(polygon: List<Pair<Float, Float>>) {
         if (polygon.size < 3) return
         val hits = _uiState.value.strokes.filterValues { stroke ->
+            // A flood-fill region is tested by its rectangles' own corners,
+            // since it has no path points of its own to check.
+            val candidates = if (stroke.fillRects.isNotEmpty()) stroke.fillRects else stroke.points
             var i = 0
             var inside = false
-            while (i + 1 < stroke.points.size && !inside) {
-                if (pointInPolygon(stroke.points[i].toFloat(), stroke.points[i + 1].toFloat(), polygon)) inside = true
+            while (i + 1 < candidates.size && !inside) {
+                if (pointInPolygon(candidates[i].toFloat(), candidates[i + 1].toFloat(), polygon)) inside = true
                 i += 2
             }
             inside
@@ -207,56 +212,41 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         return inside
     }
 
-    // Fill mode: like MS Paint's bucket, a tap ANYWHERE inside a stroke's
-    // enclosed area fills it — not just a tap that lands exactly on the
-    // drawn line. Auto-closes the path (last point back to the first)
-    // regardless of whether it was drawn as a closed loop, so tapping
-    // inside e.g. a hand-drawn ring fills the ring's own outline shape
-    // solid, covering its hole too. Falls back to the on-line hit test for
-    // strokes too thin/open to enclose any area (a plain squiggle) so
-    // tapping directly on those still does something.
+    // Fill mode has two distinct behaviors, picked by what you tapped:
+    //
+    //  - ON a stroke: fills THAT STROKE only — its own path auto-closed
+    //    (last point back to the first) and filled solid, regardless of
+    //    whether it was drawn as a closed loop.
+    //  - on empty canvas: a real paint-bucket flood fill of the region the
+    //    tap landed in, spreading until it hits drawn pixels or the canvas
+    //    edge, exactly like MS Paint. See DrawingFloodFill.
+    //
+    // The flood fill lands as its own new stroke (so Undo/Redo and Select
+    // treat it like anything else on the canvas) rather than modifying
+    // whichever strokes happened to bound the region.
     fun fillStrokeAt(x: Float, y: Float) {
-        val id = strokeContainingPoint(x, y) ?: hitTestStroke(x, y) ?: return
-        val stroke = _uiState.value.strokes[id] ?: return
-        FirebaseSync.updateLiveStroke(id, stroke.copy(isFilled = true, color = _uiState.value.selectedColor))
-    }
-
-    // Whichever stroke's own (auto-closed) outline encloses (x, y) with
-    // the SMALLEST area wins — same "topmost/most specific region" idea
-    // MS Paint's bucket uses when shapes are nested or overlapping.
-    private fun strokeContainingPoint(x: Float, y: Float): String? {
-        var bestId: String? = null
-        var bestArea = Float.MAX_VALUE
-        for ((id, stroke) in _uiState.value.strokes) {
-            val polygon = strokePolygon(stroke)
-            if (polygon.size < 3 || !pointInPolygon(x, y, polygon)) continue
-            val area = polygonArea(polygon)
-            if (area < bestArea) {
-                bestArea = area
-                bestId = id
-            }
+        val hitId = hitTestStroke(x, y)
+        if (hitId != null) {
+            val stroke = _uiState.value.strokes[hitId] ?: return
+            FirebaseSync.updateLiveStroke(hitId, stroke.copy(isFilled = true, color = _uiState.value.selectedColor))
+            return
         }
-        return bestId
-    }
-
-    private fun strokePolygon(stroke: LiveStroke): List<Pair<Float, Float>> {
-        val polygon = mutableListOf<Pair<Float, Float>>()
-        var i = 0
-        while (i + 1 < stroke.points.size) {
-            polygon.add(stroke.points[i].toFloat() to stroke.points[i + 1].toFloat())
-            i += 2
+        // Rasterizing + flooding a 256² grid is too slow for the main
+        // thread, so it happens off it; the fill then arrives back through
+        // the same live-drawing listener every other stroke does.
+        viewModelScope.launch {
+            val strokes = _uiState.value.strokes.values.toList()
+            val color = _uiState.value.selectedColor
+            val rects = withContext(Dispatchers.Default) { DrawingFloodFill.regionRectsAt(strokes, x, y) }
+            if (rects.isEmpty()) return@launch
+            val id = FirebaseSync.newLiveStrokeId()
+            FirebaseSync.updateLiveStroke(
+                id,
+                LiveStroke(authorUid = _uiState.value.myUid, color = color, fillRects = rects)
+            )
+            myRedoStack.clear()
+            myStrokeStack.add(id)
         }
-        return polygon
-    }
-
-    private fun polygonArea(polygon: List<Pair<Float, Float>>): Float {
-        var sum = 0f
-        for (i in polygon.indices) {
-            val (x1, y1) = polygon[i]
-            val (x2, y2) = polygon[(i + 1) % polygon.size]
-            sum += x1 * y2 - x2 * y1
-        }
-        return kotlin.math.abs(sum) / 2f
     }
 
     // Deletes every currently selected stroke — anyone's, same "fair game"
@@ -308,7 +298,12 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             val moved = original.points.mapIndexed { index, value ->
                 if (index % 2 == 0) value + moveCumulativeDx else value + moveCumulativeDy
             }
-            FirebaseSync.updateLiveStroke(id, original.copy(points = moved))
+            // left,top,right,bottom quads — even indices are x, odd are y,
+            // the same alternation `points` uses, so the same offset applies.
+            val movedRects = original.fillRects.mapIndexed { index, value ->
+                if (index % 2 == 0) value + moveCumulativeDx else value + moveCumulativeDy
+            }
+            FirebaseSync.updateLiveStroke(id, original.copy(points = moved, fillRects = movedRects))
         }
     }
 
@@ -331,6 +326,18 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun distanceToStroke(x: Float, y: Float, stroke: LiveStroke): Float {
+        // A flood-fill region has no path to measure against — it's a solid
+        // area, so a tap either lands inside one of its rectangles or misses.
+        if (stroke.fillRects.isNotEmpty()) {
+            var i = 0
+            while (i + 3 < stroke.fillRects.size) {
+                val insideX = x >= stroke.fillRects[i] && x <= stroke.fillRects[i + 2]
+                val insideY = y >= stroke.fillRects[i + 1] && y <= stroke.fillRects[i + 3]
+                if (insideX && insideY) return 0f
+                i += 4
+            }
+            return Float.MAX_VALUE
+        }
         val points = stroke.points
         if (points.size < 4) {
             return if (points.size < 2) Float.MAX_VALUE else distance(x, y, points[0].toFloat(), points[1].toFloat())

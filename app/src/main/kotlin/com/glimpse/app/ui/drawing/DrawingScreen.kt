@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -212,6 +213,38 @@ fun DrawingScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                // Undo / Redo / Clear / Send live up here rather than in the
+                // controls card below, so they stay reachable even with the
+                // card collapsed — they're the actions you reach for while
+                // drawing, not settings you adjust and leave alone.
+                actions = {
+                    IconButton(onClick = onUndo) {
+                        Text("↩️", style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton(onClick = onRedo) {
+                        Text("↪️", style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton(onClick = { showClearConfirm = true }) {
+                        Text("🗑️", style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton(
+                        onClick = onSend,
+                        enabled = uiState.strokes.isNotEmpty() && uiState.sendState !is DrawingSendState.Sending
+                    ) {
+                        if (uiState.sendState is DrawingSendState.Sending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Text(
+                                "➤",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             )
@@ -412,9 +445,14 @@ fun DrawingScreen(
                             transformOrigin = TransformOrigin(0f, 0f)
                         )
                 ) {
-                    uiState.strokes.forEach { (id, stroke) ->
-                        drawLiveStroke(stroke, size, isSelected = id in uiState.selectedStrokeIds)
-                    }
+                    // Flood-fill regions first, so they sit UNDER the strokes
+                    // bounding them — matches DrawingRasterizer's own order,
+                    // so the live canvas and the sent PNG agree.
+                    uiState.strokes.entries
+                        .sortedBy { if (it.value.fillRects.isEmpty()) 1 else 0 }
+                        .forEach { (id, stroke) ->
+                            drawLiveStroke(stroke, size, isSelected = id in uiState.selectedStrokeIds)
+                        }
                 }
 
                 // Live marquee/lasso preview, drawn in the SAME raw screen
@@ -465,11 +503,20 @@ fun DrawingScreen(
             // stroke is currently topmost, instead of a permanent toolbar
             // button that's disabled most of the time.
             if (uiState.mode == DrawingMode.Select && uiState.selectedStrokeIds.isNotEmpty() && canvasSize.width > 0) {
-                val selectedStrokes = uiState.strokes.filterKeys { it in uiState.selectedStrokeIds }.values
-                val anchor = selectedStrokes.minByOrNull { it.points.getOrElse(1) { 0.0 } }
+                // A flood-fill region carries rectangles instead of path
+                // points, so read whichever the stroke actually has — and
+                // skip anything with neither rather than indexing into it.
+                val anchor = uiState.strokes
+                    .filterKeys { it in uiState.selectedStrokeIds }
+                    .values
+                    .mapNotNull { stroke ->
+                        val coords = if (stroke.fillRects.isNotEmpty()) stroke.fillRects else stroke.points
+                        if (coords.size < 2) null else coords[0].toFloat() to coords[1].toFloat()
+                    }
+                    .minByOrNull { it.second }
                 if (anchor != null) {
-                    val anchorX = (anchor.points[0].toFloat() * canvasSize.width * scale + panOffset.x).toInt()
-                    val anchorY = (anchor.points[1].toFloat() * canvasSize.height * scale + panOffset.y).toInt()
+                    val anchorX = (anchor.first * canvasSize.width * scale + panOffset.x).toInt()
+                    val anchorY = (anchor.second * canvasSize.height * scale + panOffset.y).toInt()
                     Surface(
                         modifier = Modifier.offset { IntOffset(anchorX - 20.dp.roundToPx(), (anchorY - 52.dp.roundToPx()).coerceAtLeast(0)) },
                         shape = CircleShape,
@@ -573,10 +620,8 @@ fun DrawingScreen(
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            // A growing button count (3 modes + region toggle +
-                            // undo/redo/clear/send) can exceed screen width on
-                            // smaller phones — scrolls instead of silently
-                            // clipping/pushing Send off the visible edge.
+                            // Scrolls rather than silently clipping if the
+                            // button count ever outgrows the screen width.
                             modifier = Modifier
                                 .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
                                 .horizontalScroll(rememberScrollState())
@@ -619,28 +664,6 @@ fun DrawingScreen(
                                             stringResource(R.string.drawing_region_lasso)
                                         }
                                     )
-                                }
-                            }
-                            IconButton(onClick = onUndo) {
-                                Text("↩️", style = MaterialTheme.typography.titleLarge)
-                            }
-                            IconButton(onClick = onRedo) {
-                                Text("↪️", style = MaterialTheme.typography.titleLarge)
-                            }
-                            IconButton(onClick = { showClearConfirm = true }) {
-                                Text("🗑️", style = MaterialTheme.typography.titleLarge)
-                            }
-                            Button(
-                                onClick = onSend,
-                                enabled = uiState.strokes.isNotEmpty() && uiState.sendState !is DrawingSendState.Sending
-                            ) {
-                                if (uiState.sendState is DrawingSendState.Sending) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                } else {
-                                    Text("➤", style = MaterialTheme.typography.titleMedium)
                                 }
                             }
                         }
@@ -840,11 +863,31 @@ private fun toContent(rawPosition: Offset, canvasSize: IntSize, scale: Float, pa
 }
 
 private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size, isSelected: Boolean) {
-    val points = stroke.points
-    if (points.size < 2) return
     val color = parseColorOrBlack(stroke.color)
     val strokeWidthPx = canvasSize.minDimension * stroke.width.toFloat()
     val haloWidthPx = canvasSize.minDimension * SELECTION_HALO_FRACTION
+
+    // A flood-filled region — solid rectangles covering the area the bucket
+    // spread across, rather than a path to stroke. See DrawingFloodFill.
+    if (stroke.fillRects.isNotEmpty()) {
+        var i = 0
+        while (i + 3 < stroke.fillRects.size) {
+            val left = (stroke.fillRects[i] * canvasSize.width).toFloat()
+            val top = (stroke.fillRects[i + 1] * canvasSize.height).toFloat()
+            val right = (stroke.fillRects[i + 2] * canvasSize.width).toFloat()
+            val bottom = (stroke.fillRects[i + 3] * canvasSize.height).toFloat()
+            drawRect(
+                color = if (isSelected) SELECTION_HALO_COLOR.compositeOver(color) else color,
+                topLeft = Offset(left, top),
+                size = Size(right - left, bottom - top)
+            )
+            i += 4
+        }
+        return
+    }
+
+    val points = stroke.points
+    if (points.size < 2) return
 
     if (points.size == 2) {
         val center = Offset((points[0] * canvasSize.width).toFloat(), (points[1] * canvasSize.height).toFloat())

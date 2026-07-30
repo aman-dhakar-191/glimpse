@@ -25,5 +25,13 @@ data class LiveStroke @JvmOverloads constructor(
     // BrushType.name — a plain string (not an enum) for the same Firebase
     // round-trip reliability reason color/points are primitives, not
     // richer types.
-    val brushType: String = "round"
+    val brushType: String = "round",
+    // Set (and `points` left empty) only for a bucket/flood fill of an
+    // empty canvas region — see DrawingFloodFill. Flattened
+    // left,top,right,bottom quads of normalized 0.0..1.0 rectangles that
+    // together cover the filled region, same flat-list-of-primitives
+    // reasoning as `points` above. Rectangles rather than one traced
+    // outline because a flood-filled region can have holes (filling the
+    // background around a ring), which a single outline would swallow.
+    val fillRects: List<Double> = emptyList()
 )
