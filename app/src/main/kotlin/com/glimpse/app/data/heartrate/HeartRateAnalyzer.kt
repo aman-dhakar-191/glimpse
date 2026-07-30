@@ -43,13 +43,18 @@ class HeartRateAnalyzer(
 
     private val values = ArrayDeque<Double>()
     private val timestamps = ArrayDeque<Long>()
-    private var lastBeatMillis = Long.MIN_VALUE
+    // Nullable rather than a sentinel like Long.MIN_VALUE. Subtracting that
+    // sentinel from a timestamp overflows to a negative number, which then
+    // compares as "too soon" against every refractory period — so no beat
+    // ever fired. Unbounded arithmetic hides this, which is exactly why it
+    // survived being modelled outside the JVM and was caught only by a test.
+    private var lastBeatMillis: Long? = null
     private var beatCount = 0
 
     fun reset() {
         values.clear()
         timestamps.clear()
-        lastBeatMillis = Long.MIN_VALUE
+        lastBeatMillis = null
         beatCount = 0
     }
 
@@ -219,7 +224,8 @@ class HeartRateAnalyzer(
             MIN_BEAT_GAP_MILLIS,
             (periodMillis ?: 0.0) * BEAT_REFRACTORY_FRACTION
         )
-        if (now - lastBeatMillis < refractory) return false
+        val previousBeat = lastBeatMillis
+        if (previousBeat != null && now - previousBeat < refractory) return false
 
         lastBeatMillis = now
         beatCount++
