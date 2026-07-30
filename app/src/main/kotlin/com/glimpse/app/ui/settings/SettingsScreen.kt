@@ -46,10 +46,12 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
+import com.glimpse.app.notification.MorseVibration
 import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.ui.carousel.CarouselSettingsUiState
@@ -98,6 +100,7 @@ fun SettingsScreen(
     videoLimitUiState: VideoLimitUiState,
     onLoadVideoLimit: () -> Unit,
     onSetVideoLimitSeconds: (Int) -> Unit,
+    myDisplayName: String,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
@@ -139,6 +142,8 @@ fun SettingsScreen(
             WidgetAccentColorCard(widgetAccentColorUiState, onSetWidgetAccentColor)
 
             VideoLimitCard(videoLimitUiState, onSetVideoLimitSeconds)
+
+            MorseCard(myDisplayName)
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't
@@ -514,6 +519,68 @@ private fun VideoLimitCard(uiState: VideoLimitUiState, onSetLimitSeconds: (Int) 
                 label = { stringResource(R.string.video_limit_option, it) },
                 onSelect = onSetLimitSeconds
             )
+        }
+    }
+}
+
+// A "thinking of you" nudge vibrates the SENDER's name in Morse (see
+// MorseVibration + NotificationChannels.thinkingOfYouChannelFor), which is
+// a feature you can only otherwise discover by having someone nudge you.
+// This plays any name's pattern on demand so you can learn each other's by
+// feel — and pre-fills your own, since yours is the one your partner will
+// be learning.
+@Composable
+private fun MorseCard(myDisplayName: String) {
+    val context = LocalContext.current
+    var name by rememberSaveable(myDisplayName) { mutableStateOf(myDisplayName) }
+    val morse = MorseVibration.morseFor(name)
+    val emptyLabel = stringResource(R.string.morse_empty)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .rotate(0.4f),
+        shape = BlobShapeSoftC,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(28.dp)) {
+            Text(
+                stringResource(R.string.morse_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                stringResource(R.string.morse_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.morse_name_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Seeing the dots and dashes is what makes the buzzing legible
+            // as a name rather than just an unusual vibration.
+            Text(
+                text = morse.ifEmpty { emptyLabel },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+
+            Button(
+                onClick = { MorseVibration.play(context, name) },
+                enabled = morse.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                Text(stringResource(R.string.morse_play_button))
+            }
         }
     }
 }

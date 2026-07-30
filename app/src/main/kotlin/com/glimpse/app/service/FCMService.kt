@@ -42,7 +42,14 @@ class FCMService : FirebaseMessagingService() {
         // this builds the visible notification ourselves.
         val title = message.data["title"] ?: return
         val body = message.data["body"].orEmpty()
-        val channel = if (message.data["type"] == "nudge") NotificationChannels.THINKING_OF_YOU else NotificationChannels.MESSAGES
+        // A nudge buzzes out the SENDER's name in Morse (see
+        // MorseVibration), which is why the channel is picked per-sender
+        // rather than being a constant like the message one.
+        val channel = if (message.data["type"] == "nudge") {
+            NotificationChannels.thinkingOfYouChannelFor(this, message.data["senderName"].orEmpty())
+        } else {
+            NotificationChannels.MESSAGES
+        }
         showNotification(title, body, channel)
     }
 

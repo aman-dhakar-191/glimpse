@@ -139,10 +139,15 @@ exports.onNudge = functions.database
     const senderName = senderSnap.val() || "Someone";
 
     const tokens = await tokensForUsersExcept(after.senderUid);
+    // senderName rides along as its own field (not just interpolated into
+    // body) because the client spells it out in Morse as the notification's
+    // vibration pattern — see MorseVibration/NotificationChannels, which
+    // needs the bare name, not a sentence to parse it back out of.
     return sendToTokens(tokens, {
       type: "nudge",
       title: "💓 Thinking of you",
       body: `${senderName} sent you a nudge`,
+      senderName,
     });
   });
 

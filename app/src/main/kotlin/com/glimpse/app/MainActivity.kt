@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -60,6 +61,7 @@ import com.glimpse.app.ui.update.UpdateScreen
 import com.glimpse.app.ui.update.UpdateViewModel
 import com.glimpse.app.ui.videolimit.VideoLimitViewModel
 import com.glimpse.app.ui.widgetaccent.WidgetAccentColorViewModel
+import com.glimpse.app.data.repository.AuthRepository
 import com.glimpse.app.data.update.UpdateChecker
 import com.glimpse.app.util.CrashLogger
 import com.glimpse.app.work.CarouselAutoAdvanceWorker
@@ -381,6 +383,7 @@ class MainActivity : ComponentActivity() {
                             videoLimitUiState = videoLimitUiState,
                             onLoadVideoLimit = { videoLimitViewModel.load() },
                             onSetVideoLimitSeconds = { seconds -> videoLimitViewModel.setLimitSeconds(seconds) },
+                            myDisplayName = remember { AuthRepository().currentUser?.displayName.orEmpty() },
                             onOpenUpdate = { screen = AppScreen.Update }
                         )
 
