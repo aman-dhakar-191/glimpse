@@ -43,12 +43,11 @@ class FCMService : FirebaseMessagingService() {
         // this builds the visible notification ourselves.
         val title = message.data["title"] ?: return
         val body = message.data["body"].orEmpty()
-        // A nudge buzzes a name out in Morse, and the pattern lives on the
-        // notification channel rather than on the notification, so posting
-        // one is fiddly enough to be worth having exactly one
-        // implementation of — ThinkingOfYouNotifier owns it, and the
-        // Settings test button goes through the same call so it can't pass
-        // while the real thing is broken.
+        // A nudge posts a notification and separately buzzes a name out in
+        // Morse — two steps that have to stay in lockstep, so there's
+        // exactly one implementation of them. ThinkingOfYouNotifier owns
+        // it, and the Settings test button goes through the same call so it
+        // can't pass while the real thing is broken.
         //
         // The name is the nickname YOU set for your partner, not their
         // account's display name: the nickname is stored under your own uid

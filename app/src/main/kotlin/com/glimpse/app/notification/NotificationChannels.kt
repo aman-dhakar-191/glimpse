@@ -69,18 +69,32 @@ object NotificationChannels {
         )
     }
 
-    // The same "pattern is fixed at channel-creation time" constraint above
-    // is exactly why this can't be one channel with a swapped pattern: a
-    // nudge from Komal and a nudge from Aman have to arrive on two
-    // different channels to feel different. The ID is derived from the
-    // name, so a given ID's pattern is always the one it was created with
-    // and there's no stale-pattern problem to migrate around.
+    // Channel IDs are still per-name, but the channel no longer carries the
+    // Morse pattern — ThinkingOfYouNotifier vibrates explicitly instead.
+    //
+    // Letting the channel do it looked right (it respects Do Not Disturb and
+    // the per-channel vibration toggle for free) and failed on a real phone:
+    // in Sound ringer mode most devices gate notification vibration behind a
+    // separate system "Vibrate for notifications" setting that's commonly
+    // off, so the nudge played its sound and buzzed nothing. A feature whose
+    // entire point is being identifiable by touch cannot be at the mercy of
+    // that toggle, so the buzz is driven directly and the channel is created
+    // with vibration OFF to avoid a second, non-Morse buzz on top of it.
+    //
+    // The per-name ID stays because the channel is still the user-visible
+    // row in system settings, and naming it after the person keeps that
+    // legible.
+    private const val MORSE_CHANNEL_PREFIX = "${THINKING_OF_YOU}_v2_"
+
     fun thinkingOfYouChannelFor(context: Context, senderName: String): String {
         val letters = MorseVibration.normalize(senderName)
-        val pattern = MorseVibration.patternFor(senderName)
-        if (letters.isEmpty() || pattern == null) return THINKING_OF_YOU
+        if (letters.isEmpty()) return THINKING_OF_YOU
 
-        val channelId = "${THINKING_OF_YOU}_morse_$letters"
+        // A channel's settings are frozen at creation — createNotificationChannel
+        // on an existing ID cannot turn its vibration off again. Hence the
+        // _v2_ prefix: devices that already made a vibrating _morse_ channel
+        // need a genuinely new ID, or they'd keep double-buzzing forever.
+        val channelId = "$MORSE_CHANNEL_PREFIX$letters"
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
@@ -88,18 +102,18 @@ object NotificationChannels {
                 context.getString(R.string.thinking_of_you_morse_channel_name, senderName),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                enableVibration(true)
-                vibrationPattern = pattern
+                enableVibration(false)
             }
         )
 
-        // Without this, every display-name change leaves its old channel
-        // behind forever in Settings → Notifications. Only one partner ever
-        // nudges this device, so any *other* Morse channel is by definition
-        // a previous spelling of the same person.
+        // Without this, every nickname change leaves its old channel behind
+        // forever in Settings → Notifications. Only one partner ever nudges
+        // this device, so any other per-name channel — including the
+        // superseded _morse_ ones — is a previous spelling of the same
+        // person.
         manager.notificationChannels
             .map { it.id }
-            .filter { it.startsWith("${THINKING_OF_YOU}_morse_") && it != channelId }
+            .filter { it != channelId && (it.startsWith(MORSE_CHANNEL_PREFIX) || it.startsWith("${THINKING_OF_YOU}_morse_")) }
             .forEach { manager.deleteNotificationChannel(it) }
 
         return channelId
