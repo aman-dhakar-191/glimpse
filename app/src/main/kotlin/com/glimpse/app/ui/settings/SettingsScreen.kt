@@ -72,10 +72,10 @@ import java.time.format.DateTimeFormatter
 // these shapes pinch inward at the edges more than a plain pill would.
 private val BlobButtonPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
 
-// Everything that isn't "how to add the widget" (see WidgetGuideScreen) and
-// isn't directly on the compose screen (mood — tap the emoji next to the
-// title; the special-date countdown — below the Send button) — pairing,
-// nickname, quiet hours, and log out.
+// Everything that isn't directly on the compose screen (mood — tap the
+// emoji next to the title; the special-date countdown — below the Send
+// button): pairing, nickname, quiet hours, log out, and the way into the
+// widget guide, which moved here when the bottom nav ran out of slots.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -101,6 +101,7 @@ fun SettingsScreen(
     videoLimitUiState: VideoLimitUiState,
     onLoadVideoLimit: () -> Unit,
     onSetVideoLimitSeconds: (Int) -> Unit,
+    onOpenGuide: () -> Unit,
     onOpenUpdate: () -> Unit
 ) {
     LaunchedEffect(Unit) {
@@ -144,6 +145,17 @@ fun SettingsScreen(
             VideoLimitCard(videoLimitUiState, onSetVideoLimitSeconds)
 
             MorseCard(nicknameUiState)
+
+            // Moved here off the bottom nav — the nav had grown to five
+            // items and needed the slot, and "how do I add the widget" is a
+            // once-per-phone question, not something worth a permanent slot
+            // next to the things used daily.
+            TextButton(
+                onClick = onOpenGuide,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.compose_widget_guide_link))
+            }
 
             // The update-available notification dedupes per version and
             // won't come back once dismissed for a release you haven't

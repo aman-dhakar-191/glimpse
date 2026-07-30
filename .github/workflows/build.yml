@@ -44,6 +44,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Run unit tests
+        # The heartbeat signal processing (HeartRateAnalyzer) is pure Kotlin
+        # and checked against synthetic pulses of known rate, so a
+        # regression in it is catchable here rather than only by holding a
+        # finger on a phone. assembleDebug alone would never run these.
+        run: ./gradlew testDebugUnitTest --stacktrace
+
       - name: Check release signing secrets
         # secrets.* can't be referenced directly in a step's `if:` — it must
         # be resolved to a step output (or env var) first, so downstream
