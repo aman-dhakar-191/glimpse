@@ -84,16 +84,29 @@ object NotificationChannels {
     // The per-name ID stays because the channel is still the user-visible
     // row in system settings, and naming it after the person keeps that
     // legible.
-    private const val MORSE_CHANNEL_PREFIX = "${THINKING_OF_YOU}_v2_"
+    //
+    // A channel's settings are frozen the moment it is first created —
+    // createNotificationChannel on an existing ID cannot change its sound or
+    // vibration afterward. So this version marker MUST be bumped whenever
+    // any of the settings below change, or devices that already created the
+    // old channel keep the old behaviour forever with no way to migrate
+    // them. Superseded channels are deleted rather than left as debris.
+    private const val MORSE_CHANNEL_PREFIX = "${THINKING_OF_YOU}_v3_"
+
+    // Every prefix this feature has ever shipped, so superseded channels get
+    // cleaned up instead of accumulating in system settings. Listed
+    // explicitly rather than matched by a broad "thinking_of_you_" prefix:
+    // that would also swallow any future sibling channel that happened to
+    // share the stem, deleting it on the next nudge.
+    private val SUPERSEDED_CHANNEL_PREFIXES = listOf(
+        "${THINKING_OF_YOU}_morse_",
+        "${THINKING_OF_YOU}_v2_"
+    )
 
     fun thinkingOfYouChannelFor(context: Context, senderName: String): String {
         val letters = MorseVibration.normalize(senderName)
         if (letters.isEmpty()) return THINKING_OF_YOU
 
-        // A channel's settings are frozen at creation — createNotificationChannel
-        // on an existing ID cannot turn its vibration off again. Hence the
-        // _v2_ prefix: devices that already made a vibrating _morse_ channel
-        // need a genuinely new ID, or they'd keep double-buzzing forever.
         val channelId = "$MORSE_CHANNEL_PREFIX$letters"
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
@@ -102,18 +115,29 @@ object NotificationChannels {
                 context.getString(R.string.thinking_of_you_morse_channel_name, senderName),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
+                // Silent by design. The Morse buzz IS the message — a chime
+                // on top just announces to the room what is meant to be a
+                // private thing only the person holding the phone notices.
+                setSound(null, null)
+                // The buzz comes from ThinkingOfYouNotifier, not from here,
+                // so leaving this on would add a second non-Morse vibration
+                // on top of the real one.
                 enableVibration(false)
             }
         )
 
         // Without this, every nickname change leaves its old channel behind
-        // forever in Settings → Notifications. Only one partner ever nudges
-        // this device, so any other per-name channel — including the
-        // superseded _morse_ ones — is a previous spelling of the same
-        // person.
+        // forever in Settings → Notifications, alongside every superseded
+        // version of it. Only one partner ever nudges this device, so any
+        // other per-name channel is a previous spelling, or an older
+        // version, of the same person's.
         manager.notificationChannels
             .map { it.id }
-            .filter { it != channelId && (it.startsWith(MORSE_CHANNEL_PREFIX) || it.startsWith("${THINKING_OF_YOU}_morse_")) }
+            .filter { id ->
+                id != channelId &&
+                    (id.startsWith(MORSE_CHANNEL_PREFIX) ||
+                        SUPERSEDED_CHANNEL_PREFIXES.any { id.startsWith(it) })
+            }
             .forEach { manager.deleteNotificationChannel(it) }
 
         return channelId
