@@ -434,13 +434,16 @@ class MainActivity : ComponentActivity() {
                             onSend = { drawingViewModel.send() },
                             onSendStateHandled = { drawingViewModel.consumeSendState() },
                             onSetMode = { mode -> drawingViewModel.setMode(mode) },
+                            onSetBrush = { brush -> drawingViewModel.setBrush(brush) },
                             onSelectTap = { x, y -> drawingViewModel.selectTapAt(x, y) },
+                            onSelectRegion = { polygon -> drawingViewModel.selectStrokesInPolygon(polygon) },
                             onBeginMove = { drawingViewModel.beginMove() },
                             onMoveSelectionBy = { dx, dy -> drawingViewModel.moveSelectionBy(dx, dy) },
                             onEndMove = { drawingViewModel.endMove() },
                             onMarkPresent = { drawingViewModel.markPresent() },
                             onClearPresent = { drawingViewModel.clearPresent() },
                             onDeleteSelected = { drawingViewModel.deleteSelected() },
+                            onFillAt = { x, y -> drawingViewModel.fillStrokeAt(x, y) },
                             onBack = { screen = AppScreen.Compose }
                         )
 

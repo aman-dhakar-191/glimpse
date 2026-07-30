@@ -20,8 +20,19 @@ object DrawingColors {
     // picked by feel: thin enough for detail work, thick enough to read as
     // a marker rather than a hairline.
     const val MIN_WIDTH_FRACTION = 0.004f
-    const val MAX_WIDTH_FRACTION = 0.05f
+    const val MAX_WIDTH_FRACTION = 0.14f
     const val DEFAULT_WIDTH_FRACTION = 0.012f
+
+    // Plain strings (not an enum) — same Firebase round-trip reasoning as
+    // color/points on LiveStroke. Differentiated purely at render time in
+    // DrawingScreen.drawLiveStroke.
+    object BrushTypes {
+        const val ROUND = "round"
+        const val SQUARE = "square"
+        const val MARKER = "marker"
+        const val DASHED = "dashed"
+        val ALL = listOf(ROUND, SQUARE, MARKER, DASHED)
+    }
 
     // Fixed saturation/value, varying only hue — a full HSV square (plus a
     // separate lightness control) would cover more ground, but a single

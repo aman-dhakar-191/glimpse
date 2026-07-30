@@ -3,6 +3,7 @@ package com.glimpse.app.ui.drawing
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import com.glimpse.app.data.model.LiveStroke
@@ -30,13 +31,14 @@ object DrawingRasterizer {
         }
 
         strokes.forEach { stroke ->
-            paint.color = parseColor(stroke.color)
-            val strokeWidthPx = sizePx * stroke.width.toFloat()
-            paint.strokeWidth = strokeWidthPx
             val points = stroke.points
             if (points.size < 2) return@forEach
+            val strokeWidthPx = sizePx * stroke.width.toFloat()
+            paint.color = parseColor(stroke.color)
+            paint.alpha = 255
+            paint.pathEffect = null
 
-            if (points.size == 2) {
+            if (points.size == 2 && !stroke.isFilled) {
                 // A tap with no drag — draw a dot rather than silently
                 // dropping a stroke that has no line segment to render.
                 canvas.drawCircle(
@@ -56,6 +58,41 @@ object DrawingRasterizer {
             while (i + 1 < points.size) {
                 path.lineTo((points[i] * sizePx).toFloat(), (points[i + 1] * sizePx).toFloat())
                 i += 2
+            }
+
+            // Matches DrawingScreen.drawLiveStroke's live rendering, so the
+            // final sent PNG looks the same as what you were drawing.
+            if (stroke.isFilled) {
+                path.close()
+                paint.style = Paint.Style.FILL
+                canvas.drawPath(path, paint)
+                paint.style = Paint.Style.STROKE
+                return@forEach
+            }
+
+            when (stroke.brushType) {
+                DrawingColors.BrushTypes.SQUARE -> {
+                    paint.strokeCap = Paint.Cap.SQUARE
+                    paint.strokeJoin = Paint.Join.MITER
+                    paint.strokeWidth = strokeWidthPx
+                }
+                DrawingColors.BrushTypes.MARKER -> {
+                    paint.strokeCap = Paint.Cap.SQUARE
+                    paint.strokeJoin = Paint.Join.ROUND
+                    paint.strokeWidth = strokeWidthPx * 1.7f
+                    paint.alpha = (255 * 0.55f).toInt()
+                }
+                DrawingColors.BrushTypes.DASHED -> {
+                    paint.strokeCap = Paint.Cap.ROUND
+                    paint.strokeJoin = Paint.Join.ROUND
+                    paint.strokeWidth = strokeWidthPx
+                    paint.pathEffect = DashPathEffect(floatArrayOf(strokeWidthPx * 2.2f, strokeWidthPx * 1.6f), 0f)
+                }
+                else -> {
+                    paint.strokeCap = Paint.Cap.ROUND
+                    paint.strokeJoin = Paint.Join.ROUND
+                    paint.strokeWidth = strokeWidthPx
+                }
             }
             canvas.drawPath(path, paint)
         }

@@ -55,6 +55,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -79,6 +80,7 @@ private const val DOT_RADIUS_TO_WIDTH_RATIO = 0.6f
 // own box, only to zoom in on it for detail work.
 private const val MIN_SCALE = 1f
 private const val MAX_SCALE = 5f
+private const val ZOOM_STEP = 0.5f
 
 // Raw screen-space pixels a single finger can drift before a Select-mode
 // touch stops counting as "just a tap" and starts counting as a drag —
@@ -88,6 +90,11 @@ private const val TAP_SLOP_PX = 12f
 // Selection highlight halo, drawn under the stroke itself.
 private val SELECTION_HALO_COLOR = Color(0xFF2196F3).copy(alpha = 0.35f)
 private const val SELECTION_HALO_FRACTION = 0.01f
+
+// Local-only (non-synced) choice of HOW a Select-mode drag over empty
+// selection carves out a multi-select region — same "per-device UI
+// preference" reasoning as zoom/pan below.
+private enum class RegionSelectMode { Rectangle, Lasso }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,13 +111,16 @@ fun DrawingScreen(
     onSend: () -> Unit,
     onSendStateHandled: () -> Unit,
     onSetMode: (DrawingMode) -> Unit,
+    onSetBrush: (String) -> Unit,
     onSelectTap: (Float, Float) -> Unit,
+    onSelectRegion: (List<Pair<Float, Float>>) -> Unit,
     onBeginMove: () -> Unit,
     onMoveSelectionBy: (Float, Float) -> Unit,
     onEndMove: () -> Unit,
     onMarkPresent: () -> Unit,
     onClearPresent: () -> Unit,
     onDeleteSelected: () -> Unit,
+    onFillAt: (Float, Float) -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(Unit) { onStart() }
@@ -134,6 +144,12 @@ fun DrawingScreen(
     // zoom level) is completely unaffected by yours.
     var scale by remember { mutableStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
+
+    // Also local-only — which shape a Select-mode drag over empty selection
+    // draws, and its live raw-screen-space preview while the drag is
+    // in-flight (null when no drag is happening).
+    var regionSelectMode by remember { mutableStateOf(RegionSelectMode.Rectangle) }
+    var regionPreview by remember { mutableStateOf<List<Offset>?>(null) }
 
     // The gesture-handling coroutine below (pointerInput(Unit)) is launched
     // once and never restarted — a plain captured `uiState` reference would
@@ -226,14 +242,17 @@ fun DrawingScreen(
                             val down = awaitFirstDown()
                             val downContent = toContent(down.position, canvasSize, scale, panOffset)
 
-                            if (currentUiState.mode == DrawingMode.Select) {
+                            when (currentUiState.mode) {
+                            DrawingMode.Select -> {
                                 var transforming = false
                                 var moving = false
+                                var regionSelecting = false
                                 var totalRawMovement = 0f
                                 var lastContent = downContent
+                                val lassoRaw = mutableListOf(down.position)
                                 // Fixed at gesture-start — a drag that begins
-                                // over an empty selection is a deliberate
-                                // no-op, not "select whatever's dragged over."
+                                // over an empty selection carves out a
+                                // marquee/lasso region instead of moving.
                                 val canMove = currentUiState.selectedStrokeIds.isNotEmpty()
 
                                 while (true) {
@@ -244,6 +263,10 @@ fun DrawingScreen(
                                         if (moving) {
                                             onEndMove()
                                             moving = false
+                                        }
+                                        if (regionSelecting) {
+                                            regionSelecting = false
+                                            regionPreview = null
                                         }
                                         transforming = true
                                     }
@@ -270,6 +293,19 @@ fun DrawingScreen(
                                             moving = true
                                         }
                                         onMoveSelectionBy(point.first - lastContent.first, point.second - lastContent.second)
+                                    } else if (!canMove && totalRawMovement > TAP_SLOP_PX) {
+                                        regionSelecting = true
+                                        if (regionSelectMode == RegionSelectMode.Lasso) lassoRaw.add(change.position)
+                                        regionPreview = if (regionSelectMode == RegionSelectMode.Rectangle) {
+                                            listOf(
+                                                down.position,
+                                                Offset(change.position.x, down.position.y),
+                                                change.position,
+                                                Offset(down.position.x, change.position.y)
+                                            )
+                                        } else {
+                                            lassoRaw.toList()
+                                        }
                                     }
                                     lastContent = point
                                     change.consume()
@@ -277,12 +313,37 @@ fun DrawingScreen(
 
                                 if (moving) {
                                     onEndMove()
+                                } else if (regionSelecting) {
+                                    val polygon = regionPreview.orEmpty().map { toContent(it, canvasSize, scale, panOffset) }
+                                    onSelectRegion(polygon)
+                                    regionPreview = null
                                 } else if (totalRawMovement <= TAP_SLOP_PX) {
                                     // A plain tap: toggle whatever's under it,
                                     // or clear the selection if nothing is.
                                     onSelectTap(downContent.first, downContent.second)
                                 }
-                            } else {
+                            }
+                            DrawingMode.Fill -> {
+                                var transforming = false
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) transforming = true
+                                    if (transforming) {
+                                        val zoomChange = event.calculateZoom()
+                                        val panChange = event.calculatePan()
+                                        scale = (scale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                                        panOffset += panChange
+                                        event.changes.forEach { it.consume() }
+                                        if (pressed.isEmpty()) break
+                                        continue
+                                    }
+                                    if (pressed.isEmpty()) break
+                                    pressed.first().consume()
+                                }
+                                if (!transforming) onFillAt(downContent.first, downContent.second)
+                            }
+                            DrawingMode.Draw -> {
                                 var transforming = false
                                 var drawing = true
                                 onStrokeStart(downContent.first, downContent.second)
@@ -322,6 +383,7 @@ fun DrawingScreen(
 
                                 if (drawing) onStrokeEnd()
                             }
+                            }
                         }
                     }
             ) {
@@ -344,6 +406,33 @@ fun DrawingScreen(
                 ) {
                     uiState.strokes.forEach { (id, stroke) ->
                         drawLiveStroke(stroke, size, isSelected = id in uiState.selectedStrokeIds)
+                    }
+                }
+
+                // Live marquee/lasso preview, drawn in the SAME raw screen
+                // space the gesture loop collects it in — a separate,
+                // untransformed Canvas layered on top (not inside the one
+                // above, which is scaled by graphicsLayer) so the region
+                // outline always matches exactly where your finger is.
+                regionPreview?.let { points ->
+                    if (points.size >= 2) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val path = Path().apply {
+                                moveTo(points[0].x, points[0].y)
+                                points.drop(1).forEach { lineTo(it.x, it.y) }
+                                close()
+                            }
+                            drawPath(
+                                path = path,
+                                color = SELECTION_HALO_COLOR.copy(alpha = 0.9f),
+                                style = Stroke(
+                                    width = 3f,
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round,
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 12f))
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -410,6 +499,48 @@ fun DrawingScreen(
                     Spacer(Modifier.height(8.dp))
 
                     PenSizeSlider(width = uiState.selectedWidth, onWidthChange = onSetWidth)
+
+                    Spacer(Modifier.height(8.dp))
+
+                    BrushPicker(selectedBrush = uiState.selectedBrush, onSelectBrush = onSetBrush)
+                }
+            }
+
+            // Floating zoom controls — dedicated in/out buttons alongside
+            // the existing pinch-to-zoom gesture, for when a second finger
+            // isn't convenient.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ZoomButton(label = "+") { scale = (scale + ZOOM_STEP).coerceIn(MIN_SCALE, MAX_SCALE) }
+                ZoomButton(label = "−") {
+                    scale = (scale - ZOOM_STEP).coerceIn(MIN_SCALE, MAX_SCALE)
+                    if (scale <= MIN_SCALE) panOffset = Offset.Zero
+                }
+            }
+
+            // Contextual delete — floats right above whichever selected
+            // stroke is currently topmost, instead of a permanent toolbar
+            // button that's disabled most of the time.
+            if (uiState.mode == DrawingMode.Select && uiState.selectedStrokeIds.isNotEmpty() && canvasSize.width > 0) {
+                val selectedStrokes = uiState.strokes.filterKeys { it in uiState.selectedStrokeIds }.values
+                val anchor = selectedStrokes.minByOrNull { it.points.getOrElse(1) { 0.0 } }
+                if (anchor != null) {
+                    val anchorX = (anchor.points[0].toFloat() * canvasSize.width * scale + panOffset.x).toInt()
+                    val anchorY = (anchor.points[1].toFloat() * canvasSize.height * scale + panOffset.y).toInt()
+                    Surface(
+                        modifier = Modifier.offset { IntOffset(anchorX - 20.dp.roundToPx(), (anchorY - 52.dp.roundToPx()).coerceAtLeast(0)) },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shadowElevation = 6.dp
+                    ) {
+                        IconButton(onClick = onDeleteSelected) {
+                            Text(stringResource(R.string.drawing_delete_selected))
+                        }
+                    }
                 }
             }
 
@@ -427,22 +558,44 @@ fun DrawingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(10.dp)
                 ) {
-                    val isSelectMode = uiState.mode == DrawingMode.Select
-                    OutlinedButton(
-                        onClick = { onSetMode(if (isSelectMode) DrawingMode.Draw else DrawingMode.Select) }
-                    ) {
-                        Text(if (isSelectMode) "👆" else "✏️")
-                    }
-                    // Only meaningful in Select mode, and only once
-                    // something's actually selected to act on — deleting
-                    // one/several tapped strokes without wiping the whole
-                    // shared canvas the way Clear does.
-                    if (isSelectMode) {
+                    // All three modes shown at once (not one icon that swaps)
+                    // so which one is active is always visible, not hidden
+                    // behind a single toggle button.
+                    ModeButton(
+                        label = "✏️",
+                        selected = uiState.mode == DrawingMode.Draw,
+                        onClick = { onSetMode(DrawingMode.Draw) }
+                    )
+                    ModeButton(
+                        label = "👆",
+                        selected = uiState.mode == DrawingMode.Select,
+                        onClick = { onSetMode(DrawingMode.Select) }
+                    )
+                    ModeButton(
+                        label = "🪣",
+                        selected = uiState.mode == DrawingMode.Fill,
+                        onClick = { onSetMode(DrawingMode.Fill) }
+                    )
+                    // Only meaningful in Select mode — picks whether an
+                    // empty-selection drag draws a rectangle marquee or a
+                    // freehand lasso (see RegionSelectMode/regionPreview).
+                    if (uiState.mode == DrawingMode.Select) {
                         OutlinedButton(
-                            onClick = onDeleteSelected,
-                            enabled = uiState.selectedStrokeIds.isNotEmpty()
+                            onClick = {
+                                regionSelectMode = if (regionSelectMode == RegionSelectMode.Rectangle) {
+                                    RegionSelectMode.Lasso
+                                } else {
+                                    RegionSelectMode.Rectangle
+                                }
+                            }
                         ) {
-                            Text(stringResource(R.string.drawing_delete_selected))
+                            Text(
+                                if (regionSelectMode == RegionSelectMode.Rectangle) {
+                                    stringResource(R.string.drawing_region_rectangle)
+                                } else {
+                                    stringResource(R.string.drawing_region_lasso)
+                                }
+                            )
                         }
                     }
                     OutlinedButton(onClick = onUndo) {
@@ -570,6 +723,62 @@ private fun hexToHue(hex: String): Float? {
     return if (hsv[1] < 0.15f) null else hsv[0]
 }
 
+// A filled Button when active, outlined otherwise — shown alongside its
+// siblings (not swapped in/out of view) so which mode is active is always
+// visible at a glance.
+@Composable
+private fun ModeButton(label: String, selected: Boolean, onClick: () -> Unit) {
+    if (selected) {
+        Button(onClick = onClick) { Text(label) }
+    } else {
+        OutlinedButton(onClick = onClick) { Text(label) }
+    }
+}
+
+@Composable
+private fun ZoomButton(label: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.size(40.dp).clickable(onClick = onClick),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shadowElevation = 4.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun BrushPicker(selectedBrush: String, onSelectBrush: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        DrawingColors.BrushTypes.ALL.forEach { brush ->
+            val labelRes = when (brush) {
+                DrawingColors.BrushTypes.SQUARE -> R.string.drawing_brush_square
+                DrawingColors.BrushTypes.MARKER -> R.string.drawing_brush_marker
+                DrawingColors.BrushTypes.DASHED -> R.string.drawing_brush_dashed
+                else -> R.string.drawing_brush_round
+            }
+            val selected = brush == selectedBrush
+            Surface(
+                modifier = Modifier.clickable { onSelectBrush(brush) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+            ) {
+                Text(
+                    text = stringResource(labelRes),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun PenSizeSlider(width: Float, onWidthChange: (Float) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -621,18 +830,43 @@ private fun DrawScope.drawLiveStroke(stroke: LiveStroke, canvasSize: Size, isSel
             i += 2
         }
     }
+
+    // Fill mode auto-closes the path (last point back to the first)
+    // regardless of whether the original stroke naturally looped, then
+    // fills it solid — see LiveStroke.isFilled/DrawingViewModel.fillStrokeAt.
+    if (stroke.isFilled) {
+        val fillPath = Path().apply { addPath(path) }.apply { close() }
+        if (isSelected) {
+            drawPath(path = fillPath, color = SELECTION_HALO_COLOR, style = Stroke(width = haloWidthPx * 2))
+        }
+        drawPath(path = fillPath, color = color)
+        return
+    }
+
+    val brushStyle = when (stroke.brushType) {
+        DrawingColors.BrushTypes.SQUARE -> Stroke(width = strokeWidthPx, cap = StrokeCap.Square, join = StrokeJoin.Miter)
+        DrawingColors.BrushTypes.MARKER -> Stroke(width = strokeWidthPx * 1.7f, cap = StrokeCap.Square, join = StrokeJoin.Round)
+        DrawingColors.BrushTypes.DASHED -> Stroke(
+            width = strokeWidthPx,
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(strokeWidthPx * 2.2f, strokeWidthPx * 1.6f))
+        )
+        else -> Stroke(width = strokeWidthPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    }
+    // A marker reads as a translucent highlighter stroke rather than an
+    // opaque pen line — the width bump above already gives it the broader
+    // marker "footprint."
+    val brushColor = if (stroke.brushType == DrawingColors.BrushTypes.MARKER) color.copy(alpha = 0.55f) else color
+
     if (isSelected) {
         drawPath(
             path = path,
             color = SELECTION_HALO_COLOR,
-            style = Stroke(width = strokeWidthPx + haloWidthPx * 2, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            style = Stroke(width = brushStyle.width + haloWidthPx * 2, cap = brushStyle.cap, join = brushStyle.join)
         )
     }
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    )
+    drawPath(path = path, color = brushColor, style = brushStyle)
 }
 
 private fun parseColorOrBlack(hex: String): Color = try {

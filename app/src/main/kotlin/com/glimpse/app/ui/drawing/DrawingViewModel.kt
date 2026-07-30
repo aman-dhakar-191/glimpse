@@ -25,7 +25,7 @@ sealed interface DrawingSendState {
     data class Error(val message: String) : DrawingSendState
 }
 
-enum class DrawingMode { Draw, Select }
+enum class DrawingMode { Draw, Select, Fill }
 
 data class DrawingUiState(
     val myUid: String = "",
@@ -35,6 +35,7 @@ data class DrawingUiState(
     val strokes: Map<String, LiveStroke> = emptyMap(),
     val selectedColor: String = DrawingColors.DEFAULT,
     val selectedWidth: Float = DrawingColors.DEFAULT_WIDTH_FRACTION,
+    val selectedBrush: String = DrawingColors.BrushTypes.ROUND,
     val sendState: DrawingSendState = DrawingSendState.Idle,
     val mode: DrawingMode = DrawingMode.Draw,
     // Which strokes are currently selected in Select mode — anyone's, not
@@ -143,6 +144,10 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.value = _uiState.value.copy(selectedWidth = width)
     }
 
+    fun setBrush(brush: String) {
+        _uiState.value = _uiState.value.copy(selectedBrush = brush)
+    }
+
     // Selection is scoped to whichever mode is active, so switching modes
     // always starts from a clean slate rather than carrying stale picks
     // (e.g. back into Select) or leaving a phantom selection highlighted
@@ -164,6 +169,46 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
             else -> current + hitId
         }
         _uiState.value = _uiState.value.copy(selectedStrokeIds = updated)
+    }
+
+    // Marquee (rectangle) or lasso (freehand) multi-select — replaces
+    // whatever was selected before with every stroke that has at least one
+    // point inside the dragged region, same ray-casting test used for
+    // Fill's own point-in-shape check below.
+    fun selectStrokesInPolygon(polygon: List<Pair<Float, Float>>) {
+        if (polygon.size < 3) return
+        val hits = _uiState.value.strokes.filterValues { stroke ->
+            var i = 0
+            var inside = false
+            while (i + 1 < stroke.points.size && !inside) {
+                if (pointInPolygon(stroke.points[i].toFloat(), stroke.points[i + 1].toFloat(), polygon)) inside = true
+                i += 2
+            }
+            inside
+        }.keys
+        _uiState.value = _uiState.value.copy(selectedStrokeIds = hits)
+    }
+
+    private fun pointInPolygon(x: Float, y: Float, polygon: List<Pair<Float, Float>>): Boolean {
+        var inside = false
+        var j = polygon.size - 1
+        for (i in polygon.indices) {
+            val (xi, yi) = polygon[i]
+            val (xj, yj) = polygon[j]
+            if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside
+            j = i
+        }
+        return inside
+    }
+
+    // Fill mode: auto-closes the tapped stroke's path (regardless of
+    // whether it was drawn as a closed loop) and fills it solid with
+    // whatever color is currently selected — see LiveStroke.isFilled and
+    // DrawingScreen.drawLiveStroke.
+    fun fillStrokeAt(x: Float, y: Float) {
+        val id = hitTestStroke(x, y) ?: return
+        val stroke = _uiState.value.strokes[id] ?: return
+        FirebaseSync.updateLiveStroke(id, stroke.copy(isFilled = true, color = _uiState.value.selectedColor))
     }
 
     // Deletes every currently selected stroke — anyone's, same "fair game"
@@ -306,7 +351,8 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
                 authorUid = _uiState.value.myUid,
                 color = _uiState.value.selectedColor,
                 points = currentStrokePoints.toList(),
-                width = _uiState.value.selectedWidth.toDouble()
+                width = _uiState.value.selectedWidth.toDouble(),
+                brushType = _uiState.value.selectedBrush
             )
         )
     }
