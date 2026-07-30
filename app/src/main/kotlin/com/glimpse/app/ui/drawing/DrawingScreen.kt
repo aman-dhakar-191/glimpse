@@ -154,6 +154,11 @@ fun DrawingScreen(
     var regionSelectMode by remember { mutableStateOf(RegionSelectMode.Rectangle) }
     var regionPreview by remember { mutableStateOf<List<Offset>?>(null) }
 
+    // Whether the single controls card (color/pen/brush plus mode/undo/
+    // redo/clear/send) is showing its contents or collapsed to just its
+    // handle — collapsing hands the whole screen back to the canvas.
+    var controlsExpanded by remember { mutableStateOf(true) }
+
     // The gesture-handling coroutine below (pointerInput(Unit)) is launched
     // once and never restarted — a plain captured `uiState` reference would
     // freeze at whatever it was on that first launch. rememberUpdatedState
@@ -440,75 +445,6 @@ fun DrawingScreen(
                 }
             }
 
-            // Top overlay: color + pen size. Semi-transparent so the canvas
-            // stays visible/legible underneath rather than a hard-edged bar
-            // permanently claiming screen space.
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 8.dp)
-                    .fillMaxWidth(0.95f),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                shape = RoundedCornerShape(20.dp),
-                shadowElevation = 4.dp
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        DrawingColors.PALETTE.forEach { hex ->
-                            val isSelected = hex == uiState.selectedColor
-                            Box(
-                                modifier = Modifier
-                                    .size(if (isSelected) 32.dp else 26.dp)
-                                    .clip(CircleShape)
-                                    .background(parseColorOrBlack(hex))
-                                    .border(
-                                        width = if (isSelected) 2.dp else 0.dp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        shape = CircleShape
-                                    )
-                                    .clickable { onSetColor(hex) }
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        // Live preview of the current pen — color at
-                        // (roughly) its actual relative size.
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size((10 + uiState.selectedWidth * 300).dp)
-                                    .clip(CircleShape)
-                                    .background(parseColorOrBlack(uiState.selectedColor))
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-
-                    HueSlider(
-                        selectedColor = uiState.selectedColor,
-                        onHueSelected = { hue -> onSetColor(DrawingColors.hueToHex(hue)) }
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    PenSizeSlider(width = uiState.selectedWidth, onWidthChange = onSetWidth)
-
-                    Spacer(Modifier.height(8.dp))
-
-                    BrushPicker(selectedBrush = uiState.selectedBrush, onSelectBrush = onSetBrush)
-                }
-            }
-
             // Floating zoom controls — dedicated in/out buttons alongside
             // the existing pinch-to-zoom gesture, for when a second finger
             // isn't convenient.
@@ -547,86 +483,166 @@ fun DrawingScreen(
                 }
             }
 
-            // Bottom overlay: Undo / Clear / Send.
+            // A single collapsible controls card — color/hue/pen size/brush
+            // plus mode/undo/redo/clear/send — instead of two permanently
+            // visible bars. Collapsing it to just its handle hands the whole
+            // screen back to the canvas.
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 8.dp)
+                    .fillMaxWidth(0.95f),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(20.dp),
                 shadowElevation = 4.dp
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    // A growing button count (3 modes + region toggle + undo/
-                    // redo/clear/send) can exceed screen width on smaller
-                    // phones — scrolls instead of silently clipping/pushing
-                    // Send off the visible edge.
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .horizontalScroll(rememberScrollState())
-                ) {
-                    // All three modes shown at once (not one icon that swaps)
-                    // so which one is active is always visible, not hidden
-                    // behind a single toggle button.
-                    ModeButton(
-                        label = "✏️",
-                        selected = uiState.mode == DrawingMode.Draw,
-                        onClick = { onSetMode(DrawingMode.Draw) }
-                    )
-                    ModeButton(
-                        label = "👆",
-                        selected = uiState.mode == DrawingMode.Select,
-                        onClick = { onSetMode(DrawingMode.Select) }
-                    )
-                    ModeButton(
-                        label = "🪣",
-                        selected = uiState.mode == DrawingMode.Fill,
-                        onClick = { onSetMode(DrawingMode.Fill) }
-                    )
-                    // Only meaningful in Select mode — picks whether an
-                    // empty-selection drag draws a rectangle marquee or a
-                    // freehand lasso (see RegionSelectMode/regionPreview).
-                    if (uiState.mode == DrawingMode.Select) {
-                        OutlinedButton(
-                            onClick = {
-                                regionSelectMode = if (regionSelectMode == RegionSelectMode.Rectangle) {
-                                    RegionSelectMode.Lasso
-                                } else {
-                                    RegionSelectMode.Rectangle
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { controlsExpanded = !controlsExpanded }
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Text(
+                            if (controlsExpanded) "▾" else "▴",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (controlsExpanded) {
+                        Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                DrawingColors.PALETTE.forEach { hex ->
+                                    val isSelected = hex == uiState.selectedColor
+                                    Box(
+                                        modifier = Modifier
+                                            .size(if (isSelected) 32.dp else 26.dp)
+                                            .clip(CircleShape)
+                                            .background(parseColorOrBlack(hex))
+                                            .border(
+                                                width = if (isSelected) 2.dp else 0.dp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                shape = CircleShape
+                                            )
+                                            .clickable { onSetColor(hex) }
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                // Live preview of the current pen — color at
+                                // (roughly) its actual relative size.
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size((10 + uiState.selectedWidth * 300).dp)
+                                            .clip(CircleShape)
+                                            .background(parseColorOrBlack(uiState.selectedColor))
+                                    )
                                 }
                             }
-                        ) {
-                            Text(
-                                if (regionSelectMode == RegionSelectMode.Rectangle) {
-                                    stringResource(R.string.drawing_region_rectangle)
-                                } else {
-                                    stringResource(R.string.drawing_region_lasso)
-                                }
+
+                            Spacer(Modifier.height(10.dp))
+
+                            HueSlider(
+                                selectedColor = uiState.selectedColor,
+                                onHueSelected = { hue -> onSetColor(DrawingColors.hueToHex(hue)) }
                             )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            PenSizeSlider(width = uiState.selectedWidth, onWidthChange = onSetWidth)
+
+                            Spacer(Modifier.height(8.dp))
+
+                            BrushPicker(selectedBrush = uiState.selectedBrush, onSelectBrush = onSetBrush)
+
+                            Spacer(Modifier.height(8.dp))
                         }
-                    }
-                    IconButton(onClick = onUndo) {
-                        Text("↩️", style = MaterialTheme.typography.titleLarge)
-                    }
-                    IconButton(onClick = onRedo) {
-                        Text("↪️", style = MaterialTheme.typography.titleLarge)
-                    }
-                    IconButton(onClick = { showClearConfirm = true }) {
-                        Text("🗑️", style = MaterialTheme.typography.titleLarge)
-                    }
-                    Button(
-                        onClick = onSend,
-                        enabled = uiState.strokes.isNotEmpty() && uiState.sendState !is DrawingSendState.Sending
-                    ) {
-                        if (uiState.sendState is DrawingSendState.Sending) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            // A growing button count (3 modes + region toggle +
+                            // undo/redo/clear/send) can exceed screen width on
+                            // smaller phones — scrolls instead of silently
+                            // clipping/pushing Send off the visible edge.
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            // All three modes shown at once (not one icon that
+                            // swaps) so which one is active is always visible,
+                            // not hidden behind a single toggle button.
+                            ModeButton(
+                                label = "✏️",
+                                selected = uiState.mode == DrawingMode.Draw,
+                                onClick = { onSetMode(DrawingMode.Draw) }
                             )
-                        } else {
-                            Text("➤", style = MaterialTheme.typography.titleMedium)
+                            ModeButton(
+                                label = "👆",
+                                selected = uiState.mode == DrawingMode.Select,
+                                onClick = { onSetMode(DrawingMode.Select) }
+                            )
+                            ModeButton(
+                                label = "🪣",
+                                selected = uiState.mode == DrawingMode.Fill,
+                                onClick = { onSetMode(DrawingMode.Fill) }
+                            )
+                            // Only meaningful in Select mode — picks whether an
+                            // empty-selection drag draws a rectangle marquee or
+                            // a freehand lasso (see RegionSelectMode/regionPreview).
+                            if (uiState.mode == DrawingMode.Select) {
+                                OutlinedButton(
+                                    onClick = {
+                                        regionSelectMode = if (regionSelectMode == RegionSelectMode.Rectangle) {
+                                            RegionSelectMode.Lasso
+                                        } else {
+                                            RegionSelectMode.Rectangle
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        if (regionSelectMode == RegionSelectMode.Rectangle) {
+                                            stringResource(R.string.drawing_region_rectangle)
+                                        } else {
+                                            stringResource(R.string.drawing_region_lasso)
+                                        }
+                                    )
+                                }
+                            }
+                            IconButton(onClick = onUndo) {
+                                Text("↩️", style = MaterialTheme.typography.titleLarge)
+                            }
+                            IconButton(onClick = onRedo) {
+                                Text("↪️", style = MaterialTheme.typography.titleLarge)
+                            }
+                            IconButton(onClick = { showClearConfirm = true }) {
+                                Text("🗑️", style = MaterialTheme.typography.titleLarge)
+                            }
+                            Button(
+                                onClick = onSend,
+                                enabled = uiState.strokes.isNotEmpty() && uiState.sendState !is DrawingSendState.Sending
+                            ) {
+                                if (uiState.sendState is DrawingSendState.Sending) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else {
+                                    Text("➤", style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
                         }
                     }
                 }
