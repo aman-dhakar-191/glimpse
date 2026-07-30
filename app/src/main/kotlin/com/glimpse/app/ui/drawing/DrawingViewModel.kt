@@ -201,14 +201,56 @@ class DrawingViewModel(application: Application) : AndroidViewModel(application)
         return inside
     }
 
-    // Fill mode: auto-closes the tapped stroke's path (regardless of
-    // whether it was drawn as a closed loop) and fills it solid with
-    // whatever color is currently selected — see LiveStroke.isFilled and
-    // DrawingScreen.drawLiveStroke.
+    // Fill mode: like MS Paint's bucket, a tap ANYWHERE inside a stroke's
+    // enclosed area fills it — not just a tap that lands exactly on the
+    // drawn line. Auto-closes the path (last point back to the first)
+    // regardless of whether it was drawn as a closed loop, so tapping
+    // inside e.g. a hand-drawn ring fills the ring's own outline shape
+    // solid, covering its hole too. Falls back to the on-line hit test for
+    // strokes too thin/open to enclose any area (a plain squiggle) so
+    // tapping directly on those still does something.
     fun fillStrokeAt(x: Float, y: Float) {
-        val id = hitTestStroke(x, y) ?: return
+        val id = strokeContainingPoint(x, y) ?: hitTestStroke(x, y) ?: return
         val stroke = _uiState.value.strokes[id] ?: return
         FirebaseSync.updateLiveStroke(id, stroke.copy(isFilled = true, color = _uiState.value.selectedColor))
+    }
+
+    // Whichever stroke's own (auto-closed) outline encloses (x, y) with
+    // the SMALLEST area wins — same "topmost/most specific region" idea
+    // MS Paint's bucket uses when shapes are nested or overlapping.
+    private fun strokeContainingPoint(x: Float, y: Float): String? {
+        var bestId: String? = null
+        var bestArea = Float.MAX_VALUE
+        for ((id, stroke) in _uiState.value.strokes) {
+            val polygon = strokePolygon(stroke)
+            if (polygon.size < 3 || !pointInPolygon(x, y, polygon)) continue
+            val area = polygonArea(polygon)
+            if (area < bestArea) {
+                bestArea = area
+                bestId = id
+            }
+        }
+        return bestId
+    }
+
+    private fun strokePolygon(stroke: LiveStroke): List<Pair<Float, Float>> {
+        val polygon = mutableListOf<Pair<Float, Float>>()
+        var i = 0
+        while (i + 1 < stroke.points.size) {
+            polygon.add(stroke.points[i].toFloat() to stroke.points[i + 1].toFloat())
+            i += 2
+        }
+        return polygon
+    }
+
+    private fun polygonArea(polygon: List<Pair<Float, Float>>): Float {
+        var sum = 0f
+        for (i in polygon.indices) {
+            val (x1, y1) = polygon[i]
+            val (x2, y2) = polygon[(i + 1) % polygon.size]
+            sum += x1 * y2 - x2 * y1
+        }
+        return kotlin.math.abs(sum) / 2f
     }
 
     // Deletes every currently selected stroke — anyone's, same "fair game"
