@@ -52,6 +52,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.glimpse.app.R
 import com.glimpse.app.notification.MorseVibration
+import com.glimpse.app.notification.ThinkingOfYouNotifier
 import com.glimpse.app.data.CarouselSettingsStore
 import com.glimpse.app.data.VideoLimitStore
 import com.glimpse.app.ui.carousel.CarouselSettingsUiState
@@ -539,6 +540,11 @@ private fun MorseCard(nicknameUiState: NicknameUiState) {
     var name by rememberSaveable(partnerNickname) { mutableStateOf(partnerNickname) }
     val morse = MorseVibration.morseFor(name)
     val emptyLabel = stringResource(R.string.morse_empty)
+    // Resolved here rather than inside the click lambda — stringResource is
+    // a @Composable read and can't be called from a plain callback.
+    val testTitle = stringResource(R.string.thinking_of_you_test_title)
+    val testBody = stringResource(R.string.thinking_of_you_test_body, name)
+    var testResult by remember { mutableStateOf<ThinkingOfYouNotifier.Outcome?>(null) }
 
     Card(
         modifier = Modifier
@@ -576,14 +582,77 @@ private fun MorseCard(nicknameUiState: NicknameUiState) {
                 modifier = Modifier.padding(top = 12.dp)
             )
 
-            Button(
-                onClick = { MorseVibration.play(context, name) },
+            // Two buttons because they prove different things. This one
+            // vibrates the motor directly: instant, works while you're
+            // still editing the field, and ignores quiet hours — good for
+            // learning a pattern, useless for proving the feature works.
+            OutlinedButton(
+                onClick = {
+                    testResult = null
+                    MorseVibration.play(context, name)
+                },
                 enabled = morse.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
             ) {
                 Text(stringResource(R.string.morse_play_button))
+            }
+            Text(
+                stringResource(R.string.morse_play_button_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            // ...and this one posts a real notification through the exact
+            // call FCMService makes for an incoming nudge. That difference
+            // matters: the Morse pattern lives on the notification CHANNEL,
+            // so the direct-vibration button above would happily buzz even
+            // if channel creation were broken and real nudges were landing
+            // on the wrong pattern. This is the one that actually answers
+            // "will she feel the right thing".
+            Button(
+                onClick = {
+                    testResult = ThinkingOfYouNotifier.post(
+                        context = context,
+                        name = name,
+                        title = testTitle,
+                        body = testBody
+                    )
+                },
+                enabled = morse.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                Text(stringResource(R.string.morse_test_button))
+            }
+            Text(
+                stringResource(R.string.morse_test_button_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            // "I pressed test and felt nothing" has two boring causes that
+            // look identical to a broken feature — say which one it was
+            // instead of leaving the button silent.
+            testResult?.let { result ->
+                Text(
+                    text = when (result) {
+                        ThinkingOfYouNotifier.Outcome.POSTED -> stringResource(R.string.morse_test_posted)
+                        ThinkingOfYouNotifier.Outcome.SUPPRESSED_QUIET_HOURS -> stringResource(R.string.morse_test_quiet_hours)
+                        ThinkingOfYouNotifier.Outcome.NOTIFICATIONS_DISABLED -> stringResource(R.string.morse_test_disabled)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (result == ThinkingOfYouNotifier.Outcome.POSTED) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    modifier = Modifier.padding(top = 12.dp)
+                )
             }
         }
     }

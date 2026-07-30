@@ -58,8 +58,13 @@ object MorseVibration {
 
     // What one letter costs in dot-units: its own symbols (1 for a dot, 3
     // for a dash) plus the single-unit gaps holding them apart.
+    //
+    // fold rather than sumOf: sumOf over a CharSequence is ambiguous
+    // between its Int and Long overloads when the lambda body is an integer
+    // literal, since the literal fits both. fold's accumulator pins the
+    // type at the seed and sidesteps overload resolution entirely.
     private fun costUnits(code: String): Int =
-        code.sumOf { if (it == '.') 1 else 3 } + (code.length - 1)
+        code.fold(0) { total, symbol -> total + if (symbol == '.') 1 else 3 } + (code.length - 1)
 
     // Drops trailing letters that would push the pattern past the ceiling,
     // so morseFor() and patternFor() always agree on which letters made the
