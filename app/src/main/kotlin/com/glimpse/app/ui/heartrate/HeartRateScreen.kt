@@ -15,6 +15,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
@@ -68,6 +71,9 @@ fun HeartRateScreen(
     onStop: () -> Unit,
     onFrame: (com.glimpse.app.data.heartrate.CameraLuma.Frame, Long) -> Unit,
     onSettled: () -> Unit,
+    onSetSharing: (Boolean) -> Unit,
+    onStartListening: () -> Unit,
+    onStopListening: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -84,6 +90,14 @@ fun HeartRateScreen(
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
 
     LaunchedEffect(Unit) { onProbeSensors() }
+
+    // Listening runs for the whole time this screen is open, not only while
+    // measuring — otherwise a heart offered would only ever arrive if the
+    // other person happened to be measuring at the same moment.
+    DisposableEffect(Unit) {
+        onStartListening()
+        onDispose { onStopListening() }
+    }
 
     // Binding is tied to whether we're measuring, so the torch and camera
     // are released the moment the reading stops rather than staying lit
@@ -256,6 +270,59 @@ fun HeartRateScreen(
             } else {
                 Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.heart_rate_start))
+                }
+            }
+
+            // Sharing is a separate switch from measuring on purpose: a
+            // reading taken to check the app works is not the same as
+            // handing someone your pulse.
+            if (uiState.measuring) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.heart_rate_share_title),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            stringResource(R.string.heart_rate_share_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = uiState.sharing, onCheckedChange = onSetSharing)
+                }
+            }
+
+            if (uiState.partnerLive) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = BlobShapeSoftC,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            text = uiState.partnerBpm?.let {
+                                stringResource(R.string.heart_rate_partner_live_bpm, it)
+                            } ?: stringResource(R.string.heart_rate_partner_connecting),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            stringResource(R.string.heart_rate_partner_live_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 

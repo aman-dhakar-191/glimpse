@@ -35,6 +35,8 @@ object FirebaseSync {
     private fun liveDrawingStrokesRef() = database.child("shared/live_drawing/strokes")
     private fun liveDrawingPresenceRef() = database.child("shared/live_drawing/presence")
     private fun liveDrawingLastActiveRef() = database.child("shared/live_drawing/last_active")
+    private fun heartbeatPresenceRef() = database.child("shared/heartbeat/presence")
+    private fun heartbeatBeatRef() = database.child("shared/heartbeat/beat")
     private fun gardenRef() = database.child("shared/garden")
     private fun gardenFirefliesRef() = database.child("shared/garden/fireflies")
 
@@ -487,6 +489,89 @@ object FirebaseSync {
 
     fun removeDrawingPresenceListener(listener: ValueEventListener) {
         liveDrawingPresenceRef().removeEventListener(listener)
+    }
+
+    // Live heartbeat sharing, mirroring the drawing presence above:
+    // onDisconnect() clears this server-side so a force-close can't leave
+    // someone looking like their heart is still being shared.
+    fun markHeartbeatSharing() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val ref = heartbeatPresenceRef().child(uid)
+        ref.onDisconnect().removeValue()
+        ref.setValue(true)
+    }
+
+    fun clearHeartbeatSharing() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        heartbeatPresenceRef().child(uid).removeValue()
+        heartbeatBeatRef().removeValue()
+    }
+
+    // A single overwritten node rather than a growing list — a beat is only
+    // interesting for the second or so it takes to play, and at roughly one
+    // write per second a list would be thousands of dead nodes within a
+    // couple of minutes.
+    //
+    // The sequence number exists because the value has to actually change
+    // for listeners to fire, and two beats can otherwise carry identical
+    // fields. beatAt is the SENDER's clock and is never compared against the
+    // receiver's — only successive differences are used (see
+    // LiveBeatScheduler), which is what makes unsynchronised clocks
+    // harmless.
+    fun publishBeat(sequence: Long, beatAtMillis: Long, bpm: Int) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        heartbeatBeatRef().setValue(
+            mapOf(
+                "uid" to uid,
+                "seq" to sequence,
+                "beatAt" to beatAtMillis,
+                "bpm" to bpm
+            )
+        )
+    }
+
+    fun listenToHeartbeatPresence(onPresentUids: (Set<String>) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onPresentUids(snapshot.children.mapNotNull { it.key }.toSet())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "listenToHeartbeatPresence cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToHeartbeatPresence cancelled", error.toException())
+            }
+        }
+        heartbeatPresenceRef().addValueEventListener(listener)
+        return listener
+    }
+
+    fun removeHeartbeatPresenceListener(listener: ValueEventListener) {
+        heartbeatPresenceRef().removeEventListener(listener)
+    }
+
+    // Fires once per published beat. Beats from your own uid are handed
+    // through too; callers filter, so that the sender can be shown its own
+    // stream without a second code path.
+    fun listenToHeartbeat(onBeat: (uid: String, beatAtMillis: Long, bpm: Int) -> Unit): ValueEventListener {
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val uid = snapshot.child("uid").getValue(String::class.java) ?: return
+                val beatAt = snapshot.child("beatAt").getValue(Long::class.java) ?: return
+                val bpm = snapshot.child("bpm").getValue(Int::class.java) ?: return
+                onBeat(uid, beatAt, bpm)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e(TAG, "listenToHeartbeat cancelled", error.toException())
+                CrashLogger.recordException("FirebaseSync.listenToHeartbeat cancelled", error.toException())
+            }
+        }
+        heartbeatBeatRef().addValueEventListener(listener)
+        return listener
+    }
+
+    fun removeHeartbeatListener(listener: ValueEventListener) {
+        heartbeatBeatRef().removeEventListener(listener)
     }
 
     // Who most recently opened the Draw screen, and when — independent of

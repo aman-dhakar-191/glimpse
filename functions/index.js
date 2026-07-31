@@ -153,6 +153,27 @@ exports.onNudge = functions.database
     });
   });
 
+// Live heartbeat sharing only works if the other person is actually in the
+// app, so the moment someone starts sharing is exactly when the other side
+// needs telling. onCreate (not onWrite) so this fires when presence appears
+// and not again while it persists; presence is cleared on disconnect, so
+// starting again after a drop legitimately notifies again.
+exports.onHeartbeatShared = functions.database
+  .ref("/shared/heartbeat/presence/{uid}")
+  .onCreate(async (_snapshot, context) => {
+    const senderUid = context.params.uid;
+    const senderSnap = await db.ref(`users/${senderUid}/displayName`).get();
+    const senderName = senderSnap.val() || "Someone";
+
+    const tokens = await tokensForUsersExcept(senderUid);
+    return sendToTokens(tokens, {
+      type: "heartbeat",
+      title: "💗 Live heartbeat",
+      body: `${senderName} is sharing their heartbeat right now`,
+      senderName,
+    });
+  });
+
 // Videos are the one media type that actually costs meaningful Storage
 // money to keep around forever (see storage.rules' separate
 // glimpse/videos/ prefix) — this runs daily and deletes just the

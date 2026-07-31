@@ -108,6 +108,11 @@
     <string name="heart_rate_idle">Ready when you are</string>
     <string name="heart_rate_settling">Steadying the camera…</string>
     <string name="heart_rate_no_finger">Cover the lens and the flash</string>
+    <string name="heart_rate_share_title">Share it live</string>
+    <string name="heart_rate_share_desc">Their phone beats along with yours, in real time.</string>
+    <string name="heart_rate_partner_live_bpm">Their heart · %1$d bpm</string>
+    <string name="heart_rate_partner_connecting">Their heart is coming through…</string>
+    <string name="heart_rate_partner_live_hint">Hold your phone and feel it.</string>
     <string name="nav_pulse">Pulse</string>
     <string name="morse_title">Name in buzzes</string>
     <string name="morse_desc">A nudge buzzes your nickname for each other in Morse code, so you know who it is without looking. Edit the name to feel any pattern.</string>
