@@ -469,6 +469,9 @@ class MainActivity : ComponentActivity() {
                             onStop = { heartRateViewModel.stop() },
                             onFrame = { frame, timestamp -> heartRateViewModel.onFrame(frame, timestamp) },
                             onSettled = { heartRateViewModel.markSettled() },
+                            onSetSharing = { enabled -> heartRateViewModel.setSharing(enabled) },
+                            onStartListening = { heartRateViewModel.startListening() },
+                            onStopListening = { heartRateViewModel.stopListening() },
                             onBack = {
                                 // Stopping on the way out releases the
                                 // camera and torch — leaving here without
