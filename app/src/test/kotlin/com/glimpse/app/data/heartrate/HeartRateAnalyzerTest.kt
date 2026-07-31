@@ -7,6 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -39,6 +41,85 @@ class HeartRateAnalyzerTest {
             val value = baseline + drift * t / 1000.0 + pulse + noise * (random.nextDouble() - 0.5)
             analyzer.add(value, t.toLong())
         }
+    }
+
+    // A real pulse wave is not a sine: it has a sharp systolic upstroke and
+    // then a second, smaller bump partway down the falling edge — the
+    // dicrotic notch, the aortic valve closing. Testing only against sines
+    // is why an estimator that counts the notch as an extra beat passed for
+    // as long as it did.
+    private fun feedPulseWave(
+        analyzer: HeartRateAnalyzer,
+        bpm: Double,
+        seconds: Double,
+        noise: Double = 0.0,
+        drift: Double = 0.0,
+        seed: Int = 5
+    ) {
+        val random = Random(seed)
+        val periodMillis = 60_000.0 / bpm
+        val frames = (seconds * 1000 / frameIntervalMillis).toInt()
+        for (i in 0 until frames) {
+            val t = i * frameIntervalMillis.toDouble()
+            val phase = (t % periodMillis) / periodMillis
+            val systolic = exp(-((phase - 0.15) / 0.06).pow(2))
+            val dicrotic = 0.35 * exp(-((phase - 0.42) / 0.08).pow(2))
+            val value = 128.0 + systolic + dicrotic +
+                noise * (random.nextDouble() - 0.5) + drift * t / 1000.0
+            analyzer.add(value, t.toLong())
+            analyzer.analyze()
+        }
+    }
+
+    @Test
+    fun `recovers a realistic pulse wave despite the dicrotic notch`() {
+        listOf(45.0, 55.0, 66.0, 83.0, 100.0, 140.0).forEach { expected ->
+            val analyzer = HeartRateAnalyzer()
+            feedPulseWave(analyzer, bpm = expected, seconds = 10.0)
+            val reading = analyzer.analyze()
+            assertNotNull("no reading at $expected bpm", reading.bpm)
+            assertEquals(expected, reading.bpm!!.toDouble(), 3.0)
+            assertTrue(
+                "a clean pulse wave should be confident at $expected, was ${reading.confidence}",
+                reading.confidence > 0.7f
+            )
+        }
+    }
+
+    // Autocorrelation peaks just as strongly at two or three times the true
+    // period, so taking the strongest match reported a 140bpm pulse as 47 —
+    // the same waveform, measured three beats at a time.
+    @Test
+    fun `picks the fundamental rather than a harmonic of it`() {
+        val analyzer = HeartRateAnalyzer()
+        feedPulseWave(analyzer, bpm = 140.0, seconds = 10.0)
+
+        val reading = analyzer.analyze()
+        assertNotNull(reading.bpm)
+        assertEquals("should not report a fraction of the true rate", 140.0, reading.bpm!!.toDouble(), 5.0)
+    }
+
+    @Test
+    fun `reads a pulse wave through noise and drift`() {
+        val noisy = HeartRateAnalyzer()
+        feedPulseWave(noisy, bpm = 66.0, seconds = 10.0, noise = 0.5)
+        assertEquals(66.0, noisy.analyze().bpm!!.toDouble(), 5.0)
+
+        val drifting = HeartRateAnalyzer()
+        feedPulseWave(drifting, bpm = 72.0, seconds = 10.0, drift = 8.0)
+        assertEquals(72.0, drifting.analyze().bpm!!.toDouble(), 5.0)
+    }
+
+    // The tick that lets a measurement be followed with the screen face
+    // down. It has to land roughly once per beat — ticking on the dicrotic
+    // notch too would feel like double the real rate.
+    @Test
+    fun `ticks about once per beat`() {
+        val analyzer = HeartRateAnalyzer()
+        feedPulseWave(analyzer, bpm = 60.0, seconds = 10.0)
+
+        val beats = analyzer.analyze().beatsDetected
+        assertTrue("expected roughly 10 beats in 10s at 60bpm, got $beats", beats in 7..13)
     }
 
     @Test

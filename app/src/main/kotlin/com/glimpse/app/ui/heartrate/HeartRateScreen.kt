@@ -272,7 +272,8 @@ fun HeartRateScreen(
                         R.string.heart_rate_debug,
                         uiState.samplesCollected,
                         uiState.meanLevel.toInt(),
-                        uiState.spread.toInt()
+                        uiState.spread.toInt(),
+                        uiState.beatsFelt
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
