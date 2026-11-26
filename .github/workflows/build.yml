@@ -118,7 +118,7 @@ jobs:
         if: steps.release_secrets.outputs.present == 'true'
         run: |
           mv app/build/outputs/apk/release/app-release.apk \
-             "app/build/outputs/apk/release/Glimpse-v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}-release.apk"
+             "app/build/outputs/apk/release/Glimpse-v${{ steps.app_version.outputs.version_name }}.apk"
 
       - name: Upload debug APK artifact
         # Only publish once changes land on main — PRs just need to prove
@@ -135,7 +135,7 @@ jobs:
         if: steps.release_secrets.outputs.present == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.app_version.outputs.version_name }}-build${{ github.run_number }}
-          name: Glimpse v${{ steps.app_version.outputs.version_name }} (build ${{ github.run_number }})
+          tag_name: v${{ steps.app_version.outputs.version_name }}
+          name: Glimpse v${{ steps.app_version.outputs.version_name }}
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
