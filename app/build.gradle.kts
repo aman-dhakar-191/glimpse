@@ -17,15 +17,12 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.firebase.crashlytics")
 }
 
-// versionCode must strictly increase for Android to treat a new install as
-// an update rather than a downgrade — GITHUB_RUN_NUMBER (auto-provided by
-// Actions on every run) is a simple monotonically increasing source for it.
-// Bump appVersionName by hand when there's an actual product-version change;
-// versionCode/the +build suffix take care of making every CI build unique
-// and installable over the last regardless.
-val appVersionName = "0.57.0"
+// Keep the user-facing version identical to the GitHub release tag (vX.Y.Z).
+// GITHUB_RUN_NUMBER remains the monotonically increasing Android versionCode,
+// so CI builds stay installable as updates without adding build metadata to
+// versionName.
+val appVersionName = "0.57.1"
 val appVersionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-val appFullVersionName = "$appVersionName+$appVersionCode"
 
 android {
     namespace = "com.glimpse.app"
@@ -36,7 +33,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = appVersionCode
-        versionName = appFullVersionName
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
